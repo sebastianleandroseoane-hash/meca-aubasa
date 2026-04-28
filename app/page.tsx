@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import Image from 'next/image'
 
 export default function Home() {
   const router = useRouter()
@@ -24,23 +25,25 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0F3A42] flex flex-col items-center justify-center px-6">
+    <main className="min-h-screen bg-black flex flex-col items-center justify-center px-6">
 
-      <div className="flex flex-col items-center mb-8">
-        <div className="w-16 h-16 rounded-full bg-[#1ABBD6] flex items-center justify-center mb-4">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/>
-            <line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/>
-            <line x1="21" y1="12" x2="23" y2="12"/>
-          </svg>
-        </div>
-        <div className="text-[#1ABBD6] font-bold text-2xl tracking-widest">AUBASA</div>
-        <div className="text-[#7ADCE8] text-sm tracking-widest text-center mt-1">
-          MECA · Mantenimiento Eléctrico<br/>y Aire Acondicionado
+      <div className="flex flex-col items-center mb-6">
+        <Image
+          src="/sector-logo-dark.png"
+          alt="Mantenimiento Eléctrico y Aire Acondicionado"
+          width={220}
+          height={220}
+          className="mb-4"
+        />
+        <Image
+          src="/width_712.png"
+          alt="AUBASA"
+          width={160}
+          height={45}
+          className="mb-2"
+        />
+        <div className="text-[#7ADCE8] text-xs tracking-widest text-center uppercase">
+          Mantenimiento Eléctrico · Aire Acondicionado
         </div>
       </div>
 
@@ -70,7 +73,7 @@ export default function Home() {
         </button>
       </div>
 
-      <div className="text-[#7ADCE8] text-xs mt-6 text-center">
+      <div className="text-gray-600 text-xs mt-6 text-center">
         Sistema interno · Solo personal autorizado
       </div>
 
