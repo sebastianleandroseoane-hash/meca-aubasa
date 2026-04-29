@@ -40,7 +40,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="MECA" />
         <link rel="apple-touch-icon" href="/icon.png" />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="h-full">{children}</body>
     </html>
   );
 }
