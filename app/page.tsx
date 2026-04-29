@@ -5,6 +5,49 @@ import { useRouter } from 'next/navigation'
 import { supabase, getPerfil } from '@/lib/supabase'
 import Image from 'next/image'
 
+function getDashboard(rol: string): string {
+  const rutas: Record<string, string> = {
+    superadmin: '/dashboard/superadmin',
+    gerente: '/dashboard/gerente',
+    subgerente: '/dashboard/Sub-gerente',
+    jefe: '/dashboard/jefe',
+    delegado: '/dashboard/delegado',
+    supervisor_electrico: '/dashboard/supervisor-electrico',
+    supervisor_ac: '/dashboard/supervisor-ac',
+    tecnico_electrico: '/dashboard/tecnico-electrico',
+    tecnico_ac: '/dashboard/tecnico-ac',
+    tecnico_electrico_edificio: '/dashboard/tecnico-electrico-edificios',
+    tallerista_electrico: '/dashboard/tallerista-electrico',
+    tallerista_ac: '/dashboard/tallerista-aire-acondicionado',
+    panolero: '/dashboard/panolero',
+    administrativo_rrhh: '/dashboard/administrativo-rrhh',
+    administrativo_compras_pms: '/dashboard/administrativo-compras-pms',
+  }
+  return rutas[rol] || '/perfil/completar'
+}
+
+async function tieneInstructivosPendientes(userId: string, rol: string): Promise<boolean> {
+  // Instructivos que corresponden a este rol
+  const { data: instructivos } = await supabase
+    .from('instructivos')
+    .select('id')
+    .contains('roles_requeridos', [rol])
+    .eq('activo', true)
+
+  if (!instructivos || instructivos.length === 0) return false
+
+  // Aceptaciones del usuario
+  const { data: aceptados } = await supabase
+    .from('instructivos_aceptados')
+    .select('instructivo_id')
+    .eq('usuario_id', userId)
+
+  const aceptadosIds = new Set((aceptados || []).map((a: any) => a.instructivo_id))
+  const pendientes = instructivos.filter((i: any) => !aceptadosIds.has(i.id))
+
+  return pendientes.length > 0
+}
+
 export default function Home() {
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -15,34 +58,34 @@ export default function Home() {
   async function handleLogin() {
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
+
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    if (authError) {
       setError('Usuario o contraseña incorrectos')
       setLoading(false)
       return
     }
+
     const perfil = await getPerfil()
     if (!perfil || !perfil.nombre) {
       router.push('/perfil/completar')
       return
     }
-    const rol = perfil.rol
-    if (rol === 'superadmin') router.push('/dashboard/superadmin')
-    else if (rol === 'gerente') router.push('/dashboard/gerente')
-    else if (rol === 'subgerente') router.push('/dashboard/Sub-gerente')
-    else if (rol === 'jefe') router.push('/dashboard/jefe')
-    else if (rol === 'delegado') router.push('/dashboard/delegado')
-    else if (rol === 'supervisor_electrico') router.push('/dashboard/supervisor-electrico')
-    else if (rol === 'supervisor_ac') router.push('/dashboard/supervisor-ac')
-    else if (rol === 'tecnico_electrico') router.push('/dashboard/tecnico-electrico')
-    else if (rol === 'tecnico_ac') router.push('/dashboard/tecnico-ac')
-    else if (rol === 'tecnico_electrico_edificio') router.push('/dashboard/tecnico-electrico-edificios')
-    else if (rol === 'tallerista_electrico') router.push('/dashboard/tallerista-electrico')
-    else if (rol === 'tallerista_ac') router.push('/dashboard/tallerista-aire-acondicionado')
-    else if (rol === 'panolero') router.push('/dashboard/panolero')
-    else if (rol === 'administrativo_rrhh') router.push('/dashboard/administrativo-rrhh')
-    else if (rol === 'administrativo_compras_pms') router.push('/dashboard/administrativo-compras-pms')
-    else router.push('/perfil/completar')
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setError('Error al obtener usuario')
+      setLoading(false)
+      return
+    }
+
+    const pendientes = await tieneInstructivosPendientes(user.id, perfil.rol)
+    if (pendientes) {
+      router.push('/instructivos')
+      return
+    }
+
+    router.push(getDashboard(perfil.rol))
   }
 
   return (
