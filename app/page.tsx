@@ -28,6 +28,7 @@ export default function Home() {
       return
     }
     const rol = perfil.rol
+    if (rol === 'superadmin') router.push('/dashboard/superadmin')
     if (rol === 'gerente') router.push('/dashboard/gerente')
     else if (rol === 'subgerente') router.push('/dashboard/Sub-gerente')
     else if (rol === 'jefe') router.push('/dashboard/jefe')
