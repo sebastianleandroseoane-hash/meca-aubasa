@@ -26,11 +26,11 @@ export default function DashboardSupervisorElectrico() {
       if (!p) { router.push('/'); return }
       if (p.rol !== 'supervisor_electrico') { router.push('/'); return }
       setPerfil(p)
-      await cargarDatos(p.id)
+      await cargarDatos(p.turno)
     })
   }, [])
 
-  async function cargarDatos(supervisorId: string) {
+  async function cargarDatos(turno: string) {
     const { data: ords } = await supabase
       .from('ordenes_trabajo')
       .select('*, profiles!ordenes_trabajo_asignado_a_fkey(nombre)')
@@ -39,9 +39,10 @@ export default function DashboardSupervisorElectrico() {
     setOrdenes(ords || [])
 
     const { data: tecs } = await supabase
-      .from('profiles')
-      .select('id, nombre')
-      .in('rol', ['tecnico_electrico', 'tecnico_electrico_edificio'])
+      .rpc('get_tecnicos_activos', {
+        p_sector: 'electrico',
+        p_turno: turno
+      })
     setTecnicos(tecs || [])
   }
 
@@ -65,7 +66,7 @@ export default function DashboardSupervisorElectrico() {
     if (!error) {
       setShowForm(false)
       setForm({ titulo: '', descripcion: '', km: '', ubicacion: '', prioridad: 'normal', asignado_a: '', fecha_programada: new Date().toISOString().split('T')[0] })
-      await cargarDatos(perfil.id)
+      await cargarDatos(perfil.turno)
     }
   }
 
@@ -99,7 +100,6 @@ export default function DashboardSupervisorElectrico() {
 
       <div className="px-4 pt-3">
 
-        {/* NUEVA ORDEN */}
         {!showForm ? (
           <button
             onClick={() => setShowForm(true)}
@@ -198,7 +198,6 @@ export default function DashboardSupervisorElectrico() {
           </div>
         )}
 
-        {/* ORDENES */}
         <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">
           Órdenes de trabajo · {ordenes.length} total
         </div>
