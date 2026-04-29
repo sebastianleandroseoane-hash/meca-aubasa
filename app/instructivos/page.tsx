@@ -50,13 +50,11 @@ const moduloColor: Record<string, string> = {
 export default function Instructivos() {
   const router = useRouter()
   const [instructivos, setInstructivos] = useState<Instructivo[]>([])
-  const [aceptados, setAceptados] = useState<Set<string>>(new Set())
   const [actual, setActual] = useState(0)
   const [userId, setUserId] = useState('')
   const [rol, setRol] = useState('')
   const [loading, setLoading] = useState(true)
   const [aceptando, setAceptando] = useState(false)
-  const [leido, setLeido] = useState(false)
 
   useEffect(() => {
     async function cargar() {
@@ -69,7 +67,6 @@ export default function Instructivos() {
       setUserId(user.id)
       setRol(perfil.rol)
 
-      // Traer instructivos del rol
       const { data: todos } = await supabase
         .from('instructivos')
         .select('id, codigo, titulo, contenido, modulo')
@@ -83,15 +80,12 @@ export default function Instructivos() {
         return
       }
 
-      // Traer aceptaciones existentes
       const { data: yaAceptados } = await supabase
         .from('instructivos_aceptados')
         .select('instructivo_id')
         .eq('usuario_id', user.id)
 
       const setAcept = new Set((yaAceptados || []).map((a: any) => a.instructivo_id))
-
-      // Filtrar solo pendientes
       const pendientes = todos.filter((i: Instructivo) => !setAcept.has(i.id))
 
       if (pendientes.length === 0) {
@@ -100,26 +94,17 @@ export default function Instructivos() {
       }
 
       setInstructivos(pendientes)
-      setAceptados(setAcept)
       setLoading(false)
     }
     cargar()
   }, [])
 
-  // Resetear leido al cambiar de instructivo
+  // Scroll al top al cambiar instructivo
   useEffect(() => {
-    setLeido(false)
-    const el = document.getElementById('contenido-instructivo')
-    if (el) {
-      el.scrollTop = 0
-      setTimeout(() => {
-        if (el.scrollHeight <= el.clientHeight + 10) setLeido(true)
-      }, 100)
-    }
+    window.scrollTo(0, 0)
   }, [actual])
 
   async function handleAceptar() {
-    if (!leido) return
     setAceptando(true)
     const instructivo = instructivos[actual]
 
@@ -148,18 +133,16 @@ export default function Instructivos() {
   const progreso = Math.round((actual / instructivos.length) * 100)
 
   return (
-    <main className="min-h-screen bg-[#0F3A42] flex flex-col items-center justify-start px-4 py-8">
+    <main className="min-h-screen bg-[#0F3A42] px-4 py-6">
 
       {/* Header */}
-      <div className="w-full max-w-xl mb-6">
+      <div className="mb-4">
         <div className="text-[#7ADCE8] text-xs tracking-widest uppercase mb-1">
           MECA · Instructivos obligatorios
         </div>
-        <div className="text-white text-lg font-bold mb-3">
-          Antes de ingresar al sistema debés leer y aceptar los instructivos correspondientes a tu rol.
+        <div className="text-white text-sm font-semibold mb-3">
+          Leé y aceptá cada instructivo para ingresar al sistema.
         </div>
-
-        {/* Barra de progreso */}
         <div className="w-full bg-[#0a2830] rounded-full h-2 mb-1">
           <div
             className="bg-[#1ABBD6] h-2 rounded-full transition-all duration-500"
@@ -171,10 +154,10 @@ export default function Instructivos() {
         </div>
       </div>
 
-      {/* Card instructivo */}
-      <div className="w-full max-w-xl bg-white rounded-2xl overflow-hidden shadow-xl">
+      {/* Card instructivo — sin altura fija, crece con el contenido */}
+      <div className="bg-white rounded-2xl overflow-hidden shadow-xl mb-6">
 
-        {/* Módulo badge */}
+        {/* Badge módulo */}
         <div
           className="px-5 py-2 flex items-center gap-2"
           style={{ backgroundColor: moduloColor[instructivo.modulo] }}
@@ -189,79 +172,38 @@ export default function Instructivos() {
 
         {/* Título */}
         <div className="px-5 pt-4 pb-2">
-          <h2 className="text-[#0F3A42] font-bold text-lg leading-tight">
+          <h2 className="text-[#0F3A42] font-bold text-base leading-tight">
             {instructivo.titulo}
           </h2>
         </div>
 
-        {/* Contenido scrolleable */}
-        <div
-          id="contenido-instructivo"
-          className="px-5 pb-4 overflow-y-auto text-sm text-[#0F3A42] leading-relaxed"
-          style={{ maxHeight: '60vh' }}
-          onScroll={(e) => {
-            const el = e.currentTarget
-            const llegóAlFinal = el.scrollHeight - el.scrollTop <= el.clientHeight + 40
-            if (llegóAlFinal) setLeido(true)
-          }}
-        >
+        {/* Contenido completo sin scroll interno */}
+        <div className="px-5 pb-6 text-sm text-[#0F3A42] leading-relaxed">
           {instructivo.contenido
-  .split('\\n')
-  .join('\n')
-  .split('\n')
-  .map((linea, i) => (
-    <span key={i}>{linea}<br /></span>
-  ))}
-          {!leido && (
-            <div className="text-[#7A9EA5] text-xs mt-4 italic">
-              ↓ Scrolleá hasta el final para habilitar la aceptación
-            </div>
-          )}
+            .split('\\n')
+            .join('\n')
+            .split('\n')
+            .map((linea, i) => (
+              <span key={i}>{linea}<br /></span>
+            ))}
         </div>
 
-        {/* Footer */}
+        {/* Botón dentro de la card */}
         <div className="px-5 py-4 border-t border-[#B2E0E8] bg-[#F0FAFB]">
-          {!leido ? (
-            <div className="text-center text-[#7A9EA5] text-sm">
-              Leé el instructivo completo para continuar
-            </div>
-          ) : (
-            <button
-              onClick={handleAceptar}
-              disabled={aceptando}
-              className="w-full bg-[#1ABBD6] text-white font-bold text-sm tracking-widest rounded-lg py-3 hover:bg-[#0F8FAA] transition-colors disabled:opacity-50"
-            >
-              {aceptando ? 'REGISTRANDO...' : actual + 1 < instructivos.length
-                ? `ACEPTO — VER SIGUIENTE (${actual + 1} de ${instructivos.length})`
-                : 'ACEPTO — INGRESAR AL SISTEMA'}
-            </button>
-          )}
+          <button
+            onClick={handleAceptar}
+            disabled={aceptando}
+            className="w-full bg-[#1ABBD6] text-white font-bold text-sm tracking-widest rounded-lg py-4 hover:bg-[#0F8FAA] transition-colors disabled:opacity-50"
+          >
+            {aceptando
+              ? 'REGISTRANDO...'
+              : actual + 1 < instructivos.length
+              ? `ACEPTO — SIGUIENTE (${actual + 1} de ${instructivos.length})`
+              : 'ACEPTO — INGRESAR AL SISTEMA'}
+          </button>
         </div>
       </div>
 
-      {/* Lista de pendientes */}
-      <div className="w-full max-w-xl mt-6">
-        <div className="text-[#7ADCE8] text-xs tracking-widest uppercase mb-2">
-          Pendientes
-        </div>
-        <div className="flex flex-col gap-1">
-          {instructivos.map((inst, idx) => (
-            <div
-              key={inst.id}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
-                idx === actual
-                  ? 'bg-[#1ABBD6] text-white font-bold'
-                  : idx < actual
-                  ? 'bg-[#0a2830] text-[#7ADCE8] line-through'
-                  : 'bg-[#0a2830] text-[#7ADCE8]'
-              }`}
-            >
-              <span className="font-mono">{inst.codigo}</span>
-              <span>{inst.titulo}</span>
-            </div>
-          ))}
-        </div>
-      </div>
     </main>
   )
 }
