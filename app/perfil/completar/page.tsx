@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 
 const ROLES = [
+  { value: 'superadmin', label: 'Super Administrador' },
   { value: 'tecnico_electrico', label: 'Técnico Eléctrico' },
   { value: 'tecnico_ac', label: 'Técnico Aire Acondicionado' },
   { value: 'tecnico_electrico_edificio', label: 'Técnico Eléctrico Edificios' },
@@ -66,7 +67,7 @@ export default function CompletarPerfil() {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) { router.push('/'); return }
       setUser(data.user)
-      setForm(f => ({ ...f, email_personal: data.user.email || '' }))
+      setForm(f => ({ ...f, email_personal: data.user.email || '', email_corporativo: '' }))
       getPerfil().then(p => {
         if (p?.nombre) {
           router.push('/')
@@ -264,6 +265,7 @@ export default function CompletarPerfil() {
           <div className="relative">
             <input
               type={showPass ? 'text' : 'password'}
+              autoComplete="new-password"
               className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none pr-10"
               placeholder="Dejá en blanco para mantener la actual"
               value={form.nueva_password}
