@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, getPerfil } from '@/lib/supabase'
 import Image from 'next/image'
 
 export default function Home() {
@@ -19,14 +19,31 @@ export default function Home() {
     if (error) {
       setError('Usuario o contraseña incorrectos')
       setLoading(false)
-    } else {
-      router.push('/dashboard')
+      return
     }
+    const perfil = await getPerfil()
+    if (!perfil) {
+      setError('No se encontró perfil de usuario')
+      setLoading(false)
+      return
+    }
+    const rol = perfil.rol
+    if (rol === 'gerente') router.push('/dashboard/gerente')
+    else if (rol === 'subgerente') router.push('/dashboard/Sub-gerente')
+    else if (rol === 'jefe') router.push('/dashboard/jefe')
+    else if (rol === 'supervisor_electrico') router.push('/dashboard/supervisor-electrico')
+    else if (rol === 'supervisor_ac') router.push('/dashboard/supervisor-ac')
+    else if (rol === 'tecnico_electrico') router.push('/dashboard/tecnico-electrico')
+    else if (rol === 'tecnico_ac') router.push('/dashboard/tecnico-ac')
+    else if (rol === 'tecnico_electrico_edificio') router.push('/dashboard/tecnico-electrico-edificios')
+    else if (rol === 'tallerista_electrico') router.push('/dashboard/tallerista-electrico')
+    else if (rol === 'tallerista_ac') router.push('/dashboard/tallerista-aire-acondicionado')
+    else if (rol === 'panolero') router.push('/dashboard/panolero')
+    else router.push('/dashboard/tecnico-electrico')
   }
 
   return (
     <main className="min-h-screen bg-black flex flex-col items-center justify-center px-6">
-
       <div className="flex flex-col items-center mb-6">
         <Image
           src="/sector-logo-dark.png"
@@ -76,7 +93,6 @@ export default function Home() {
       <div className="text-gray-600 text-xs mt-6 text-center">
         Sistema interno · Solo personal autorizado
       </div>
-
     </main>
   )
 }
