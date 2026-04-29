@@ -28,19 +28,22 @@ export default function Home() {
       return
     }
     const rol = perfil.rol
-    if (rol === 'superadmin') router.push('/dashboard/superadmin')
-    if (rol === 'gerente') router.push('/dashboard/gerente')
-    else if (rol === 'subgerente') router.push('/dashboard/Sub-gerente')
-    else if (rol === 'jefe') router.push('/dashboard/jefe')
-    else if (rol === 'supervisor_electrico') router.push('/dashboard/supervisor-electrico')
-    else if (rol === 'supervisor_ac') router.push('/dashboard/supervisor-ac')
-    else if (rol === 'tecnico_electrico') router.push('/dashboard/tecnico-electrico')
-    else if (rol === 'tecnico_ac') router.push('/dashboard/tecnico-ac')
-    else if (rol === 'tecnico_electrico_edificio') router.push('/dashboard/tecnico-electrico-edificios')
-    else if (rol === 'tallerista_electrico') router.push('/dashboard/tallerista-electrico')
-    else if (rol === 'tallerista_ac') router.push('/dashboard/tallerista-aire-acondicionado')
-    else if (rol === 'panolero') router.push('/dashboard/panolero')
-    else router.push('/dashboard/tecnico-electrico')
+if (rol === 'superadmin') router.push('/dashboard/superadmin')
+else if (rol === 'gerente') router.push('/dashboard/gerente')
+else if (rol === 'subgerente') router.push('/dashboard/Sub-gerente')
+else if (rol === 'jefe') router.push('/dashboard/jefe')
+else if (rol === 'delegado') router.push('/dashboard/delegado')
+else if (rol === 'supervisor_electrico') router.push('/dashboard/supervisor-electrico')
+else if (rol === 'supervisor_ac') router.push('/dashboard/supervisor-ac')
+else if (rol === 'tecnico_electrico') router.push('/dashboard/tecnico-electrico')
+else if (rol === 'tecnico_ac') router.push('/dashboard/tecnico-ac')
+else if (rol === 'tecnico_electrico_edificio') router.push('/dashboard/tecnico-electrico-edificios')
+else if (rol === 'tallerista_electrico') router.push('/dashboard/tallerista-electrico')
+else if (rol === 'tallerista_ac') router.push('/dashboard/tallerista-aire-acondicionado')
+else if (rol === 'panolero') router.push('/dashboard/panolero')
+else if (rol === 'administrativo_rrhh') router.push('/dashboard/administrativo-rrhh')
+else if (rol === 'administrativo_compras_pms') router.push('/dashboard/administrativo-compras-pms')
+else router.push('/dashboard/tecnico-electrico')
   }
 
   return (
