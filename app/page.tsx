@@ -91,6 +91,12 @@ export default function Home() {
         >
           {loading ? 'INGRESANDO...' : 'INGRESAR'}
         </button>
+        <button
+          onClick={() => router.push('/registro')}
+          className="w-full border border-[#B2E0E8] text-[#0F3A42] font-bold text-sm tracking-widest rounded-lg py-3 mt-2 hover:bg-[#F0FAFB] transition-colors"
+        >
+          REGISTRARSE
+        </button>
       </div>
 
       <div className="text-gray-600 text-xs mt-6 text-center">
