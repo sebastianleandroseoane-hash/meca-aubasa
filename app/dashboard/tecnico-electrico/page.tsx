@@ -2,19 +2,68 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getPerfil } from '@/lib/supabase'
+import { getPerfil, supabase } from '@/lib/supabase'
 
 export default function DashboardTecnicoElectrico() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<any>(null)
+  const [ordenes, setOrdenes] = useState<any[]>([])
+  const [ordenActiva, setOrdenActiva] = useState<any>(null)
+  const [showCierre, setShowCierre] = useState(false)
+  const [informe, setInforme] = useState('')
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    getPerfil().then(p => {
+    getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
       if (p.rol !== 'tecnico_electrico') { router.push('/'); return }
       setPerfil(p)
+      await cargarOrdenes(p.id)
     })
   }, [])
+
+  async function cargarOrdenes(userId: string) {
+    const { data } = await supabase
+      .from('ordenes_trabajo')
+      .select('*')
+      .eq('asignado_a', userId)
+      .in('estado', ['pendiente', 'en_curso'])
+      .order('created_at', { ascending: false })
+    setOrdenes(data || [])
+    const activa = data?.find(o => o.estado === 'en_curso')
+    setOrdenActiva(activa || data?.[0] || null)
+  }
+
+  async function iniciarOrden(orden: any) {
+    await supabase
+      .from('ordenes_trabajo')
+      .update({ estado: 'en_curso', fecha_inicio: new Date().toISOString() })
+      .eq('id', orden.id)
+    await cargarOrdenes(perfil.id)
+  }
+
+  async function cerrarOrden() {
+    if (!informe || !ordenActiva) return
+    setLoading(true)
+    await supabase
+      .from('ordenes_trabajo')
+      .update({
+        estado: 'completada',
+        fecha_cierre: new Date().toISOString(),
+        observaciones: informe
+      })
+      .eq('id', ordenActiva.id)
+    setLoading(false)
+    setShowCierre(false)
+    setInforme('')
+    await cargarOrdenes(perfil.id)
+  }
+
+  function badgeColor(estado: string) {
+    if (estado === 'en_curso') return 'bg-[#FAEEDA] text-[#854F0B]'
+    if (estado === 'completada') return 'bg-[#D6F4F8] text-[#0F8FAA]'
+    return 'bg-[#E8E8E6] text-[#5F5E5A]'
+  }
 
   if (!perfil) return <div className="min-h-screen bg-[#F0FAFB] flex items-center justify-center text-[#0F3A42]">Cargando...</div>
 
@@ -23,7 +72,7 @@ export default function DashboardTecnicoElectrico() {
       <div className="bg-[#0F3A42] px-4 py-3">
         <div className="flex justify-between items-center">
           <div>
-            <div className="text-white font-bold text-lg tracking-wide">Buen día, {perfil.nombre}</div>
+            <div className="text-white font-bold text-lg tracking-wide">Buen día, {perfil.nombre.split(' ')[0]}</div>
             <div className="text-[#7ADCE8] text-xs mt-0.5">Técnico Eléctrico · Turno {perfil.turno}</div>
           </div>
           <div className="bg-[#1ABBD6] text-white text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">ELEC</div>
@@ -31,63 +80,107 @@ export default function DashboardTecnicoElectrico() {
       </div>
 
       <div className="px-4 pt-3">
-        <div className="bg-[#FCEBEB] border border-[#F09595] rounded-xl px-3 py-2 flex gap-2 items-start mb-3">
-          <div className="w-2 h-2 rounded-full bg-[#E24B4A] mt-1 shrink-0"></div>
-          <div className="text-[#A32D2D] text-xs leading-relaxed">
-            <span className="font-bold">Alerta:</span> Luminaria apagada km 38.4 — 47 min sin respuesta
-          </div>
-        </div>
 
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Mi turno hoy</div>
+        {/* STATS */}
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div className="bg-white border border-[#B2E0E8] rounded-xl p-3">
-            <div className="text-[#B87C0F] font-bold text-2xl">3</div>
+            <div className="text-[#B87C0F] font-bold text-2xl">{ordenes.length}</div>
             <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Tareas asignadas</div>
           </div>
           <div className="bg-white border border-[#B2E0E8] rounded-xl p-3">
-            <div className="text-[#1ABBD6] font-bold text-2xl">1</div>
-            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Completadas</div>
-          </div>
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3">
-            <div className="text-[#3B6D11] font-bold text-2xl">OK</div>
-            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Stock pañol</div>
-          </div>
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3">
-            <div className="text-[#B87C0F] font-bold text-2xl">12d</div>
-            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">VTV F-350</div>
+            <div className="text-[#1ABBD6] font-bold text-2xl">{ordenes.filter(o => o.estado === 'en_curso').length}</div>
+            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">En curso</div>
           </div>
         </div>
 
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Orden activa</div>
-        <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-3">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="text-[#0F3A42] font-bold text-sm">Reemplazo luminaria LED</div>
-              <div className="text-[#7A9EA5] text-xs mt-0.5">Km 38.4 · Shoulder externo</div>
+        {/* ORDEN ACTIVA */}
+        {ordenActiva && (
+          <>
+            <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Orden activa</div>
+            <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-3">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex-1">
+                  <div className="text-[#0F3A42] font-bold text-sm">{ordenActiva.titulo}</div>
+                  {ordenActiva.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {ordenActiva.km} {ordenActiva.ubicacion ? `· ${ordenActiva.ubicacion}` : ''}</div>}
+                  {ordenActiva.descripcion && <div className="text-[#7A9EA5] text-xs mt-1">{ordenActiva.descripcion}</div>}
+                </div>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ml-2 ${badgeColor(ordenActiva.estado)}`}>
+                  {ordenActiva.estado === 'en_curso' ? 'En curso' : 'Pendiente'}
+                </span>
+              </div>
+
+              {ordenActiva.estado === 'pendiente' && (
+                <button
+                  onClick={() => iniciarOrden(ordenActiva)}
+                  className="w-full bg-[#1ABBD6] text-white font-bold text-sm py-2 rounded-lg mt-1"
+                >
+                  INICIAR ORDEN
+                </button>
+              )}
+
+              {ordenActiva.estado === 'en_curso' && !showCierre && (
+                <button
+                  onClick={() => setShowCierre(true)}
+                  className="w-full bg-[#3B6D11] text-white font-bold text-sm py-2 rounded-lg mt-1"
+                >
+                  CERRAR ORDEN
+                </button>
+              )}
+
+              {showCierre && (
+                <div className="mt-2">
+                  <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Informe de cierre *</div>
+                  <textarea
+                    className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-2 outline-none"
+                    placeholder="Describí qué hiciste o por qué no pudiste completar la tarea"
+                    rows={4}
+                    value={informe}
+                    onChange={e => setInforme(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={cerrarOrden}
+                      disabled={loading || !informe}
+                      className="flex-1 bg-[#3B6D11] text-white font-bold text-sm py-2 rounded-lg disabled:opacity-50"
+                    >
+                      {loading ? 'Cerrando...' : 'CONFIRMAR CIERRE'}
+                    </button>
+                    <button
+                      onClick={() => setShowCierre(false)}
+                      className="flex-1 bg-[#E8E8E6] text-[#5F5E5A] font-bold text-sm py-2 rounded-lg"
+                    >
+                      CANCELAR
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="bg-[#FAEEDA] text-[#854F0B] text-xs font-bold px-2 py-0.5 rounded-full">En curso</div>
-          </div>
-          <div className="bg-[#E8F4F7] rounded-full h-1.5 mt-3 overflow-hidden">
-            <div className="bg-[#1ABBD6] h-full rounded-full" style={{width:'33%'}}></div>
-          </div>
-          <div className="text-[#7A9EA5] text-xs mt-1">1 de 3 puntos completados</div>
-        </div>
+          </>
+        )}
 
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Turno anterior dejó</div>
-        <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-3">
-          <div className="text-[#0F3A42] font-bold text-sm">Informe 22–06 · Martínez</div>
-          <div className="text-[#7A9EA5] text-xs mt-0.5">2 tareas OK · TS-14 con ruido en interruptor</div>
-        </div>
-
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Móvil asignado</div>
-        <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-24 flex justify-between items-center">
-          <div>
-            <div className="text-[#0F3A42] font-bold text-sm">Ford F-350 · PAT 384</div>
-            <div className="text-[#7A9EA5] text-xs mt-0.5">84.230 km · VTV vence en 12 días</div>
+        {/* TODAS LAS ORDENES */}
+        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Mis órdenes</div>
+        {ordenes.length === 0 ? (
+          <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm mb-3">
+            No tenés órdenes asignadas
           </div>
-          <div className="bg-[#FAEEDA] text-[#854F0B] text-xs font-bold px-2 py-0.5 rounded-full">VTV pronto</div>
-        </div>
+        ) : (
+          ordenes.map(o => (
+            <div key={o.id} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 flex justify-between items-center">
+              <div>
+                <div className="text-[#0F3A42] font-bold text-sm">{o.titulo}</div>
+                {o.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {o.km}</div>}
+              </div>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor(o.estado)}`}>
+                {o.estado === 'en_curso' ? 'En curso' : 'Pendiente'}
+              </span>
+            </div>
+          ))
+        )}
+
       </div>
+
+      <div className="h-24"></div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-[#0F3A42] border-t border-[#1A4A54] flex justify-around py-2">
         <div className="flex flex-col items-center gap-0.5 cursor-pointer">
