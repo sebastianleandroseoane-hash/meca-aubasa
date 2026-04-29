@@ -198,7 +198,7 @@ export default function Instructivos() {
         <div
           id="contenido-instructivo"
           className="px-5 pb-4 overflow-y-auto text-sm text-[#0F3A42] leading-relaxed"
-          style={{ maxHeight: '340px' }}
+          style={{ maxHeight: '60vh' }}
           onScroll={(e) => {
             const el = e.currentTarget
             const llegóAlFinal = el.scrollHeight - el.scrollTop <= el.clientHeight + 40
