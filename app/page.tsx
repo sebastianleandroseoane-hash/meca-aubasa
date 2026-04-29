@@ -22,28 +22,27 @@ export default function Home() {
       return
     }
     const perfil = await getPerfil()
-    if (!perfil) {
-      setError('No se encontró perfil de usuario')
-      setLoading(false)
+    if (!perfil || !perfil.nombre) {
+      router.push('/perfil/completar')
       return
     }
     const rol = perfil.rol
-if (rol === 'superadmin') router.push('/dashboard/superadmin')
-else if (rol === 'gerente') router.push('/dashboard/gerente')
-else if (rol === 'subgerente') router.push('/dashboard/Sub-gerente')
-else if (rol === 'jefe') router.push('/dashboard/jefe')
-else if (rol === 'delegado') router.push('/dashboard/delegado')
-else if (rol === 'supervisor_electrico') router.push('/dashboard/supervisor-electrico')
-else if (rol === 'supervisor_ac') router.push('/dashboard/supervisor-ac')
-else if (rol === 'tecnico_electrico') router.push('/dashboard/tecnico-electrico')
-else if (rol === 'tecnico_ac') router.push('/dashboard/tecnico-ac')
-else if (rol === 'tecnico_electrico_edificio') router.push('/dashboard/tecnico-electrico-edificios')
-else if (rol === 'tallerista_electrico') router.push('/dashboard/tallerista-electrico')
-else if (rol === 'tallerista_ac') router.push('/dashboard/tallerista-aire-acondicionado')
-else if (rol === 'panolero') router.push('/dashboard/panolero')
-else if (rol === 'administrativo_rrhh') router.push('/dashboard/administrativo-rrhh')
-else if (rol === 'administrativo_compras_pms') router.push('/dashboard/administrativo-compras-pms')
-else router.push('/dashboard/tecnico-electrico')
+    if (rol === 'superadmin') router.push('/dashboard/superadmin')
+    else if (rol === 'gerente') router.push('/dashboard/gerente')
+    else if (rol === 'subgerente') router.push('/dashboard/Sub-gerente')
+    else if (rol === 'jefe') router.push('/dashboard/jefe')
+    else if (rol === 'delegado') router.push('/dashboard/delegado')
+    else if (rol === 'supervisor_electrico') router.push('/dashboard/supervisor-electrico')
+    else if (rol === 'supervisor_ac') router.push('/dashboard/supervisor-ac')
+    else if (rol === 'tecnico_electrico') router.push('/dashboard/tecnico-electrico')
+    else if (rol === 'tecnico_ac') router.push('/dashboard/tecnico-ac')
+    else if (rol === 'tecnico_electrico_edificio') router.push('/dashboard/tecnico-electrico-edificios')
+    else if (rol === 'tallerista_electrico') router.push('/dashboard/tallerista-electrico')
+    else if (rol === 'tallerista_ac') router.push('/dashboard/tallerista-aire-acondicionado')
+    else if (rol === 'panolero') router.push('/dashboard/panolero')
+    else if (rol === 'administrativo_rrhh') router.push('/dashboard/administrativo-rrhh')
+    else if (rol === 'administrativo_compras_pms') router.push('/dashboard/administrativo-compras-pms')
+    else router.push('/perfil/completar')
   }
 
   return (
@@ -72,7 +71,7 @@ else router.push('/dashboard/tecnico-electrico')
         <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1 font-semibold">Usuario</div>
         <input
           className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-4 outline-none"
-          placeholder="usuario@aubasa.com"
+          placeholder="usuario@gmail.com"
           value={email}
           onChange={e => setEmail(e.target.value)}
         />
