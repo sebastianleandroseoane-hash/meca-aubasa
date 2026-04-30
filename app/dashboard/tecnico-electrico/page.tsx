@@ -30,7 +30,7 @@ export default function DashboardTecnicoElectrico() {
       .in('estado', ['pendiente', 'en_curso'])
       .order('created_at', { ascending: false })
     setOrdenes(data || [])
-    const activa = data?.find(o => o.estado === 'en_curso')
+    const activa = data?.find((o: any) => o.estado === 'en_curso')
     setOrdenActiva(activa || data?.[0] || null)
   }
 
