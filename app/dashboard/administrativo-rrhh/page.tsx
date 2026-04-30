@@ -11,7 +11,7 @@ export default function DashboardAdminRRHH() {
   useEffect(() => {
     getPerfil().then(p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'administrativo_rrhh') { router.push('/'); return }
+      if (p.rol !== 'administrativo_rrhh' && p.rol !== 'superadmin') { router.push('/'); return }
       setPerfil(p)
     })
   }, [])

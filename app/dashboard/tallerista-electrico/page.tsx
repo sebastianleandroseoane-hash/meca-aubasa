@@ -11,7 +11,7 @@ export default function DashboardTalleristaElectrico() {
   useEffect(() => {
     getPerfil().then(p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'tallerista_electrico') { router.push('/'); return }
+      if (p.rol !== 'tallerista_electrico' && p.rol !== 'superadmin') { router.push('/'); return }
       setPerfil(p)
     })
   }, [])

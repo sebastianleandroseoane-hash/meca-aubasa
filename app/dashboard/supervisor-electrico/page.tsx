@@ -24,9 +24,11 @@ export default function DashboardSupervisorElectrico() {
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'supervisor_electrico') { router.push('/'); return }
-      setPerfil(p)
-      await cargarDatos(p.turno)
+      if (p.rol !== 'supervisor_electrico' && p.rol !== 'superadmin') { router.push('/'); return }
+const turnoEfectivo = p.rol === 'superadmin' ? '1' : p.turno
+setPerfil(p)
+await cargarDatos(turnoEfectivo)
+      
     })
   }, [])
 

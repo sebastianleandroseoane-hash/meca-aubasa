@@ -11,7 +11,7 @@ export default function DashboardSupervisorAC() {
   useEffect(() => {
     getPerfil().then(p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'supervisor_ac') { router.push('/'); return }
+      if (p.rol !== 'supervisor_ac' && p.rol !== 'superadmin') { router.push('/'); return }
       setPerfil(p)
     })
   }, [])

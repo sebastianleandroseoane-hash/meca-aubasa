@@ -11,7 +11,7 @@ export default function DashboardPanolero() {
   useEffect(() => {
     getPerfil().then(p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'panolero') { router.push('/'); return }
+      if (p.rol !== 'panolero' && p.rol !== 'superadmin') { router.push('/'); return }
       setPerfil(p)
     })
   }, [])
