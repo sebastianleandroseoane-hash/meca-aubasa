@@ -49,7 +49,7 @@ export default function DashboardSuperAdmin() {
             <div className="text-[#1ABBD6] font-bold text-sm">Supervisor Elec.</div>
             <div className="text-[#7ADCE8] text-xs mt-0.5">Turno eléctrico</div>
           </button>
-          <button onClick={() => router.push('/dashboard/supervisor-ac')} className="bg-[#0F3A42] border border-[#1ABBD6] rounded-xl p-3 text-left">
+          <button onClick={() => router.push('/dashboard/supervisor-aire-acondicionado')} className="bg-[#0F3A42] border border-[#1ABBD6] rounded-xl p-3 text-left">
             <div className="text-[#1ABBD6] font-bold text-sm">Supervisor AC</div>
             <div className="text-[#7ADCE8] text-xs mt-0.5">Turno AC</div>
           </button>
@@ -57,7 +57,7 @@ export default function DashboardSuperAdmin() {
             <div className="text-[#1ABBD6] font-bold text-sm">Técnico Elec.</div>
             <div className="text-[#7ADCE8] text-xs mt-0.5">Campo eléctrico</div>
           </button>
-          <button onClick={() => router.push('/dashboard/tecnico-ac')} className="bg-[#0F3A42] border border-[#1ABBD6] rounded-xl p-3 text-left">
+          <button onClick={() => router.push('/dashboard/tecnico-aire-acondicionado')} className="bg-[#0F3A42] border border-[#1ABBD6] rounded-xl p-3 text-left">
             <div className="text-[#1ABBD6] font-bold text-sm">Técnico AC</div>
             <div className="text-[#7ADCE8] text-xs mt-0.5">Campo AC</div>
           </button>
