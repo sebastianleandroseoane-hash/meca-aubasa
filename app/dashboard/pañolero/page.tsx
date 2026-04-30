@@ -2,21 +2,60 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getPerfil } from '@/lib/supabase'
+import { supabase, getPerfil } from '@/lib/supabase'
 
 export default function DashboardPanolero() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<any>(null)
+  const [materiales, setMateriales] = useState<any[]>([])
+  const [movimientos, setMovimientos] = useState<any[]>([])
+  const [busqueda, setBusqueda] = useState('')
+  const [categoria, setCategoria] = useState('electrico')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getPerfil().then(p => {
+    getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
       if (p.rol !== 'panolero' && p.rol !== 'superadmin') { router.push('/'); return }
       setPerfil(p)
+      await cargarDatos()
+      setLoading(false)
     })
   }, [])
 
-  if (!perfil) return <div className="min-h-screen bg-[#F0FAFB] flex items-center justify-center text-[#0F3A42]">Cargando...</div>
+  async function cargarDatos() {
+    const { data: mats } = await supabase
+      .from('materiales')
+      .select('*')
+      .order('nombre', { ascending: true })
+    setMateriales(mats || [])
+
+    const { data: movs } = await supabase
+      .from('movimientos_stock')
+      .select('*, material:material_id(nombre), usuario:usuario_id(nombre, apellido)')
+      .order('created_at', { ascending: false })
+      .limit(10)
+    setMovimientos(movs || [])
+  }
+
+  const materialesFiltrados = materiales.filter(m =>
+    m.categoria === categoria &&
+    m.nombre.toLowerCase().includes(busqueda.toLowerCase())
+  )
+
+  const stockCritico = materiales.filter(m =>
+    m.categoria === categoria && m.stock_actual <= m.stock_minimo && m.stock_minimo > 0
+  )
+
+  const stockBajo = materiales.filter(m =>
+    m.categoria === categoria && m.stock_actual > m.stock_minimo && m.stock_actual <= m.stock_minimo * 2 && m.stock_minimo > 0
+  )
+
+  if (!perfil || loading) return (
+    <div className="min-h-screen bg-[#F0FAFB] flex items-center justify-center text-[#0F3A42]">
+      Cargando...
+    </div>
+  )
 
   return (
     <main className="min-h-screen bg-[#F0FAFB]">
@@ -31,44 +70,94 @@ export default function DashboardPanolero() {
       </div>
 
       <div className="px-4 pt-3">
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Stock crítico</div>
-        <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 flex justify-between items-center">
-          <div>
-            <div className="text-[#0F3A42] font-bold text-sm">Lámpara LED 150W</div>
-            <div className="text-[#7A9EA5] text-xs mt-0.5">Existencia: 4 unidades</div>
-          </div>
-          <span className="bg-[#FCEBEB] text-[#A32D2D] text-xs font-bold px-2 py-0.5 rounded-full">Crítico</span>
-        </div>
-        <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-3 flex justify-between items-center">
-          <div>
-            <div className="text-[#0F3A42] font-bold text-sm">Fusible NH T2 160A</div>
-            <div className="text-[#7A9EA5] text-xs mt-0.5">Existencia: 8 unidades</div>
-          </div>
-          <span className="bg-[#FAEEDA] text-[#854F0B] text-xs font-bold px-2 py-0.5 rounded-full">Bajo</span>
+
+        {/* SELECTOR CATEGORIA */}
+        <div className="flex gap-2 mb-3">
+          {['electrico', 'ac', 'general'].map(cat => (
+            <button
+              key={cat}
+              onClick={() => setCategoria(cat)}
+              className={`flex-1 text-xs font-bold py-2 rounded-lg uppercase tracking-wide ${categoria === cat ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}
+            >
+              {cat === 'electrico' ? 'Elec.' : cat === 'ac' ? 'AC' : 'General'}
+            </button>
+          ))}
         </div>
 
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Egreso pendiente de firma</div>
-        <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-3">
-          <div className="text-[#0F3A42] font-bold text-sm">García solicitó</div>
-          <div className="text-[#7A9EA5] text-xs mt-0.5 mb-2">2x LED 150W · Orden 38.4</div>
-          <button className="w-full bg-[#D6F4F8] text-[#0F8FAA] text-xs font-bold py-2 rounded-lg">Entregar y firmar</button>
-        </div>
-
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Pedido al proveedor</div>
-        <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-3">
-          <div className="text-[#0F3A42] font-bold text-sm">Pedido #041 · En proceso</div>
-          <div className="text-[#7A9EA5] text-xs mt-0.5">12x LED 150W · Esperando visto jefe</div>
-          <span className="bg-[#FAEEDA] text-[#854F0B] text-xs font-bold px-2 py-0.5 rounded-full mt-2 inline-block">Pendiente aprobación</span>
-        </div>
-
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Devoluciones</div>
-        <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-24 flex justify-between items-center">
-          <div>
-            <div className="text-[#0F3A42] font-bold text-sm">Rodríguez devolvió</div>
-            <div className="text-[#7A9EA5] text-xs mt-0.5">1x LED 150W sin usar</div>
+        {/* STATS */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">
+            <div className="text-[#1ABBD6] font-bold text-xl">{materialesFiltrados.length}</div>
+            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Ítems</div>
           </div>
-          <span className="bg-[#D6F4F8] text-[#0F8FAA] text-xs font-bold px-2 py-0.5 rounded-full">Registrado</span>
+          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">
+            <div className="text-[#E24B4A] font-bold text-xl">{stockCritico.length}</div>
+            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Crítico</div>
+          </div>
+          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">
+            <div className="text-[#B87C0F] font-bold text-xl">{stockBajo.length}</div>
+            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Bajo</div>
+          </div>
         </div>
+
+        {/* BUSCADOR */}
+        <input
+          className="w-full bg-white border border-[#B2E0E8] rounded-xl px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
+          placeholder="Buscar material..."
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+        />
+
+        {/* LISTA MATERIALES */}
+        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">
+          Stock · {materialesFiltrados.length} ítems
+        </div>
+
+        {materialesFiltrados.length === 0 ? (
+          <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm mb-3">
+            Sin resultados
+          </div>
+        ) : (
+          materialesFiltrados.map(m => {
+            const critico = m.stock_minimo > 0 && m.stock_actual <= m.stock_minimo
+            const bajo = m.stock_minimo > 0 && m.stock_actual > m.stock_minimo && m.stock_actual <= m.stock_minimo * 2
+            return (
+              <div key={m.id} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 flex justify-between items-center">
+                <div className="flex-1">
+                  <div className="text-[#0F3A42] font-bold text-sm">{m.nombre}</div>
+                  <div className="text-[#7A9EA5] text-xs mt-0.5">
+                    {m.stock_actual} {m.unidad}
+                  </div>
+                </div>
+                {critico && <span className="bg-[#FCEBEB] text-[#A32D2D] text-xs font-bold px-2 py-0.5 rounded-full ml-2">Crítico</span>}
+                {bajo && <span className="bg-[#FAEEDA] text-[#854F0B] text-xs font-bold px-2 py-0.5 rounded-full ml-2">Bajo</span>}
+                {!critico && !bajo && <span className="bg-[#D6F4F8] text-[#0F8FAA] text-xs font-bold px-2 py-0.5 rounded-full ml-2">OK</span>}
+              </div>
+            )
+          })
+        )}
+
+        {/* ULTIMOS MOVIMIENTOS */}
+        {movimientos.length > 0 && (
+          <>
+            <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2 mt-2">Últimos movimientos</div>
+            {movimientos.slice(0, 5).map(mov => (
+              <div key={mov.id} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 flex justify-between items-center">
+                <div>
+                  <div className="text-[#0F3A42] font-bold text-sm">{mov.material?.nombre}</div>
+                  <div className="text-[#7A9EA5] text-xs mt-0.5">
+                    {mov.usuario?.nombre} · {mov.cantidad} {mov.tipo}
+                  </div>
+                </div>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${mov.tipo === 'egreso' ? 'bg-[#FCEBEB] text-[#A32D2D]' : mov.tipo === 'devolucion' ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#E8F4E8] text-[#3B6D11]'}`}>
+                  {mov.tipo}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+
+        <div className="h-24"></div>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-[#0F3A42] border-t border-[#1A4A54] flex justify-around py-2">
