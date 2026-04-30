@@ -25,15 +25,13 @@ export default function DashboardJefe() {
   async function cargarDatos() {
     const hoy = new Date().toISOString().split('T')[0]
 
-    // Órdenes pendientes y en curso
     const { data: ordenes } = await supabase
       .from('ordenes_trabajo')
       .select('estado')
 
-    const operativas = (ordenes || []).filter(o => o.estado === 'pendiente' || o.estado === 'en_curso').length
-    const con_falla = (ordenes || []).filter(o => o.estado === 'pendiente').length
+    const operativas = (ordenes || []).filter((o: any) => o.estado === 'pendiente' || o.estado === 'en_curso').length
+    const con_falla = (ordenes || []).filter((o: any) => o.estado === 'pendiente').length
 
-    // Técnicos activos
     const { data: tecnicos } = await supabase
       .from('profiles')
       .select('id')
@@ -46,7 +44,6 @@ export default function DashboardJefe() {
       tecnicos: (tecnicos || []).length
     })
 
-    // Alertas activas
     const { data: alertasData } = await supabase
       .from('alertas')
       .select('*')
@@ -56,7 +53,6 @@ export default function DashboardJefe() {
 
     setAlertas(alertasData || [])
 
-    // Informes de turno de hoy
     const { data: informesData } = await supabase
       .from('informes_turno')
       .select('*, supervisor:supervisor_id(nombre, apellido)')
