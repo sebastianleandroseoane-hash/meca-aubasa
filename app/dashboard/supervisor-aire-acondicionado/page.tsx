@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 
-export default function DashboardSupervisorAC() {
+export default function DashboardSupervisorElectrico() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<any>(null)
   const [ordenes, setOrdenes] = useState<any[]>([])
   const [tecnicos, setTecnicos] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [tecnicosSeleccionados, setTecnicosSeleccionados] = useState<string[]>([])
   const [form, setForm] = useState({
     titulo: '',
     descripcion: '',
@@ -19,14 +20,13 @@ export default function DashboardSupervisorAC() {
     prioridad: 'normal',
     tipo: 'correctivo_programado',
     origen: 'supervisor',
-    asignado_a: '',
     fecha_programada: new Date().toISOString().split('T')[0]
   })
 
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'supervisor_ac' && p.rol !== 'superadmin') { router.push('/'); return }
+      if (p.rol !== 'supervisor_electrico' && p.rol !== 'superadmin') { router.push('/'); return }
       const turnoEfectivo = p.rol === 'superadmin' ? '1' : p.turno
       setPerfil(p)
       await cargarDatos(turnoEfectivo)
@@ -37,40 +37,62 @@ export default function DashboardSupervisorAC() {
     const { data: ords } = await supabase
       .from('ordenes_trabajo')
       .select('*, profiles!ordenes_trabajo_asignado_a_fkey(nombre)')
-      .eq('sector', 'ac')
+      .eq('sector', 'electrico')
       .order('created_at', { ascending: false })
     setOrdenes(ords || [])
 
     const { data: tecs } = await supabase
-      .rpc('get_tecnicos_activos', { p_sector: 'ac', p_turno: turno })
+      .rpc('get_tecnicos_activos', { p_sector: 'electrico', p_turno: turno })
     setTecnicos(tecs || [])
   }
 
+  function toggleTecnico(id: string) {
+    setTecnicosSeleccionados(prev =>
+      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    )
+  }
+
   async function crearOrden() {
-    if (!form.titulo || !form.asignado_a) return
+    if (!form.titulo || tecnicosSeleccionados.length === 0) return
     setLoading(true)
-    const { error } = await supabase.from('ordenes_trabajo').insert({
-      titulo: form.titulo,
-      descripcion: form.descripcion,
-      sector: 'ac',
-      estado: 'pendiente',
-      prioridad: form.prioridad,
-      tipo: form.tipo,
-      origen: form.origen,
-      km: form.km ? parseFloat(form.km) : null,
-      ubicacion: form.ubicacion,
-      asignado_a: form.asignado_a,
-      creado_por: perfil.id,
-      turno: perfil.turno,
-      fecha_programada: form.fecha_programada
-    })
+
+    const { data: nuevaOrden, error } = await supabase
+      .from('ordenes_trabajo')
+      .insert({
+        titulo: form.titulo,
+        descripcion: form.descripcion,
+        sector: 'electrico',
+        estado: 'pendiente',
+        prioridad: form.prioridad,
+        tipo: form.tipo,
+        origen: form.origen,
+        km: form.km ? parseFloat(form.km) : null,
+        ubicacion: form.ubicacion,
+        asignado_a: tecnicosSeleccionados[0],
+        creado_por: perfil.id,
+        turno: perfil.turno,
+        fecha_programada: form.fecha_programada
+      })
+      .select()
+      .single()
+
+    if (!error && nuevaOrden) {
+      const filas = tecnicosSeleccionados.map(tid => ({
+        orden_id: nuevaOrden.id,
+        tecnico_id: tid,
+        cerro: false
+      }))
+      await supabase.from('orden_tecnicos').insert(filas)
+    }
+
     setLoading(false)
     if (!error) {
       setShowForm(false)
+      setTecnicosSeleccionados([])
       setForm({
         titulo: '', descripcion: '', km: '', ubicacion: '',
         prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor',
-        asignado_a: '', fecha_programada: new Date().toISOString().split('T')[0]
+        fecha_programada: new Date().toISOString().split('T')[0]
       })
       await cargarDatos(perfil.turno)
     }
@@ -116,10 +138,10 @@ export default function DashboardSupervisorAC() {
       <div className="bg-[#0F3A42] px-4 py-3">
         <div className="flex justify-between items-center">
           <div>
-            <div className="text-white font-bold text-lg tracking-wide">Supervisor AC</div>
+            <div className="text-white font-bold text-lg tracking-wide">Supervisor Eléctrico</div>
             <div className="text-[#7ADCE8] text-xs mt-0.5">{perfil.nombre} · Turno {perfil.turno}</div>
           </div>
-          <div className="bg-[#0A2830] text-[#7ADCE8] text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">SUP·AC</div>
+          <div className="bg-[#0A2830] text-[#7ADCE8] text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">SUP·E</div>
         </div>
       </div>
 
@@ -139,7 +161,7 @@ export default function DashboardSupervisorAC() {
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Título *</div>
             <input
               className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
-              placeholder="Ej: Mantenimiento split Km 12"
+              placeholder="Ej: Reemplazo luminaria LED"
               value={form.titulo}
               onChange={e => setForm({ ...form, titulo: e.target.value })}
             />
@@ -180,7 +202,7 @@ export default function DashboardSupervisorAC() {
             <textarea
               className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
               placeholder="Detalle de la tarea"
-              rows={3}
+              rows={2}
               value={form.descripcion}
               onChange={e => setForm({ ...form, descripcion: e.target.value })}
             />
@@ -190,7 +212,7 @@ export default function DashboardSupervisorAC() {
                 <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Km</div>
                 <input
                   className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
-                  placeholder="12.5"
+                  placeholder="38.4"
                   value={form.km}
                   onChange={e => setForm({ ...form, km: e.target.value })}
                 />
@@ -212,22 +234,35 @@ export default function DashboardSupervisorAC() {
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Ubicación</div>
             <input
               className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
-              placeholder="Ej: Caseta peaje Km 12"
+              placeholder="Ej: Shoulder externo"
               value={form.ubicacion}
               onChange={e => setForm({ ...form, ubicacion: e.target.value })}
             />
 
-            <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Asignar a *</div>
-            <select
-              className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
-              value={form.asignado_a}
-              onChange={e => setForm({ ...form, asignado_a: e.target.value })}
-            >
-              <option value="">Seleccioná un técnico</option>
-              {tecnicos.map(t => (
-                <option key={t.id} value={t.id}>{t.nombre}</option>
-              ))}
-            </select>
+            <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">
+              Técnicos asignados * {tecnicosSeleccionados.length > 0 && <span className="text-[#1ABBD6]">({tecnicosSeleccionados.length} seleccionados)</span>}
+            </div>
+            <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg mb-3 overflow-hidden">
+              {tecnicos.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-[#7A9EA5]">No hay técnicos disponibles en este turno</div>
+              ) : (
+                tecnicos.map((t, i) => (
+                  <div
+                    key={t.id}
+                    onClick={() => toggleTecnico(t.id)}
+                    className={`flex items-center gap-3 px-3 py-2 cursor-pointer ${i < tecnicos.length - 1 ? 'border-b border-[#E8F4F7]' : ''} ${tecnicosSeleccionados.includes(t.id) ? 'bg-[#D6F4F8]' : ''}`}
+                  >
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${tecnicosSeleccionados.includes(t.id) ? 'bg-[#1ABBD6] border-[#1ABBD6]' : 'border-[#B2E0E8]'}`}>
+                      {tecnicosSeleccionados.includes(t.id) && (
+                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      )}
+                    </div>
+                    <span className="text-sm text-[#0F3A42]">{t.nombre}</span>
+                    <span className="text-xs text-[#7A9EA5] ml-auto">{t.rol?.replace('tecnico_', 'Téc. ')}</span>
+                  </div>
+                ))
+              )}
+            </div>
 
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Fecha programada</div>
             <input
@@ -240,13 +275,13 @@ export default function DashboardSupervisorAC() {
             <div className="flex gap-2">
               <button
                 onClick={crearOrden}
-                disabled={loading}
+                disabled={loading || tecnicosSeleccionados.length === 0}
                 className="flex-1 bg-[#1ABBD6] text-white font-bold text-sm py-3 rounded-xl disabled:opacity-50"
               >
                 {loading ? 'Creando...' : 'CREAR ORDEN'}
               </button>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => { setShowForm(false); setTecnicosSeleccionados([]) }}
                 className="flex-1 bg-[#E8E8E6] text-[#5F5E5A] font-bold text-sm py-3 rounded-xl"
               >
                 CANCELAR
@@ -270,7 +305,7 @@ export default function DashboardSupervisorAC() {
                 <div className="flex-1">
                   <div className="text-[#0F3A42] font-bold text-sm">{o.titulo}</div>
                   {o.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
-                  {o.profiles && <div className="text-[#7A9EA5] text-xs">Asignado: {o.profiles.nombre}</div>}
+                  {o.profiles && <div className="text-[#7A9EA5] text-xs">Responsable: {o.profiles.nombre}</div>}
                 </div>
                 <div className="flex flex-col items-end gap-1 ml-2">
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor(o.estado)}`}>
