@@ -11,6 +11,12 @@ export default function DashboardSupervisorAC() {
   const [tecnicos, setTecnicos] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
+const [showStock, setShowStock] = useState(false)
+const [materiales, setMateriales] = useState<any[]>([])
+const [materialesFiltrados, setMaterialesFiltrados] = useState<any[]>([])
+const [categoriaFiltro, setCategoriaFiltro] = useState('todos')
+const [busqueda, setBusqueda] = useState('')
+const [materialesOrden, setMaterialesOrden] = useState<{id: string, nombre: string, unidad: string, cantidad: number, stock: number}[]>([])
   const [tecnicosSeleccionados, setTecnicosSeleccionados] = useState<string[]>([])
   const [form, setForm] = useState({
     titulo: '',
@@ -45,7 +51,38 @@ export default function DashboardSupervisorAC() {
       .rpc('get_tecnicos_activos', { p_sector: 'ac', p_turno: turno })
     setTecnicos(tecs || [])
   }
+async function abrirStock() {
+  if (materiales.length === 0) {
+    const { data } = await supabase.from('materiales').select('*').order('nombre', { ascending: true })
+    setMateriales(data || [])
+    setMaterialesFiltrados(data || [])
+  }
+  setShowStock(true)
+}
 
+useEffect(() => {
+  let lista = materiales
+  if (categoriaFiltro !== 'todos') lista = lista.filter(m => m.categoria === categoriaFiltro)
+  if (busqueda.trim()) lista = lista.filter(m => m.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+  setMaterialesFiltrados(lista)
+}, [busqueda, categoriaFiltro, materiales])
+
+function agregarMaterial(m: any) {
+  const yaEsta = materialesOrden.find(x => x.id === m.id)
+  if (yaEsta) return
+  setMaterialesOrden(prev => [...prev, { id: m.id, nombre: m.nombre, unidad: m.unidad, cantidad: 1, stock: m.stock_actual }])
+  setShowStock(false)
+  setBusqueda('')
+  setCategoriaFiltro('todos')
+}
+
+function quitarMaterial(id: string) {
+  setMaterialesOrden(prev => prev.filter(m => m.id !== id))
+}
+
+function cambiarCantidad(id: string, valor: number) {
+  setMaterialesOrden(prev => prev.map(m => m.id === id ? { ...m, cantidad: Math.max(1, valor) } : m))
+}
   function toggleTecnico(id: string) {
     setTecnicosSeleccionados(prev =>
       prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
@@ -83,12 +120,30 @@ export default function DashboardSupervisorAC() {
         cerro: false
       }))
       await supabase.from('orden_tecnicos').insert(filas)
+      for (const m of materialesOrden) {
+  if (m.stock >= m.cantidad) {
+    await supabase.from('orden_materiales').insert({
+      orden_id: nuevaOrden.id,
+      material_id: m.id,
+      cantidad_solicitada: m.cantidad
+    })
+  } else {
+    await supabase.from('pedidos_material').insert({
+      orden_trabajo_id: nuevaOrden.id,
+      solicitado_por: perfil.id,
+      material_nombre: m.nombre,
+      cantidad: m.cantidad,
+      estado: 'pendiente'
+    })
+  }
+}
     }
 
     setLoading(false)
     if (!error) {
       setShowForm(false)
       setTecnicosSeleccionados([])
+setMaterialesOrden([])
       setForm({
         titulo: '', descripcion: '', km: '', ubicacion: '',
         prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor',
@@ -144,7 +199,58 @@ export default function DashboardSupervisorAC() {
           <div className="bg-[#0A2830] text-[#7ADCE8] text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">SUP·AC</div>
         </div>
       </div>
+{showStock && (
+  <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
+    <div className="bg-white rounded-t-2xl p-4 max-h-[80vh] flex flex-col">
+      <div className="flex justify-between items-center mb-3">
+        <div className="text-[#0F3A42] font-bold text-sm">Seleccionar material</div>
+        <button onClick={() => { setShowStock(false); setBusqueda(''); setCategoriaFiltro('todos') }}
+          className="text-[#7A9EA5] text-xs font-bold">CERRAR</button>
+      </div>
 
+      <select
+        className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-2 outline-none"
+        value={categoriaFiltro}
+        onChange={e => setCategoriaFiltro(e.target.value)}
+      >
+        <option value="todos">Todas las categorías</option>
+        <option value="electrico">Eléctrico</option>
+        <option value="ac">Aire Acondicionado</option>
+        <option value="general">General</option>
+      </select>
+
+      <input
+        className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
+        placeholder="Buscar material..."
+        value={busqueda}
+        onChange={e => setBusqueda(e.target.value)}
+        autoFocus
+      />
+
+      <div className="overflow-y-auto flex-1">
+        {materialesFiltrados.length === 0 ? (
+          <div className="text-center text-[#7A9EA5] text-sm py-4">Sin resultados</div>
+        ) : (
+          materialesFiltrados.map((m, i) => (
+            <div
+              key={m.id}
+              onClick={() => agregarMaterial(m)}
+              className={`flex items-center justify-between px-3 py-2 cursor-pointer ${i < materialesFiltrados.length - 1 ? 'border-b border-[#E8F4F7]' : ''}`}
+            >
+              <div>
+                <div className="text-[#0F3A42] text-sm font-medium">{m.nombre}</div>
+                <div className="text-[#7A9EA5] text-xs">{m.codigo} · {m.unidad}</div>
+              </div>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ml-2 ${m.stock_actual > 0 ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#FCEBEB] text-[#A32D2D]'}`}>
+                {m.stock_actual > 0 ? `${m.stock_actual} ${m.unidad}` : 'Sin stock'}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  </div>
+)}
       <div className="px-4 pt-3">
 
         {!showForm ? (
@@ -263,7 +369,42 @@ export default function DashboardSupervisorAC() {
                 ))
               )}
             </div>
+<div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">
+  Materiales {materialesOrden.length > 0 && <span className="text-[#1ABBD6]">({materialesOrden.length} agregados)</span>}
+</div>
 
+{materialesOrden.length > 0 && (
+  <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg mb-2 overflow-hidden">
+    {materialesOrden.map((m, i) => (
+      <div key={m.id} className={`flex items-center gap-2 px-3 py-2 ${i < materialesOrden.length - 1 ? 'border-b border-[#E8F4F7]' : ''}`}>
+        <div className="flex-1">
+          <div className="text-[#0F3A42] text-xs font-medium">{m.nombre}</div>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${m.stock >= m.cantidad ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#FCEBEB] text-[#A32D2D]'}`}>
+              {m.stock >= m.cantidad ? 'En stock' : 'Pedido a pañol'}
+            </span>
+          </div>
+        </div>
+        <input
+          type="number"
+          min={1}
+          value={m.cantidad}
+          onChange={e => cambiarCantidad(m.id, parseInt(e.target.value) || 1)}
+          className="w-14 bg-white border border-[#B2E0E8] rounded px-2 py-1 text-sm text-center text-[#0F3A42] outline-none"
+        />
+        <span className="text-xs text-[#7A9EA5]">{m.unidad}</span>
+        <button onClick={() => quitarMaterial(m.id)} className="text-[#A32D2D] text-xs font-bold ml-1">✕</button>
+      </div>
+    ))}
+  </div>
+)}
+
+<button
+  onClick={abrirStock}
+  className="w-full bg-[#F0FAFB] border border-[#B2E0E8] text-[#0F3A42] font-bold text-xs tracking-widest rounded-lg py-2 mb-4"
+>
+  + STOCK
+</button>
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Fecha programada</div>
             <input
               type="date"
@@ -281,7 +422,7 @@ export default function DashboardSupervisorAC() {
                 {loading ? 'Creando...' : 'CREAR ORDEN'}
               </button>
               <button
-                onClick={() => { setShowForm(false); setTecnicosSeleccionados([]) }}
+               onClick={() => { setShowForm(false); setTecnicosSeleccionados([]); setMaterialesOrden([]) }} 
                 className="flex-1 bg-[#E8E8E6] text-[#5F5E5A] font-bold text-sm py-3 rounded-xl"
               >
                 CANCELAR
