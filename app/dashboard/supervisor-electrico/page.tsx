@@ -17,6 +17,8 @@ export default function DashboardSupervisorElectrico() {
     km: '',
     ubicacion: '',
     prioridad: 'normal',
+    tipo: 'correctivo_programado',
+    origen: 'supervisor',
     asignado_a: '',
     fecha_programada: new Date().toISOString().split('T')[0]
   })
@@ -25,10 +27,9 @@ export default function DashboardSupervisorElectrico() {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
       if (p.rol !== 'supervisor_electrico' && p.rol !== 'superadmin') { router.push('/'); return }
-const turnoEfectivo = p.rol === 'superadmin' ? '1' : p.turno
-setPerfil(p)
-await cargarDatos(turnoEfectivo)
-      
+      const turnoEfectivo = p.rol === 'superadmin' ? '1' : p.turno
+      setPerfil(p)
+      await cargarDatos(turnoEfectivo)
     })
   }, [])
 
@@ -41,10 +42,7 @@ await cargarDatos(turnoEfectivo)
     setOrdenes(ords || [])
 
     const { data: tecs } = await supabase
-      .rpc('get_tecnicos_activos', {
-        p_sector: 'electrico',
-        p_turno: turno
-      })
+      .rpc('get_tecnicos_activos', { p_sector: 'electrico', p_turno: turno })
     setTecnicos(tecs || [])
   }
 
@@ -57,6 +55,8 @@ await cargarDatos(turnoEfectivo)
       sector: 'electrico',
       estado: 'pendiente',
       prioridad: form.prioridad,
+      tipo: form.tipo,
+      origen: form.origen,
       km: form.km ? parseFloat(form.km) : null,
       ubicacion: form.ubicacion,
       asignado_a: form.asignado_a,
@@ -67,7 +67,11 @@ await cargarDatos(turnoEfectivo)
     setLoading(false)
     if (!error) {
       setShowForm(false)
-      setForm({ titulo: '', descripcion: '', km: '', ubicacion: '', prioridad: 'normal', asignado_a: '', fecha_programada: new Date().toISOString().split('T')[0] })
+      setForm({
+        titulo: '', descripcion: '', km: '', ubicacion: '',
+        prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor',
+        asignado_a: '', fecha_programada: new Date().toISOString().split('T')[0]
+      })
       await cargarDatos(perfil.turno)
     }
   }
@@ -86,7 +90,26 @@ await cargarDatos(turnoEfectivo)
     return 'Pendiente'
   }
 
-  if (!perfil) return <div className="min-h-screen bg-[#F0FAFB] flex items-center justify-center text-[#0F3A42]">Cargando...</div>
+  function tipoLabel(tipo: string) {
+    if (tipo === 'preventivo_programado') return 'Prev. Programado'
+    if (tipo === 'correctivo_programado') return 'Corr. Programado'
+    if (tipo === 'correctivo_critico') return 'Corr. Crítico'
+    if (tipo === 'emergencia') return 'Emergencia'
+    return tipo
+  }
+
+  function tipoColor(tipo: string) {
+    if (tipo === 'emergencia') return 'bg-[#E24B4A] text-white'
+    if (tipo === 'correctivo_critico') return 'bg-[#FCEBEB] text-[#A32D2D]'
+    if (tipo === 'correctivo_programado') return 'bg-[#FAEEDA] text-[#854F0B]'
+    return 'bg-[#D6F4F8] text-[#0F8FAA]'
+  }
+
+  if (!perfil) return (
+    <div className="min-h-screen bg-[#F0FAFB] flex items-center justify-center text-[#0F3A42]">
+      Cargando...
+    </div>
+  )
 
   return (
     <main className="min-h-screen bg-[#F0FAFB]">
@@ -120,6 +143,38 @@ await cargarDatos(turnoEfectivo)
               value={form.titulo}
               onChange={e => setForm({ ...form, titulo: e.target.value })}
             />
+
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div>
+                <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Tipo *</div>
+                <select
+                  className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+                  value={form.tipo}
+                  onChange={e => setForm({ ...form, tipo: e.target.value })}
+                >
+                  <option value="preventivo_programado">Prev. Programado</option>
+                  <option value="correctivo_programado">Corr. Programado</option>
+                  <option value="correctivo_critico">Corr. Crítico</option>
+                  <option value="emergencia">🔴 Emergencia</option>
+                </select>
+              </div>
+              <div>
+                <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Origen *</div>
+                <select
+                  className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+                  value={form.origen}
+                  onChange={e => setForm({ ...form, origen: e.target.value })}
+                >
+                  <option value="gerencia">Gerencia</option>
+                  <option value="jefe">Jefe</option>
+                  <option value="patrimonial">Patrimonial</option>
+                  <option value="monitoreo">Monitoreo</option>
+                  <option value="cae">CAE</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="tecnico">Técnico</option>
+                </select>
+              </div>
+            </div>
 
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Descripción</div>
             <textarea
@@ -214,15 +269,20 @@ await cargarDatos(turnoEfectivo)
               <div className="flex justify-between items-start mb-1">
                 <div className="flex-1">
                   <div className="text-[#0F3A42] font-bold text-sm">{o.titulo}</div>
-                  {o.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {o.km} {o.ubicacion ? `· ${o.ubicacion}` : ''}</div>}
+                  {o.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
                   {o.profiles && <div className="text-[#7A9EA5] text-xs">Asignado: {o.profiles.nombre}</div>}
                 </div>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ml-2 ${badgeColor(o.estado)}`}>
-                  {badgeLabel(o.estado)}
-                </span>
+                <div className="flex flex-col items-end gap-1 ml-2">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor(o.estado)}`}>
+                    {badgeLabel(o.estado)}
+                  </span>
+                  {o.tipo && (
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tipoColor(o.tipo)}`}>
+                      {tipoLabel(o.tipo)}
+                    </span>
+                  )}
+                </div>
               </div>
-              {o.prioridad === 'urgente' && <span className="bg-[#FCEBEB] text-[#A32D2D] text-xs font-bold px-2 py-0.5 rounded-full">Urgente</span>}
-              {o.prioridad === 'critica' && <span className="bg-[#E24B4A] text-white text-xs font-bold px-2 py-0.5 rounded-full">Crítica</span>}
             </div>
           ))
         )}
