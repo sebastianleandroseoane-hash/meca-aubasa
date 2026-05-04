@@ -93,6 +93,33 @@ export default function DashboardJefe() {
       </div>
 
       <div className="px-4 pt-3">
+        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Acceso rápido por rol</div>
+<div className="grid grid-cols-2 gap-2 mb-4">
+  <button onClick={() => router.push('/dashboard/supervisor-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+    <div className="text-[#1ABBD6] font-bold text-sm">Supervisor Elec.</div>
+    <div className="text-[#7A9EA5] text-xs mt-0.5">Turno eléctrico</div>
+  </button>
+  <button onClick={() => router.push('/dashboard/supervisor-aire-acondicionado')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+    <div className="text-[#1ABBD6] font-bold text-sm">Supervisor AC</div>
+    <div className="text-[#7A9EA5] text-xs mt-0.5">Turno AC</div>
+  </button>
+  <button onClick={() => router.push('/dashboard/tecnico-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+    <div className="text-[#1ABBD6] font-bold text-sm">Técnico Elec.</div>
+    <div className="text-[#7A9EA5] text-xs mt-0.5">Campo eléctrico</div>
+  </button>
+  <button onClick={() => router.push('/dashboard/tecnico-aire-acondicionado')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+    <div className="text-[#1ABBD6] font-bold text-sm">Técnico AC</div>
+    <div className="text-[#7A9EA5] text-xs mt-0.5">Campo AC</div>
+  </button>
+  <button onClick={() => router.push('/dashboard/panolero')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+    <div className="text-[#1ABBD6] font-bold text-sm">Pañolero</div>
+    <div className="text-[#7A9EA5] text-xs mt-0.5">Stock</div>
+  </button>
+  <button onClick={() => router.push('/dashboard/tallerista-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+    <div className="text-[#1ABBD6] font-bold text-sm">Tallerista Elec.</div>
+    <div className="text-[#7A9EA5] text-xs mt-0.5">Taller eléctrico</div>
+  </button>
+</div>
         <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Estado general</div>
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">
