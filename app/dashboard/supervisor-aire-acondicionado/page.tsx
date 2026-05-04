@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 
-export default function DashboardSupervisorElectrico() {
+export default function DashboardSupervisorAC() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<any>(null)
   const [ordenes, setOrdenes] = useState<any[]>([])
@@ -26,7 +26,7 @@ export default function DashboardSupervisorElectrico() {
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'supervisor_electrico' && p.rol !== 'superadmin') { router.push('/'); return }
+      if (p.rol !== 'supervisor_ac' && p.rol !== 'superadmin') { router.push('/'); return }
       const turnoEfectivo = p.rol === 'superadmin' ? '1' : p.turno
       setPerfil(p)
       await cargarDatos(turnoEfectivo)
@@ -37,12 +37,12 @@ export default function DashboardSupervisorElectrico() {
     const { data: ords } = await supabase
       .from('ordenes_trabajo')
       .select('*, profiles!ordenes_trabajo_asignado_a_fkey(nombre)')
-      .eq('sector', 'electrico')
+      .eq('sector', 'ac')
       .order('created_at', { ascending: false })
     setOrdenes(ords || [])
 
     const { data: tecs } = await supabase
-      .rpc('get_tecnicos_activos', { p_sector: 'electrico', p_turno: turno })
+      .rpc('get_tecnicos_activos', { p_sector: 'ac', p_turno: turno })
     setTecnicos(tecs || [])
   }
 
@@ -61,7 +61,7 @@ export default function DashboardSupervisorElectrico() {
       .insert({
         titulo: form.titulo,
         descripcion: form.descripcion,
-        sector: 'electrico',
+        sector: 'ac',
         estado: 'pendiente',
         prioridad: form.prioridad,
         tipo: form.tipo,
@@ -138,10 +138,10 @@ export default function DashboardSupervisorElectrico() {
       <div className="bg-[#0F3A42] px-4 py-3">
         <div className="flex justify-between items-center">
           <div>
-            <div className="text-white font-bold text-lg tracking-wide">Supervisor Eléctrico</div>
+            <div className="text-white font-bold text-lg tracking-wide">Supervisor AC</div>
             <div className="text-[#7ADCE8] text-xs mt-0.5">{perfil.nombre} · Turno {perfil.turno}</div>
           </div>
-          <div className="bg-[#0A2830] text-[#7ADCE8] text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">SUP·E</div>
+          <div className="bg-[#0A2830] text-[#7ADCE8] text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">SUP·AC</div>
         </div>
       </div>
 
@@ -161,7 +161,7 @@ export default function DashboardSupervisorElectrico() {
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Título *</div>
             <input
               className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
-              placeholder="Ej: Reemplazo luminaria LED"
+              placeholder="Ej: Mantenimiento split Km 12"
               value={form.titulo}
               onChange={e => setForm({ ...form, titulo: e.target.value })}
             />
@@ -212,7 +212,7 @@ export default function DashboardSupervisorElectrico() {
                 <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Km</div>
                 <input
                   className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
-                  placeholder="38.4"
+                  placeholder="12.5"
                   value={form.km}
                   onChange={e => setForm({ ...form, km: e.target.value })}
                 />
@@ -234,7 +234,7 @@ export default function DashboardSupervisorElectrico() {
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Ubicación</div>
             <input
               className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
-              placeholder="Ej: Shoulder externo"
+              placeholder="Ej: Caseta peaje Km 12"
               value={form.ubicacion}
               onChange={e => setForm({ ...form, ubicacion: e.target.value })}
             />
