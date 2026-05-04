@@ -11,7 +11,7 @@ export default function DashboardGerente() {
   useEffect(() => {
     getPerfil().then(p => {
       if (!p) { router.push('/'); return }
-      if (!['gerente', 'subgerente', 'jefe'].includes(p.rol)) { router.push('/'); return }
+      if (!['gerente', 'subgerente', 'jefe', 'superadmin'].includes(p.rol)) { router.push('/'); return }
       setPerfil(p)
     })
   }, [])
