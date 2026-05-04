@@ -16,7 +16,7 @@ export default function DashboardTecnicoElectrico() {
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'tecnico_electrico' && p.rol !== 'superadmin') { router.push('/'); return }
+      if (p.rol !== 'tecnico_electrico' && p.rol !== 'superadmin' && p.rol !== 'jefe') { router.push('/'); return }
       setPerfil(p)
       await cargarOrdenes(p.id)
     })

@@ -11,7 +11,7 @@ export default function DashboardTalleristaAC() {
   useEffect(() => {
     getPerfil().then(p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'tallerista_ac' && p.rol !== 'superadmin') { router.push('/'); return }
+      if (p.rol !== 'tallerista_ac' && p.rol !== 'superadmin' && p.rol !== 'jefe') { router.push('/'); return }
       setPerfil(p)
     })
   }, [])

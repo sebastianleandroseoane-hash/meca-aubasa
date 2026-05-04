@@ -15,7 +15,7 @@ export default function DashboardJefe() {
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'jefe' && p.rol !== 'delegado' && p.rol !== 'superadmin') { router.push('/'); return }
+      if (p.rol !== 'jefe' && p.rol !== 'delegado' && p.rol !== 'superadmin' && p.rol !== 'jefe') { router.push('/'); return }
       setPerfil(p)
       await cargarDatos()
       setLoading(false)

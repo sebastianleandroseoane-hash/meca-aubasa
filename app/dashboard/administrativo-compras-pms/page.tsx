@@ -11,7 +11,7 @@ export default function DashboardAdminComprasPMS() {
   useEffect(() => {
     getPerfil().then(p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'administrativo_compras_pms' && p.rol !== 'superadmin') { router.push('/'); return }
+      if (p.rol !== 'administrativo_compras_pms' && p.rol !== 'superadmin' && p.rol !== 'jefe') { router.push('/'); return }
       setPerfil(p)
     })
   }, [])
