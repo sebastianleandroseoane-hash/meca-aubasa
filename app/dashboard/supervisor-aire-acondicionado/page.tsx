@@ -71,9 +71,6 @@ function agregarMaterial(m: any) {
   const yaEsta = materialesOrden.find(x => x.id === m.id)
   if (yaEsta) return
   setMaterialesOrden(prev => [...prev, { id: m.id, nombre: m.nombre, unidad: m.unidad, cantidad: 1, stock: m.stock_actual }])
-  setShowStock(false)
-  setBusqueda('')
-  setCategoriaFiltro('todos')
 }
 
 function quitarMaterial(id: string) {

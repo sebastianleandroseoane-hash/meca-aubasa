@@ -81,9 +81,6 @@ export default function DashboardSupervisorElectrico() {
       cantidad: 1,
       stock: m.stock_actual
     }])
-    setShowStock(false)
-    setBusqueda('')
-    setCategoriaFiltro('todos')
   }
 
   function quitarMaterial(id: string) {
