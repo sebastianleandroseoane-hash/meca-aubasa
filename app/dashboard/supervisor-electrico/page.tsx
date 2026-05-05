@@ -10,6 +10,7 @@ export default function DashboardSupervisorElectrico() {
   const [ordenes, setOrdenes] = useState<any[]>([])
   const [tecnicos, setTecnicos] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
+const [ordenDetalle, setOrdenDetalle] = useState<any>(null)
   const [showStock, setShowStock] = useState(false)
   const [loading, setLoading] = useState(false)
   const [tecnicosSeleccionados, setTecnicosSeleccionados] = useState<string[]>([])
@@ -38,7 +39,24 @@ export default function DashboardSupervisorElectrico() {
       await cargarDatos(turnoEfectivo)
     })
   }, [])
+async function abrirDetalle(orden: any) {
+    const { data: tecnicos } = await supabase
+      .from('orden_tecnicos')
+      .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, rol)')
+      .eq('orden_id', orden.id)
 
+    const { data: materiales } = await supabase
+      .from('orden_materiales')
+      .select('*, materiales!orden_materiales_material_id_fkey(nombre, unidad)')
+      .eq('orden_id', orden.id)
+
+    const { data: pedidos } = await supabase
+      .from('pedidos_material')
+      .select('*')
+      .eq('orden_trabajo_id', orden.id)
+
+    setOrdenDetalle({ ...orden, tecnicos: tecnicos || [], materiales: materiales || [], pedidos: pedidos || [] })
+  }
   async function cargarDatos(turno: string) {
     const { data: ords } = await supabase
       .from('ordenes_trabajo')
@@ -213,6 +231,102 @@ export default function DashboardSupervisorElectrico() {
         </div>
       </div>
 
+{/* PANEL DETALLE ORDEN */}
+      {ordenDetalle && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
+          <div className="bg-white rounded-t-2xl p-4 max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase">OT-{String(ordenDetalle.numero_orden).padStart(5, '0')}</div>
+                <div className="text-[#0F3A42] font-bold text-sm">{ordenDetalle.titulo}</div>
+              </div>
+              <button onClick={() => setOrdenDetalle(null)} className="text-[#7A9EA5] text-xs font-bold">CERRAR</button>
+            </div>
+
+            <div className="overflow-y-auto flex-1">
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2">
+                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Estado</div>
+                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5 capitalize">{ordenDetalle.estado}</div>
+                </div>
+                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2">
+                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Prioridad</div>
+                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5 capitalize">{ordenDetalle.prioridad}</div>
+                </div>
+                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2">
+                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Tipo</div>
+                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5">{tipoLabel(ordenDetalle.tipo)}</div>
+                </div>
+                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2">
+                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Origen</div>
+                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5 capitalize">{ordenDetalle.origen}</div>
+                </div>
+              </div>
+
+              {(ordenDetalle.km || ordenDetalle.ubicacion) && (
+                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2 mb-3">
+                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Ubicación</div>
+                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5">
+                    {ordenDetalle.km ? `Km ${ordenDetalle.km}` : ''}{ordenDetalle.ubicacion ? ` · ${ordenDetalle.ubicacion}` : ''}
+                  </div>
+                </div>
+              )}
+
+              {ordenDetalle.descripcion && (
+                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2 mb-3">
+                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Descripción</div>
+                  <div className="text-[#0F3A42] text-sm mt-0.5">{ordenDetalle.descripcion}</div>
+                </div>
+              )}
+
+              {ordenDetalle.tecnicos.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-1">Técnicos</div>
+                  {ordenDetalle.tecnicos.map((t: any) => (
+                    <div key={t.id} className="flex items-center justify-between bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 mb-1">
+                      <span className="text-[#0F3A42] text-sm">{t.profiles?.nombre}</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${t.cerro ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#E8E8E6] text-[#5F5E5A]'}`}>
+                        {t.cerro ? 'Cerró' : 'Pendiente'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {ordenDetalle.materiales.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-1">Materiales</div>
+                  {ordenDetalle.materiales.map((m: any) => (
+                    <div key={m.id} className="flex items-center justify-between bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 mb-1">
+                      <span className="text-[#0F3A42] text-sm">{m.materiales?.nombre}</span>
+                      <span className="text-[#7A9EA5] text-xs">{m.cantidad_solicitada} {m.materiales?.unidad}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {ordenDetalle.pedidos.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-1">Pedidos a pañol</div>
+                  {ordenDetalle.pedidos.map((p: any) => (
+                    <div key={p.id} className="flex items-center justify-between bg-[#FCEBEB] border border-[#F09595] rounded-lg px-3 py-2 mb-1">
+                      <span className="text-[#A32D2D] text-sm">{p.material_nombre}</span>
+                      <span className="text-[#A32D2D] text-xs font-bold">{p.estado}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {ordenDetalle.fecha_programada && (
+                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2 mb-3">
+                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Fecha programada</div>
+                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5">{ordenDetalle.fecha_programada}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {/* PANEL STOCK — overlay */}
       {showStock && (
         <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
@@ -460,7 +574,7 @@ export default function DashboardSupervisorElectrico() {
           </div>
         ) : (
           ordenes.map(o => (
-            <div key={o.id} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2">
+            <div key={o.id} onClick={() => abrirDetalle(o)} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#F0FAFB]">
               <div className="flex justify-between items-start mb-1">
                 <div className="flex-1">
                   <div className="text-[#0F3A42] font-bold text-sm">{o.titulo}</div>
