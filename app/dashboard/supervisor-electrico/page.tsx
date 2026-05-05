@@ -28,7 +28,11 @@ const [ordenDetalle, setOrdenDetalle] = useState<any>(null)
     tipo: 'correctivo_programado',
     origen: 'supervisor',
     nomenclatura: '',
-    fecha_programada: new Date().toISOString().split('T')[0]
+    fecha_programada: new Date().toISOString().split('T')[0],
+    balizamiento_desde: '',
+    balizamiento_hasta: '',
+    balizamiento_hora_ingreso: '',
+    balizamiento_hora_egreso: ''
   })
   const [nomenclaturas, setNomenclaturas] = useState<any[]>([])
 
@@ -140,7 +144,10 @@ async function abrirForm() {
         estado: 'pendiente',
         prioridad: form.prioridad,
         tipo: form.tipo,
-        nomenclatura: form.nomenclatura || null,
+        balizamiento_desde: form.balizamiento_desde ? parseFloat(form.balizamiento_desde) : null,
+        balizamiento_hasta: form.balizamiento_hasta ? parseFloat(form.balizamiento_hasta) : null,
+        balizamiento_hora_ingreso: form.balizamiento_hora_ingreso || null,
+        balizamiento_hora_egreso: form.balizamiento_hora_egreso || null,
         km: form.km ? parseFloat(form.km) : null,
         ubicacion: form.ubicacion,
         asignado_a: tecnicosSeleccionados[0],
@@ -191,7 +198,11 @@ async function abrirForm() {
         titulo: '', descripcion: '', km: '', ubicacion: '',
         prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor',
         nomenclatura: '',
-        fecha_programada: new Date().toISOString().split('T')[0]
+        fecha_programada: new Date().toISOString().split('T')[0],
+        balizamiento_desde: '',
+        balizamiento_hasta: '',
+        balizamiento_hora_ingreso: '',
+        balizamiento_hora_egreso: ''
       })
       await cargarDatos(perfil.turno)
     }
@@ -560,7 +571,51 @@ async function abrirForm() {
             >
               + STOCK
             </button>
-
+{nomenclaturas.find(n => n.codigo === form.nomenclatura)?.pide_balizamiento && (
+              <div className="bg-[#FFF8E8] border border-[#E8C97A] rounded-lg p-3 mb-3">
+                <div className="text-[#854F0B] text-xs font-bold uppercase tracking-widest mb-2">⚠️ Balizamiento requerido</div>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Desde km</div>
+                    <input
+                      className="w-full bg-white border border-[#E8C97A] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+                      placeholder="38.0"
+                      value={form.balizamiento_desde}
+                      onChange={e => setForm({ ...form, balizamiento_desde: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Hasta km</div>
+                    <input
+                      className="w-full bg-white border border-[#E8C97A] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+                      placeholder="38.5"
+                      value={form.balizamiento_hasta}
+                      onChange={e => setForm({ ...form, balizamiento_hasta: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Hora ingreso</div>
+                    <input
+                      type="time"
+                      className="w-full bg-white border border-[#E8C97A] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+                      value={form.balizamiento_hora_ingreso}
+                      onChange={e => setForm({ ...form, balizamiento_hora_ingreso: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Egreso probable</div>
+                    <input
+                      type="time"
+                      className="w-full bg-white border border-[#E8C97A] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+                      value={form.balizamiento_hora_egreso}
+                      onChange={e => setForm({ ...form, balizamiento_hora_egreso: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Fecha programada</div>
             <input
               type="date"
