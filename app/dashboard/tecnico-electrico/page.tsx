@@ -24,15 +24,38 @@ export default function DashboardTecnicoElectrico() {
   }, [])
 
   async function cargarOrdenes(userId: string) {
-    const { data } = await supabase
+    // ordenes donde es responsable principal
+    const { data: ords1 } = await supabase
       .from('ordenes_trabajo')
       .select('*')
       .eq('asignado_a', userId)
       .in('estado', ['pendiente', 'en_curso'])
-      .order('created_at', { ascending: false })
-    setOrdenes(data || [])
-    const activa = data?.find((o: any) => o.estado === 'en_curso')
-    setOrdenActiva(activa || data?.[0] || null)
+
+    // ordenes donde figura en orden_tecnicos
+    const { data: ots } = await supabase
+      .from('orden_tecnicos')
+      .select('orden_id')
+      .eq('tecnico_id', userId)
+
+    const ids = (ots || []).map((o: any) => o.orden_id)
+    let ords2: any[] = []
+    if (ids.length > 0) {
+      const { data } = await supabase
+        .from('ordenes_trabajo')
+        .select('*')
+        .in('id', ids)
+        .in('estado', ['pendiente', 'en_curso'])
+      ords2 = data || []
+    }
+
+    // unir sin duplicados
+    const todas = [...(ords1 || []), ...ords2]
+    const unicas = todas.filter((o, i, arr) => arr.findIndex(x => x.id === o.id) === i)
+    const ordenadas = unicas.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+    setOrdenes(ordenadas)
+    const activa = ordenadas.find((o: any) => o.estado === 'en_curso')
+    setOrdenActiva(activa || ordenadas[0] || null)
   }
 
   async function abrirDetalle(orden: any) {
