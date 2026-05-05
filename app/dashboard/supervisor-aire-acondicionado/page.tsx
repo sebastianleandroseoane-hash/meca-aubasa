@@ -118,8 +118,17 @@ function cambiarCantidad(id: string, valor: number) {
     )
   }
 
+  const [errores, setErrores] = useState<string[]>([])
+
   async function crearOrden() {
-    if (!form.titulo || tecnicosSeleccionados.length === 0) return
+    const nuevosErrores: string[] = []
+    if (!form.titulo) nuevosErrores.push('titulo')
+    if (!form.tipo) nuevosErrores.push('tipo')
+    if (!form.origen) nuevosErrores.push('origen')
+    if (!form.nomenclatura) nuevosErrores.push('nomenclatura')
+    if (tecnicosSeleccionados.length === 0) nuevosErrores.push('tecnicos')
+    setErrores(nuevosErrores)
+    if (nuevosErrores.length > 0) return
     setLoading(true)
 
     const { data: nuevaOrden, error } = await supabase
@@ -392,8 +401,7 @@ setMaterialesOrden([])
 
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Título *</div>
             <input
-              className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
-              placeholder="Ej: Mantenimiento split Km 12"
+              className={`w-full bg-[#F0FAFB] border rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none ${errores.includes('titulo') ? 'border-[#E24B4A] bg-[#FFF8F8]' : 'border-[#B2E0E8]'}`}
               value={form.titulo}
               onChange={e => setForm({ ...form, titulo: e.target.value })}
             />
@@ -402,7 +410,7 @@ setMaterialesOrden([])
               <div>
                 <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Tipo *</div>
                 <select
-                  className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+                  className={`w-full bg-[#F0FAFB] border rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none ${errores.includes('tipo') ? 'border-[#E24B4A] bg-[#FFF8F8]' : 'border-[#B2E0E8]'}`}
                   value={form.tipo}
                   onChange={e => setForm({ ...form, tipo: e.target.value })}
                 >
@@ -415,7 +423,7 @@ setMaterialesOrden([])
               <div>
                 <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Origen *</div>
                 <select
-                  className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+                  className={`w-full bg-[#F0FAFB] border rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none ${errores.includes('origen') ? 'border-[#E24B4A] bg-[#FFF8F8]' : 'border-[#B2E0E8]'}`}
                   value={form.origen}
                   onChange={e => setForm({ ...form, origen: e.target.value })}
                 >
@@ -431,7 +439,7 @@ setMaterialesOrden([])
             </div>
 <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Nomenclatura *</div>
             <select
-              className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
+              className={`w-full bg-[#F0FAFB] border rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none ${errores.includes('nomenclatura') ? 'border-[#E24B4A] bg-[#FFF8F8]' : 'border-[#B2E0E8]'}`}
               value={form.nomenclatura}
               onChange={e => setForm({ ...form, nomenclatura: e.target.value })}
             >
@@ -483,8 +491,9 @@ setMaterialesOrden([])
 
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">
               Técnicos asignados * {tecnicosSeleccionados.length > 0 && <span className="text-[#1ABBD6]">({tecnicosSeleccionados.length} seleccionados)</span>}
+              {errores.includes('tecnicos') && <span className="text-[#E24B4A] ml-2">Seleccioná al menos uno</span>}
             </div>
-            <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg mb-3 overflow-hidden">
+            <div className={`bg-[#F0FAFB] border rounded-lg mb-3 overflow-hidden ${errores.includes('tecnicos') ? 'border-[#E24B4A]' : 'border-[#B2E0E8]'}`}>
               {tecnicos.length === 0 ? (
                 <div className="px-3 py-2 text-sm text-[#7A9EA5]">No hay técnicos disponibles en este turno</div>
               ) : (
