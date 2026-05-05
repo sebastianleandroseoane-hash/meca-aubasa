@@ -10,7 +10,7 @@ export default function DashboardPanolero() {
   const [materiales, setMateriales] = useState<any[]>([])
   const [movimientos, setMovimientos] = useState<any[]>([])
   const [busqueda, setBusqueda] = useState('')
-  const [categoria, setCategoria] = useState('electrico')
+  const [categoria, setCategoria] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -71,18 +71,45 @@ export default function DashboardPanolero() {
 
       <div className="px-4 pt-3">
 
-        {/* SELECTOR CATEGORIA */}
-        <div className="flex gap-2 mb-3">
-          {['electrico', 'ac', 'general'].map(cat => (
-            <button
-              key={cat}
-              onClick={() => setCategoria(cat)}
-              className={`flex-1 text-xs font-bold py-2 rounded-lg uppercase tracking-wide ${categoria === cat ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}
-            >
-              {cat === 'electrico' ? 'Elec.' : cat === 'ac' ? 'AC' : 'General'}
-            </button>
-          ))}
-        </div>
+        {!categoria ? (
+          <>
+            <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-3">Seleccioná un pañol</div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button onClick={() => setCategoria('electrico')}
+                className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-left active:bg-[#F0FAFB]">
+                <div className="text-2xl mb-1">⚡</div>
+                <div className="text-[#0F3A42] font-bold text-sm">Pañol Eléctrico</div>
+                <div className="text-[#7A9EA5] text-xs mt-0.5">{materiales.filter(m => m.categoria === 'electrico').length} ítems</div>
+              </button>
+              <button onClick={() => setCategoria('ac')}
+                className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-left active:bg-[#F0FAFB]">
+                <div className="text-2xl mb-1">❄️</div>
+                <div className="text-[#0F3A42] font-bold text-sm">Pañol AC</div>
+                <div className="text-[#7A9EA5] text-xs mt-0.5">{materiales.filter(m => m.categoria === 'ac').length} ítems</div>
+              </button>
+              <button onClick={() => setCategoria('general')}
+                className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-left active:bg-[#F0FAFB]">
+                <div className="text-2xl mb-1">🔧</div>
+                <div className="text-[#0F3A42] font-bold text-sm">Pañol General</div>
+                <div className="text-[#7A9EA5] text-xs mt-0.5">{materiales.filter(m => m.categoria === 'general').length} ítems</div>
+              </button>
+              <button onClick={() => setCategoria('edificio')}
+                className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-left active:bg-[#F0FAFB]">
+                <div className="text-2xl mb-1">🏢</div>
+                <div className="text-[#0F3A42] font-bold text-sm">Pañol Edificios</div>
+                <div className="text-[#7A9EA5] text-xs mt-0.5">{materiales.filter(m => m.categoria === 'edificio').length} ítems</div>
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 mb-3">
+              <button onClick={() => setCategoria(null)}
+                className="text-[#1ABBD6] text-xs font-bold">← Volver</button>
+              <div className="text-[#0F3A42] font-bold text-sm">
+                {categoria === 'electrico' ? 'Pañol Eléctrico' : categoria === 'ac' ? 'Pañol AC' : categoria === 'general' ? 'Pañol General' : 'Pañol Edificios'}
+              </div>
+            </div>
 
         {/* STATS */}
         <div className="grid grid-cols-3 gap-2 mb-3">
@@ -118,23 +145,35 @@ export default function DashboardPanolero() {
             Sin resultados
           </div>
         ) : (
-          materialesFiltrados.map(m => {
-            const critico = m.stock_minimo > 0 && m.stock_actual <= m.stock_minimo
-            const bajo = m.stock_minimo > 0 && m.stock_actual > m.stock_minimo && m.stock_actual <= m.stock_minimo * 2
-            return (
-              <div key={m.id} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 flex justify-between items-center">
-                <div className="flex-1">
-                  <div className="text-[#0F3A42] font-bold text-sm">{m.nombre}</div>
-                  <div className="text-[#7A9EA5] text-xs mt-0.5">
-                    {m.stock_actual} {m.unidad}
+          <div className="bg-white border border-[#B2E0E8] rounded-xl overflow-hidden mb-3">
+            <div className="grid grid-cols-12 px-3 py-1.5 border-b border-[#E8F4F7] bg-[#F0FAFB]">
+              <div className="col-span-6 text-[#7A9EA5] text-xs font-bold uppercase tracking-widest">Material</div>
+              <div className="col-span-2 text-[#7A9EA5] text-xs font-bold uppercase tracking-widest text-right">Stock</div>
+              <div className="col-span-2 text-[#7A9EA5] text-xs font-bold uppercase tracking-widest text-right">Mín</div>
+              <div className="col-span-2 text-[#7A9EA5] text-xs font-bold uppercase tracking-widest text-right">Est.</div>
+            </div>
+            {materialesFiltrados.map((m, i) => {
+              const critico = m.stock_minimo > 0 && m.stock_actual <= m.stock_minimo
+              const bajo = m.stock_minimo > 0 && m.stock_actual > m.stock_minimo && m.stock_actual <= m.stock_minimo * 2
+              return (
+                <div key={m.id} className={`grid grid-cols-12 px-3 py-2 items-center ${i < materialesFiltrados.length - 1 ? 'border-b border-[#E8F4F7]' : ''} ${critico ? 'bg-[#FFF8F8]' : bajo ? 'bg-[#FFFBF2]' : ''}`}>
+                  <div className="col-span-6">
+                    <div className="text-[#0F3A42] text-xs font-medium leading-tight">{m.nombre}</div>
+                    <div className="text-[#7A9EA5] text-xs">{m.unidad}</div>
+                  </div>
+                  <div className={`col-span-2 text-xs font-bold text-right ${critico ? 'text-[#A32D2D]' : bajo ? 'text-[#854F0B]' : 'text-[#0F8FAA]'}`}>
+                    {m.stock_actual}
+                  </div>
+                  <div className="col-span-2 text-xs text-[#7A9EA5] text-right">{m.stock_minimo}</div>
+                  <div className="col-span-2 text-right">
+                    {critico && <span className="bg-[#FCEBEB] text-[#A32D2D] text-xs font-bold px-1.5 py-0.5 rounded-full">!</span>}
+                    {bajo && <span className="bg-[#FAEEDA] text-[#854F0B] text-xs font-bold px-1.5 py-0.5 rounded-full">↓</span>}
+                    {!critico && !bajo && <span className="bg-[#D6F4F8] text-[#0F8FAA] text-xs font-bold px-1.5 py-0.5 rounded-full">✓</span>}
                   </div>
                 </div>
-                {critico && <span className="bg-[#FCEBEB] text-[#A32D2D] text-xs font-bold px-2 py-0.5 rounded-full ml-2">Crítico</span>}
-                {bajo && <span className="bg-[#FAEEDA] text-[#854F0B] text-xs font-bold px-2 py-0.5 rounded-full ml-2">Bajo</span>}
-                {!critico && !bajo && <span className="bg-[#D6F4F8] text-[#0F8FAA] text-xs font-bold px-2 py-0.5 rounded-full ml-2">OK</span>}
-              </div>
-            )
-          })
+              )
+            })}
+          </div>
         )}
 
         {/* ULTIMOS MOVIMIENTOS */}
@@ -158,6 +197,8 @@ export default function DashboardPanolero() {
         )}
 
         <div className="h-24"></div>
+          </>
+        )}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-[#0F3A42] border-t border-[#1A4A54] flex justify-around py-2">
