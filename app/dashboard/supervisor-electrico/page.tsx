@@ -27,8 +27,10 @@ const [ordenDetalle, setOrdenDetalle] = useState<any>(null)
     prioridad: 'normal',
     tipo: 'correctivo_programado',
     origen: 'supervisor',
+    nomenclatura: '',
     fecha_programada: new Date().toISOString().split('T')[0]
   })
+  const [nomenclaturas, setNomenclaturas] = useState<any[]>([])
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -69,7 +71,17 @@ async function abrirDetalle(orden: any) {
       .rpc('get_tecnicos_activos', { p_sector: 'electrico', p_turno: turno })
     setTecnicos(tecs || [])
   }
-
+async function abrirForm() {
+    if (nomenclaturas.length === 0) {
+      const { data } = await supabase
+        .from('nomenclaturas')
+        .select('*')
+        .eq('sector', 'electrico')
+        .order('codigo', { ascending: true })
+      setNomenclaturas(data || [])
+    }
+    setShowForm(true)
+  }
   async function abrirStock() {
     if (materiales.length === 0) {
       const { data } = await supabase
@@ -128,7 +140,7 @@ async function abrirDetalle(orden: any) {
         estado: 'pendiente',
         prioridad: form.prioridad,
         tipo: form.tipo,
-        origen: form.origen,
+        nomenclatura: form.nomenclatura || null,
         km: form.km ? parseFloat(form.km) : null,
         ubicacion: form.ubicacion,
         asignado_a: tecnicosSeleccionados[0],
@@ -178,6 +190,7 @@ async function abrirDetalle(orden: any) {
       setForm({
         titulo: '', descripcion: '', km: '', ubicacion: '',
         prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor',
+        nomenclatura: '',
         fecha_programada: new Date().toISOString().split('T')[0]
       })
       await cargarDatos(perfil.turno)
@@ -385,7 +398,7 @@ async function abrirDetalle(orden: any) {
 
         {!showForm ? (
           <button
-            onClick={() => setShowForm(true)}
+            onClick={abrirForm}
             className="w-full bg-[#1ABBD6] text-white font-bold text-sm tracking-widest rounded-xl py-3 mb-3"
           >
             + NUEVA ORDEN DE TRABAJO
@@ -433,7 +446,17 @@ async function abrirDetalle(orden: any) {
                 </select>
               </div>
             </div>
-
+<div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Nomenclatura *</div>
+            <select
+              className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
+              value={form.nomenclatura}
+              onChange={e => setForm({ ...form, nomenclatura: e.target.value })}
+            >
+              <option value="">Seleccioná una categoría</option>
+              {nomenclaturas.map(n => (
+                <option key={n.id} value={n.codigo}>{n.codigo} · {n.descripcion}</option>
+              ))}
+            </select>
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Descripción</div>
             <textarea
               className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
