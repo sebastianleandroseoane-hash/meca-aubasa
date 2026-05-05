@@ -156,8 +156,17 @@ async function abrirForm() {
     )
   }
 
+  const [errores, setErrores] = useState<string[]>([])
+
   async function crearOrden() {
-    if (!form.titulo || tecnicosSeleccionados.length === 0) return
+    const nuevosErrores: string[] = []
+    if (!form.titulo) nuevosErrores.push('titulo')
+    if (!form.tipo) nuevosErrores.push('tipo')
+    if (!form.origen) nuevosErrores.push('origen')
+    if (!form.nomenclatura) nuevosErrores.push('nomenclatura')
+    if (tecnicosSeleccionados.length === 0) nuevosErrores.push('tecnicos')
+    setErrores(nuevosErrores)
+    if (nuevosErrores.length > 0) return
     setLoading(true)
 
     const { data: nuevaOrden, error } = await supabase
@@ -498,7 +507,7 @@ function PropuestaItem({ propuesta, onResolver }: { propuesta: any, onResolver: 
 
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Título *</div>
             <input
-              className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
+              className={`w-full bg-[#F0FAFB] border rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none ${errores.includes('titulo') ? 'border-[#E24B4A] bg-[#FFF8F8]' : 'border-[#B2E0E8]'}`}
               placeholder="Ej: Reemplazo luminaria LED"
               value={form.titulo}
               onChange={e => setForm({ ...form, titulo: e.target.value })}
@@ -506,9 +515,9 @@ function PropuestaItem({ propuesta, onResolver }: { propuesta: any, onResolver: 
 
             <div className="grid grid-cols-2 gap-2 mb-3">
               <div>
-                <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Tipo *</div>
+                <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Origen *</div>
                 <select
-                  className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+                  className={`w-full bg-[#F0FAFB] border rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none ${errores.includes('origen') ? 'border-[#E24B4A] bg-[#FFF8F8]' : 'border-[#B2E0E8]'}`}
                   value={form.tipo}
                   onChange={e => setForm({ ...form, tipo: e.target.value })}
                 >
@@ -537,7 +546,7 @@ function PropuestaItem({ propuesta, onResolver }: { propuesta: any, onResolver: 
             </div>
 <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Nomenclatura *</div>
             <select
-              className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
+              className={`w-full bg-[#F0FAFB] border rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none ${errores.includes('nomenclatura') ? 'border-[#E24B4A] bg-[#FFF8F8]' : 'border-[#B2E0E8]'}`}
               value={form.nomenclatura}
               onChange={e => setForm({ ...form, nomenclatura: e.target.value })}
             >
