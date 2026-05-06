@@ -31,6 +31,8 @@ const [materialesOrden, setMaterialesOrden] = useState<{id: string, nombre: stri
     fecha_programada: new Date().toISOString().split('T')[0]
   })
   const [nomenclaturas, setNomenclaturas] = useState<any[]>([])
+  const [solicitudes, setSolicitudes] = useState<any[]>([])
+  const [showSolicitudes, setShowSolicitudes] = useState(false)
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -39,6 +41,7 @@ const [materialesOrden, setMaterialesOrden] = useState<{id: string, nombre: stri
       const turnoEfectivo = (p.rol === 'superadmin' || p.rol === 'jefe') ? '1' : p.turno
       setPerfil(p)
       await cargarDatos(turnoEfectivo)
+      await cargarSolicitudes()
     })
   }, [])
 
@@ -60,6 +63,23 @@ const [materialesOrden, setMaterialesOrden] = useState<{id: string, nombre: stri
 
     setOrdenDetalle({ ...orden, tecnicos: tecnicos || [], materiales: materiales || [], pedidos: pedidos || [] })
   }
+  async function cargarSolicitudes() {
+    const { data } = await supabase
+      .from('solicitudes_insumos')
+      .select('*, materiales!solicitudes_insumos_material_id_fkey(nombre, unidad), profiles!solicitudes_insumos_tallerista_id_fkey(nombre, sector_trabajo), ordenes_trabajo!solicitudes_insumos_orden_trabajo_id_fkey(titulo, numero_orden)')
+      .eq('estado', 'pendiente')
+      .order('created_at', { ascending: false })
+    setSolicitudes((data || []).filter((s: any) => s.profiles?.sector_trabajo === 'ac'))
+  }
+
+  async function resolverSolicitud(id: string, decision: 'autorizada' | 'rechazada', obs: string) {
+    await supabase
+      .from('solicitudes_insumos')
+      .update({ estado: decision, supervisor_id: perfil.id, observaciones: obs, resuelta_at: new Date().toISOString() })
+      .eq('id', id)
+    await cargarSolicitudes()
+  }
+
   async function cargarDatos(turno: string) {
     const { data: ords } = await supabase
       .from('ordenes_trabajo')
@@ -220,6 +240,39 @@ setMaterialesOrden([])
     if (tipo === 'correctivo_critico') return 'bg-[#FCEBEB] text-[#A32D2D]'
     if (tipo === 'correctivo_programado') return 'bg-[#FAEEDA] text-[#854F0B]'
     return 'bg-[#D6F4F8] text-[#0F8FAA]'
+  }
+
+  function SolicitudItem({ solicitud, onResolver }: { solicitud: any, onResolver: any }) {
+    const [obs, setObs] = useState('')
+    const [expandido, setExpandido] = useState(false)
+    return (
+      <div className="bg-white border border-[#E8C97A] rounded-lg p-3 mb-2">
+        <div className="flex justify-between items-start mb-1" onClick={() => setExpandido(!expandido)}>
+          <div className="flex-1">
+            <div className="text-[#7A9EA5] text-xs">{solicitud.profiles?.nombre} · OT-{String(solicitud.ordenes_trabajo?.numero_orden || 0).padStart(5, '0')}</div>
+            <div className="text-[#0F3A42] text-sm font-medium">{solicitud.materiales?.nombre}</div>
+            <div className="text-[#7A9EA5] text-xs">Cantidad: {solicitud.cantidad} {solicitud.materiales?.unidad}</div>
+          </div>
+          <span className="text-[#854F0B] text-xs ml-2">{expandido ? '▲' : '▼'}</span>
+        </div>
+        {expandido && (
+          <div className="mt-2">
+            <input
+              className="w-full bg-[#F0FAFB] border border-[#E8C97A] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-2 outline-none"
+              placeholder="Observación (opcional)"
+              value={obs}
+              onChange={e => setObs(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button onClick={() => onResolver(solicitud.id, 'autorizada', obs)}
+                className="flex-1 bg-[#3B6D11] text-white font-bold text-xs py-2 rounded-lg">AUTORIZAR</button>
+              <button onClick={() => onResolver(solicitud.id, 'rechazada', obs)}
+                className="flex-1 bg-[#E24B4A] text-white font-bold text-xs py-2 rounded-lg">RECHAZAR</button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
   }
 
   if (!perfil) return (
@@ -398,6 +451,22 @@ setMaterialesOrden([])
   </div>
 )}
       <div className="px-4 pt-3">
+
+        {solicitudes.length > 0 && (
+          <div className="bg-[#FAEEDA] border border-[#E8C97A] rounded-xl p-3 mb-3">
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-[#854F0B] text-xs font-bold uppercase tracking-widest">
+                ⚠️ Solicitudes de insumos · {solicitudes.length}
+              </div>
+              <button onClick={() => setShowSolicitudes(!showSolicitudes)} className="text-[#854F0B] text-xs font-bold">
+                {showSolicitudes ? 'OCULTAR' : 'VER'}
+              </button>
+            </div>
+            {showSolicitudes && solicitudes.map(s => (
+              <SolicitudItem key={s.id} solicitud={s} onResolver={resolverSolicitud} />
+            ))}
+          </div>
+        )}
 
         {!showForm ? (
           <button
