@@ -453,6 +453,17 @@ function PropuestaItem({ propuesta, onResolver }: { propuesta: any, onResolver: 
               autoFocus
             />
 
+            {materialesOrden.length > 0 && (
+              <div className="bg-[#D6F4F8] border border-[#1ABBD6] rounded-lg px-3 py-2 mb-2">
+                <div className="text-[#0F3A42] text-xs font-bold mb-1">Agregados ({materialesOrden.length})</div>
+                <div className="flex flex-wrap gap-1">
+                  {materialesOrden.map(m => (
+                    <span key={m.id} className="text-xs bg-white border border-[#B2E0E8] text-[#0F3A42] px-2 py-0.5 rounded-full">{m.nombre} ×{m.cantidad}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="overflow-y-auto flex-1">
               {materialesFiltrados.length === 0 ? (
                 <div className="text-center text-[#7A9EA5] text-sm py-4">Sin resultados</div>
@@ -598,8 +609,9 @@ function PropuestaItem({ propuesta, onResolver }: { propuesta: any, onResolver: 
 
             <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">
               Técnicos asignados * {tecnicosSeleccionados.length > 0 && <span className="text-[#1ABBD6]">({tecnicosSeleccionados.length} seleccionados)</span>}
+              {errores.includes('tecnicos') && <span className="text-[#E24B4A] ml-2">— Seleccioná al menos uno</span>}
             </div>
-            <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg mb-3 overflow-hidden">
+            <div className={`bg-[#F0FAFB] border rounded-lg mb-3 overflow-hidden ${errores.includes('tecnicos') ? 'border-[#E24B4A]' : 'border-[#B2E0E8]'}`}>
               {tecnicos.length === 0 ? (
                 <div className="px-3 py-2 text-sm text-[#7A9EA5]">No hay técnicos disponibles en este turno</div>
               ) : (

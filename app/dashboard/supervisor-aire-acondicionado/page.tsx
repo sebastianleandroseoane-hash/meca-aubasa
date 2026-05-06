@@ -362,6 +362,17 @@ setMaterialesOrden([])
         autoFocus
       />
 
+      {materialesOrden.length > 0 && (
+        <div className="bg-[#D6F4F8] border border-[#1ABBD6] rounded-lg px-3 py-2 mb-2">
+          <div className="text-[#0F3A42] text-xs font-bold mb-1">Agregados ({materialesOrden.length})</div>
+          <div className="flex flex-wrap gap-1">
+            {materialesOrden.map(m => (
+              <span key={m.id} className="text-xs bg-white border border-[#B2E0E8] text-[#0F3A42] px-2 py-0.5 rounded-full">{m.nombre} ×{m.cantidad}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="overflow-y-auto flex-1">
         {materialesFiltrados.length === 0 ? (
           <div className="text-center text-[#7A9EA5] text-sm py-4">Sin resultados</div>
