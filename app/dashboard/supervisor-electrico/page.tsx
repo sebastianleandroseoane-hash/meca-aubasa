@@ -8,11 +8,11 @@ export default function DashboardSupervisorElectrico() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<any>(null)
   const [ordenes, setOrdenes] = useState<any[]>([])
-  const [propuestasTaller, setPropuestasTaller] = useState<any[]>([])
-  const [showPropuestas, setShowPropuestas] = useState(false)
+  const [solicitudes, setSolicitudes] = useState<any[]>([])
+  const [showSolicitudes, setShowSolicitudes] = useState(false)
   const [tecnicos, setTecnicos] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
-const [ordenDetalle, setOrdenDetalle] = useState<any>(null)
+  const [ordenDetalle, setOrdenDetalle] = useState<any>(null)
   const [showStock, setShowStock] = useState(false)
   const [loading, setLoading] = useState(false)
   const [tecnicosSeleccionados, setTecnicosSeleccionados] = useState<string[]>([])
@@ -45,7 +45,7 @@ const [ordenDetalle, setOrdenDetalle] = useState<any>(null)
       const turnoEfectivo = (p.rol === 'superadmin' || p.rol === 'jefe') ? '1' : p.turno
       setPerfil(p)
       await cargarDatos(turnoEfectivo)
-      await cargarPropuestas()
+      await cargarSolicitudes()
     })
   }, [])
 async function abrirDetalle(orden: any) {
@@ -66,27 +66,21 @@ async function abrirDetalle(orden: any) {
 
     setOrdenDetalle({ ...orden, tecnicos: tecnicos || [], materiales: materiales || [], pedidos: pedidos || [] })
   }
-  async function cargarPropuestas() {
+  async function cargarSolicitudes() {
     const { data } = await supabase
-      .from('propuestas_taller')
-      .select('*, profiles!propuestas_taller_tallerista_id_fkey(nombre)')
-      .eq('sector', 'electrico')
+      .from('solicitudes_insumos')
+      .select('*, materiales!solicitudes_insumos_material_id_fkey(nombre, unidad), profiles!solicitudes_insumos_tallerista_id_fkey(nombre, sector_trabajo), ordenes_trabajo!solicitudes_insumos_orden_trabajo_id_fkey(titulo, numero_orden)')
       .eq('estado', 'pendiente')
       .order('created_at', { ascending: false })
-    setPropuestasTaller(data || [])
+    setSolicitudes((data || []).filter((s: any) => s.profiles?.sector_trabajo === 'electrico'))
   }
 
-  async function resolverPropuesta(id: string, decision: 'aprobada' | 'rechazada', obs: string) {
+  async function resolverSolicitud(id: string, decision: 'autorizada' | 'rechazada', obs: string) {
     await supabase
-      .from('propuestas_taller')
-      .update({
-        estado: decision,
-        supervisor_id: perfil.id,
-        observaciones_supervisor: obs,
-        resuelta_at: new Date().toISOString()
-      })
+      .from('solicitudes_insumos')
+      .update({ estado: decision, supervisor_id: perfil.id, observaciones: obs, resuelta_at: new Date().toISOString() })
       .eq('id', id)
-    await cargarPropuestas()
+    await cargarSolicitudes()
   }
   async function cargarDatos(turno: string) {
     const { data: ords } = await supabase
@@ -270,16 +264,16 @@ async function abrirForm() {
     if (tipo === 'correctivo_programado') return 'bg-[#FAEEDA] text-[#854F0B]'
     return 'bg-[#D6F4F8] text-[#0F8FAA]'
   }
-function PropuestaItem({ propuesta, onResolver }: { propuesta: any, onResolver: any }) {
+function SolicitudItem({ solicitud, onResolver }: { solicitud: any, onResolver: any }) {
     const [obs, setObs] = useState('')
     const [expandido, setExpandido] = useState(false)
     return (
       <div className="bg-white border border-[#E8C97A] rounded-lg p-3 mb-2">
         <div className="flex justify-between items-start mb-1" onClick={() => setExpandido(!expandido)}>
           <div className="flex-1">
-            <div className="text-[#7A9EA5] text-xs">PT-{String(propuesta.numero_propuesta).padStart(4, '0')} · {propuesta.profiles?.nombre}</div>
-            <div className="text-[#0F3A42] text-sm font-medium">{propuesta.descripcion}</div>
-            {propuesta.materiales_descripcion && <div className="text-[#7A9EA5] text-xs mt-0.5">Materiales: {propuesta.materiales_descripcion}</div>}
+            <div className="text-[#7A9EA5] text-xs">{solicitud.profiles?.nombre} · OT-{String(solicitud.ordenes_trabajo?.numero_orden || 0).padStart(5, '0')}</div>
+            <div className="text-[#0F3A42] text-sm font-medium">{solicitud.materiales?.nombre}</div>
+            <div className="text-[#7A9EA5] text-xs">Cantidad: {solicitud.cantidad} {solicitud.materiales?.unidad}</div>
           </div>
           <span className="text-[#854F0B] text-xs ml-2">{expandido ? '▲' : '▼'}</span>
         </div>
@@ -292,18 +286,10 @@ function PropuestaItem({ propuesta, onResolver }: { propuesta: any, onResolver: 
               onChange={e => setObs(e.target.value)}
             />
             <div className="flex gap-2">
-              <button
-                onClick={() => onResolver(propuesta.id, 'aprobada', obs)}
-                className="flex-1 bg-[#3B6D11] text-white font-bold text-xs py-2 rounded-lg"
-              >
-                APROBAR
-              </button>
-              <button
-                onClick={() => onResolver(propuesta.id, 'rechazada', obs)}
-                className="flex-1 bg-[#E24B4A] text-white font-bold text-xs py-2 rounded-lg"
-              >
-                RECHAZAR
-              </button>
+              <button onClick={() => onResolver(solicitud.id, 'autorizada', obs)}
+                className="flex-1 bg-[#3B6D11] text-white font-bold text-xs py-2 rounded-lg">AUTORIZAR</button>
+              <button onClick={() => onResolver(solicitud.id, 'rechazada', obs)}
+                className="flex-1 bg-[#E24B4A] text-white font-bold text-xs py-2 rounded-lg">RECHAZAR</button>
             </div>
           </div>
         )}
@@ -490,18 +476,18 @@ function PropuestaItem({ propuesta, onResolver }: { propuesta: any, onResolver: 
       )}
 
       <div className="px-4 pt-3">
-{propuestasTaller.length > 0 && (
+{solicitudes.length > 0 && (
           <div className="bg-[#FAEEDA] border border-[#E8C97A] rounded-xl p-3 mb-3">
             <div className="flex justify-between items-center mb-2">
               <div className="text-[#854F0B] text-xs font-bold uppercase tracking-widest">
-                ⚠️ Propuestas del taller · {propuestasTaller.length}
+                ⚠️ Solicitudes de insumos · {solicitudes.length}
               </div>
-              <button onClick={() => setShowPropuestas(!showPropuestas)} className="text-[#854F0B] text-xs font-bold">
-                {showPropuestas ? 'OCULTAR' : 'VER'}
+              <button onClick={() => setShowSolicitudes(!showSolicitudes)} className="text-[#854F0B] text-xs font-bold">
+                {showSolicitudes ? 'OCULTAR' : 'VER'}
               </button>
             </div>
-            {showPropuestas && propuestasTaller.map(p => (
-              <PropuestaItem key={p.id} propuesta={p} onResolver={resolverPropuesta} />
+            {showSolicitudes && solicitudes.map(s => (
+              <SolicitudItem key={s.id} solicitud={s} onResolver={resolverSolicitud} />
             ))}
           </div>
         )}
