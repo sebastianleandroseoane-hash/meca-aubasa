@@ -30,11 +30,12 @@ export default function CheckinPage() {
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [error, setError] = useState('')
+  const [checkinExistente, setCheckinExistente] = useState<any>(null)
 
   useEffect(() => {
     getPerfil().then(p => {
       if (!p) { router.push('/'); return }
-      const rolesPermitidos = ['tecnico_electrico', 'tecnico_ac', 'tecnico_electrico_edificio', 'superadmin']
+      const rolesPermitidos = ['tecnico_electrico', 'tecnico_electrico_edificio', 'superadmin']
       if (!rolesPermitidos.includes(p.rol)) { router.push('/'); return }
       setPerfil({ id: p.id, full_name: p.nombre, turno: p.turno || '', modalidad: p.modalidad || '' })
     })
@@ -43,7 +44,24 @@ export default function CheckinPage() {
   useEffect(() => {
     if (!perfil) return
     const cajaAsignada = perfil.modalidad === 'guardia' ? 'guardia' : perfil.turno || ''
-    if (cajaAsignada) setCaja(cajaAsignada)
+    if (!cajaAsignada) return
+
+    const verificarCheckin = async () => {
+      const hoy = new Date().toISOString().split('T')[0]
+      const { data } = await supabase
+        .from('checkins_herramientas')
+        .select('id, profiles!checkins_herramientas_tecnico_id_fkey(nombre)')
+        .eq('caja', cajaAsignada)
+        .eq('fecha', hoy)
+        .single()
+
+      if (data) {
+        setCheckinExistente(data)
+      } else {
+        setCaja(cajaAsignada)
+      }
+    }
+    verificarCheckin()
   }, [perfil])
 
   useEffect(() => {
@@ -167,8 +185,25 @@ export default function CheckinPage() {
         </div>
       </div>
 
+      {/* Checkin ya realizado */}
+      {checkinExistente && (
+        <div style={{ background: '#fff', borderRadius: 12, padding: 24, border: '1px solid #B2E0E8', marginBottom: 16, textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+          <div style={{ color: '#0F3A42', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Checkin ya realizado hoy</div>
+          <div style={{ color: '#7A9EA5', fontSize: 13, marginBottom: 16 }}>
+            Esta caja fue chequeada por <strong>{checkinExistente.profiles?.nombre}</strong>
+          </div>
+          <button
+            onClick={() => router.back()}
+            style={{ background: '#1ABBD6', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
+          >
+            Volver al dashboard
+          </button>
+        </div>
+      )}
+
       {/* Caja asignada automáticamente */}
-      {!caja && (
+      {!caja && !checkinExistente && (
         <div style={{ background: '#fff', borderRadius: 12, padding: 20, border: '1px solid #B2E0E8', marginBottom: 16, textAlign: 'center' }}>
           <p style={{ color: '#888', fontSize: 13 }}>Cargando tu caja...</p>
         </div>
