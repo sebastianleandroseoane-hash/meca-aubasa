@@ -34,6 +34,8 @@ export default function CheckinPage() {
   useEffect(() => {
     getPerfil().then(p => {
       if (!p) { router.push('/'); return }
+      const rolesPermitidos = ['tecnico_electrico', 'tecnico_ac', 'tecnico_electrico_edificio', 'superadmin']
+      if (!rolesPermitidos.includes(p.rol)) { router.push('/'); return }
       setPerfil({ id: p.id, full_name: p.nombre, turno: p.turno || '', modalidad: p.modalidad || '' })
     })
   }, [])
@@ -177,7 +179,7 @@ export default function CheckinPage() {
         <>
           <div style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', border: '1px solid #B2E0E8', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: '#0F3A42', fontWeight: 700, fontSize: 14 }}>CAJA {caja.toUpperCase()} — {items.length} ítems</span>
-            <button onClick={() => { setCaja(''); setItems([]) }} style={{ background: 'none', border: 'none', color: '#1ABBD6', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>Cambiar</button>
+            
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
