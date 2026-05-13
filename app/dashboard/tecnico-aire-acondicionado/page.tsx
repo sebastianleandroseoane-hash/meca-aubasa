@@ -111,7 +111,12 @@ export default function DashboardTecnicoAC() {
             <div className="text-white font-bold text-lg tracking-wide">Técnico AC</div>
             <div className="text-[#7ADCE8] text-xs mt-0.5">{perfil.nombre} · Turno {perfil.turno}</div>
           </div>
-          <div className="bg-[#0A2830] text-[#7ADCE8] text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">TÉC·AC</div>
+          <div className="flex items-center gap-2">
+  <button onClick={() => router.push('/dashboard/checkin')}
+    className="bg-[#1ABBD6] text-white text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">
+    ✅ CHECKIN
+  </button>
+</div>
         </div>
       </div>
 

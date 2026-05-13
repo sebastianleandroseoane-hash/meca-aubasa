@@ -117,7 +117,12 @@ export default function DashboardTecnicoElectrico() {
             <div className="text-white font-bold text-lg tracking-wide">Buen día, {perfil.nombre.split(' ')[0]}</div>
             <div className="text-[#7ADCE8] text-xs mt-0.5">Técnico Eléctrico · Turno {perfil.turno}</div>
           </div>
-          <div className="bg-[#1ABBD6] text-white text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">ELEC</div>
+          <div className="flex items-center gap-2">
+  <button onClick={() => router.push('/dashboard/checkin')}
+    className="bg-[#1ABBD6] text-white text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">
+    ✅ CHECKIN
+  </button>
+</div>
         </div>
       </div>
 
