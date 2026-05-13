@@ -22,7 +22,7 @@ export default function CheckinPage() {
   
   const router = useRouter()
 
-  const [perfil, setPerfil] = useState<{ id: string; full_name: string } | null>(null)
+  const [perfil, setPerfil] = useState<{ id: string; full_name: string; turno: string; modalidad: string } | null>(null)
   const [caja, setCaja] = useState<string>('')
   const [plantilla, setPlantilla] = useState<PlantillaItem[]>([])
   const [items, setItems] = useState<ItemEstado[]>([])
@@ -34,9 +34,15 @@ export default function CheckinPage() {
   useEffect(() => {
     getPerfil().then(p => {
       if (!p) { router.push('/'); return }
-      setPerfil({ id: p.id, full_name: p.nombre })
+      setPerfil({ id: p.id, full_name: p.nombre, turno: p.turno || '', modalidad: p.modalidad || '' })
     })
   }, [])
+
+  useEffect(() => {
+    if (!perfil) return
+    const cajaAsignada = perfil.modalidad === 'guardia' ? 'guardia' : perfil.turno || ''
+    if (cajaAsignada) setCaja(cajaAsignada)
+  }, [perfil])
 
   useEffect(() => {
     if (!caja) return
@@ -159,21 +165,10 @@ export default function CheckinPage() {
         </div>
       </div>
 
-      {/* Selector de caja */}
+      {/* Caja asignada automáticamente */}
       {!caja && (
-        <div style={{ background: '#fff', borderRadius: 12, padding: 20, border: '1px solid #B2E0E8', marginBottom: 16 }}>
-          <p style={{ color: '#0F3A42', fontWeight: 700, fontSize: 15, marginBottom: 16, textAlign: 'center' }}>Seleccioná tu caja</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {['mañana', 'tarde', 'noche', 'guardia'].map(c => (
-              <button
-                key={c}
-                onClick={() => setCaja(c)}
-                style={{ background: '#0F3A42', color: '#fff', border: 'none', borderRadius: 10, padding: '16px 8px', fontSize: 15, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1 }}
-              >
-                {c === 'mañana' ? '🌅 Mañana' : c === 'tarde' ? '🌇 Tarde' : c === 'noche' ? '🌙 Noche' : '🛡️ Guardia'}
-              </button>
-            ))}
-          </div>
+        <div style={{ background: '#fff', borderRadius: 12, padding: 20, border: '1px solid #B2E0E8', marginBottom: 16, textAlign: 'center' }}>
+          <p style={{ color: '#888', fontSize: 13 }}>Cargando tu caja...</p>
         </div>
       )}
 

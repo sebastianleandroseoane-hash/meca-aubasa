@@ -23,10 +23,21 @@ const ROLES = [
 ]
 
 const TURNOS = [
-  { value: '1', label: 'Turno 1 · Mañana 07–15' },
-  { value: '2', label: 'Turno 2 · Tarde 14–22' },
-  { value: '3', label: 'Turno 3 · Noche 22–06' },
+  { value: 'mañana', label: 'Mañana · 07:00–15:00' },
+  { value: 'tarde', label: 'Tarde · 14:00–22:00' },
+  { value: 'noche', label: 'Noche · 22:00–06:00' },
   { value: 'admin', label: 'Administrativo · Lunes a Viernes' },
+]
+
+const MODALIDADES = [
+  { value: 'semana', label: 'Lunes a Viernes' },
+  { value: 'guardia', label: 'Guardia · Jueves a Domingo + Feriados' },
+]
+
+const GRUPOS = [
+  { value: 'A', label: 'Grupo A · Lunes a Jueves' },
+  { value: 'B', label: 'Grupo B · Jueves a Domingo' },
+  { value: 'C', label: 'Grupo C · Lunes a Viernes' },
 ]
 
 const SECTORES = [
@@ -36,10 +47,7 @@ const SECTORES = [
   { value: 'general', label: 'General / Administrativo' },
 ]
 
-const GRUPOS = [
-  { value: 'A', label: 'Grupo A · Lunes a Miércoles' },
-  { value: 'B', label: 'Grupo B · Jueves a Domingo' },
-]
+
 
 export default function CompletarPerfil() {
   const router = useRouter()
@@ -58,6 +66,7 @@ export default function CompletarPerfil() {
     fecha_ingreso: '',
     rol: '',
     turno: '',
+    modalidad: '',
     grupo: '',
     sector_trabajo: '',
     nueva_password: '',
@@ -87,7 +96,7 @@ export default function CompletarPerfil() {
     const { error: profileError } = await supabase
       .from('profiles')
       .upsert({
-        id: user.id,
+       id: user.id,
         nombre: form.nombre,
         apellido: form.apellido,
         legajo: form.legajo,
@@ -98,6 +107,7 @@ export default function CompletarPerfil() {
         fecha_ingreso: form.fecha_ingreso || null,
         rol: form.rol,
         turno: form.turno,
+        modalidad: form.modalidad || null,
         grupo: form.grupo || null,
         sector_trabajo: form.sector_trabajo,
         activo: true,
@@ -242,7 +252,19 @@ export default function CompletarPerfil() {
             ))}
           </select>
 
-          {form.sector_trabajo === 'electrico' && ['1', '2', '3'].includes(form.turno) && (
+          <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Modalidad *</div>
+          <select
+            className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
+            value={form.modalidad}
+            onChange={e => setForm({ ...form, modalidad: e.target.value })}
+          >
+            <option value="">Seleccioná tu modalidad</option>
+            {MODALIDADES.map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+
+          {['mañana', 'tarde', 'noche'].includes(form.turno) && (
             <>
               <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Grupo</div>
               <select
