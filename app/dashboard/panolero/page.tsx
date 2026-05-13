@@ -13,8 +13,12 @@ export default function DashboardPanolero() {
   const [herramientas, setHerramientas] = useState<any[]>([])
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState<string | null>(null)
-  const [vista, setVista] = useState<'stock' | 'herramientas' | 'pedidos'>('stock')
+  const [vista, setVista] = useState<'stock' | 'herramientas' | 'pedidos' | 'checkins'>('stock')
   const [loading, setLoading] = useState(true)
+
+  // checkins con faltantes
+  const [checkinsFaltantes, setCheckinsFaltantes] = useState<any[]>([])
+  const [checkinDetalle, setCheckinDetalle] = useState<any>(null)
 
   // pedidos al jefe
   const [pedidos, setPedidos] = useState<any[]>([])
@@ -55,6 +59,14 @@ export default function DashboardPanolero() {
     setHerramientas(herrs || [])
     const { data: peds } = await supabase.from('pedidos_jefe').select('*').order('created_at', { ascending: false })
     setPedidos(peds || [])
+    const { data: chks } = await supabase
+      .from('checkins_herramientas')
+      .select('*, profiles!checkins_herramientas_tecnico_id_fkey(nombre)')
+      .eq('tiene_faltantes', true)
+      .eq('estado', 'con_faltantes')
+      .order('created_at', { ascending: false })
+    setCheckinsFaltantes(chks || [])
+
     const { data: sols } = await supabase
       .from('solicitudes_insumos')
       .select('*, materiales!solicitudes_insumos_material_id_fkey(nombre, unidad), profiles!solicitudes_insumos_tallerista_id_fkey(nombre), ordenes_trabajo!solicitudes_insumos_orden_trabajo_id_fkey(titulo, numero_orden)')
@@ -126,6 +138,29 @@ export default function DashboardPanolero() {
     setShowNuevoPedido(false)
     setPedidoForm({ tipo: 'materiales_electrico', descripcion: '' })
     await cargarTodo()
+  }
+
+  async function recibirCheckin(id: string) {
+    await supabase
+      .from('checkins_herramientas')
+      .update({ recibido_por: perfil.id, recibido_at: new Date().toISOString(), estado: 'completado' })
+      .eq('id', id)
+    await cargarTodo()
+    setCheckinDetalle(null)
+  }
+
+  async function cargarItemsCheckin(checkinId: string) {
+    const { data } = await supabase
+      .from('checkin_items')
+      .select('*')
+      .eq('checkin_id', checkinId)
+      .order('created_at')
+    return data || []
+  }
+
+  async function abrirCheckin(checkin: any) {
+    const items = await cargarItemsCheckin(checkin.id)
+    setCheckinDetalle({ ...checkin, items })
   }
 
   async function entregarSolicitud(id: string) {
@@ -239,10 +274,10 @@ export default function DashboardPanolero() {
 
         {/* TABS */}
         <div className="flex gap-2 mb-3">
-          {(['stock', 'herramientas', 'pedidos'] as const).map(t => (
+          {(['stock', 'herramientas', 'pedidos', 'checkins'] as const).map(t => (
             <button key={t} onClick={() => { setVista(t); setCategoria(null); setBusqueda('') }}
               className={`flex-1 text-xs font-bold py-2 rounded-lg ${vista === t ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
-              {t === 'stock' ? 'STOCK' : t === 'herramientas' ? 'HERRAMIENTAS' : 'PEDIDOS'}
+              {t === 'stock' ? 'STOCK' : t === 'herramientas' ? 'HERRAM.' : t === 'pedidos' ? 'PEDIDOS' : `CHECK${checkinsFaltantes.length > 0 ? ` (${checkinsFaltantes.length})` : ''}`}
             </button>
           ))}
         </div>
@@ -262,6 +297,67 @@ export default function DashboardPanolero() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* VISTA CHECKINS */}
+        {vista === 'checkins' && (
+          <>
+            {checkinDetalle && (
+              <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
+                <div className="bg-white rounded-t-2xl p-4 max-h-[85vh] flex flex-col">
+                  <div className="flex justify-between items-center mb-3">
+                    <div>
+                      <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase">Checkin · Caja {checkinDetalle.caja?.toUpperCase()}</div>
+                      <div className="text-[#0F3A42] font-bold text-sm">{checkinDetalle.profiles?.nombre}</div>
+                      <div className="text-[#7A9EA5] text-xs">{new Date(checkinDetalle.hora_inicio).toLocaleString('es-AR')}</div>
+                    </div>
+                    <button onClick={() => setCheckinDetalle(null)} className="text-[#7A9EA5] text-xs font-bold">CERRAR</button>
+                  </div>
+                  <div className="overflow-y-auto flex-1 mb-3">
+                    {checkinDetalle.items?.filter((i: any) => i.estado !== 'ok').map((item: any, idx: number) => (
+                      <div key={idx} className={`rounded-lg p-3 mb-2 border ${item.estado === 'faltante' ? 'bg-[#FFF8F8] border-[#F5C6CB]' : 'bg-[#FFFBF2] border-[#FFE69C]'}`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.estado === 'faltante' ? 'bg-[#FCEBEB] text-[#A32D2D]' : 'bg-[#FAEEDA] text-[#854F0B]'}`}>
+                            {item.estado === 'faltante' ? '❌ FALTANTE' : '🔄 REEMPLAZO'}
+                          </span>
+                          <span className="text-[#7A9EA5] text-xs">×{item.cantidad}</span>
+                        </div>
+                        <div className="text-[#0F3A42] text-sm font-medium">{item.detalle}</div>
+                        {item.observacion && <div className="text-[#7A9EA5] text-xs mt-1">Obs: {item.observacion}</div>}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => recibirCheckin(checkinDetalle.id)}
+                    className="w-full bg-[#1ABBD6] text-white font-bold text-sm py-3 rounded-xl"
+                  >
+                    ✅ MARCAR COMO RECIBIDO
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">
+              Checkins con faltantes · {checkinsFaltantes.length}
+            </div>
+            {checkinsFaltantes.length === 0 ? (
+              <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm">
+                Sin faltantes pendientes ✅
+              </div>
+            ) : checkinsFaltantes.map(c => (
+              <div key={c.id} onClick={() => abrirCheckin(c)}
+                className="bg-white border border-[#F5C6CB] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#FFF8F8]">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-[#0F3A42] font-bold text-sm">Caja {c.caja?.toUpperCase()}</div>
+                    <div className="text-[#7A9EA5] text-xs">{c.profiles?.nombre}</div>
+                    <div className="text-[#7A9EA5] text-xs">{new Date(c.hora_inicio).toLocaleString('es-AR')}</div>
+                  </div>
+                  <span className="bg-[#FCEBEB] text-[#A32D2D] text-xs font-bold px-2 py-0.5 rounded-full">⚠️ FALTANTE</span>
+                </div>
+              </div>
+            ))}
+          </>
         )}
 
         {/* VISTA PEDIDOS */}
@@ -453,6 +549,10 @@ export default function DashboardPanolero() {
         <div onClick={() => setVista('pedidos')} className="flex flex-col items-center gap-0.5 cursor-pointer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'pedidos' ? '#1ABBD6' : '#7ADCE8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
           <span className={`text-xs ${vista === 'pedidos' ? 'text-[#1ABBD6]' : 'text-[#7ADCE8]'}`}>Pedidos</span>
+        </div>
+        <div onClick={() => { setVista('checkins'); setCategoria(null) }} className="flex flex-col items-center gap-0.5 cursor-pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'checkins' ? '#1ABBD6' : '#7ADCE8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span className={`text-xs ${vista === 'checkins' ? 'text-[#1ABBD6]' : 'text-[#7ADCE8]'}`}>Checkin</span>
         </div>
         <div onClick={() => router.push('/historial')} className="flex flex-col items-center gap-0.5 cursor-pointer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>

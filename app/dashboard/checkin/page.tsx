@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { getPerfil, supabase } from '@/lib/supabase'
 
 type PlantillaItem = {
   id: string
@@ -19,7 +19,7 @@ type ItemEstado = {
 }
 
 export default function CheckinPage() {
-  const supabase = createClientComponentClient()
+  
   const router = useRouter()
 
   const [perfil, setPerfil] = useState<{ id: string; full_name: string } | null>(null)
@@ -32,13 +32,10 @@ export default function CheckinPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const getPerfil = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      const { data } = await supabase.from('profiles').select('id, full_name').eq('id', user.id).single()
-      if (data) setPerfil(data)
-    }
-    getPerfil()
+    getPerfil().then(p => {
+      if (!p) { router.push('/'); return }
+      setPerfil({ id: p.id, full_name: p.nombre })
+    })
   }, [])
 
   useEffect(() => {
