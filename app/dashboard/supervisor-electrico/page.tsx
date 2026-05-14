@@ -612,7 +612,7 @@ function SolicitudItem({ solicitud, onResolver }: { solicitud: any, onResolver: 
                         <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       )}
                     </div>
-                    <span className="text-sm text-[#0F3A42]">{t.nombre}</span>
+                    <span className="text-sm text-[#0F3A42]">{t.nombre} {t.apellido}</span>
                     <span className="text-xs text-[#7A9EA5] ml-auto">{t.rol?.replace('tecnico_', 'Téc. ')}</span>
                   </div>
                 ))
