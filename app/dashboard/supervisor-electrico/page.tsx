@@ -512,9 +512,9 @@ function SolicitudItem({ solicitud, onResolver }: { solicitud: any, onResolver: 
 
             <div className="grid grid-cols-2 gap-2 mb-3">
               <div>
-                <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Origen *</div>
+                <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Tipo *</div>
                 <select
-                  className={`w-full bg-[#F0FAFB] border rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none ${errores.includes('origen') ? 'border-[#E24B4A] bg-[#FFF8F8]' : 'border-[#B2E0E8]'}`}
+                  className={`w-full bg-[#F0FAFB] border rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none ${errores.includes('tipo') ? 'border-[#E24B4A] bg-[#FFF8F8]' : 'border-[#B2E0E8]'}`}
                   value={form.tipo}
                   onChange={e => setForm({ ...form, tipo: e.target.value })}
                 >
