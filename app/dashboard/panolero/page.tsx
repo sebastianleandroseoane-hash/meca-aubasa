@@ -18,7 +18,9 @@ export default function DashboardPanolero() {
 
   // checkins con faltantes
   const [checkinsFaltantes, setCheckinsFaltantes] = useState<any[]>([])
-  const [checkinDetalle, setCheckinDetalle] = useState<any>(null)
+const [checkinsHistorial, setCheckinsHistorial] = useState<any[]>([])
+const [checkinDetalle, setCheckinDetalle] = useState<any>(null)
+const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'historial'>('pendientes')
 
   // pedidos al jefe
   const [pedidos, setPedidos] = useState<any[]>([])
@@ -66,6 +68,13 @@ export default function DashboardPanolero() {
       .eq('estado', 'con_faltantes')
       .order('created_at', { ascending: false })
     setCheckinsFaltantes(chks || [])
+
+    const { data: historial } = await supabase
+      .from('checkins_herramientas')
+      .select('*, profiles!checkins_herramientas_tecnico_id_fkey(nombre)')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setCheckinsHistorial(historial || [])
 
     const { data: sols } = await supabase
       .from('solicitudes_insumos')
@@ -193,10 +202,10 @@ export default function DashboardPanolero() {
   }
 
   const tablaActiva = vista === 'herramientas' ? herramientas : materiales
-  const itemsFiltrados = tablaActiva.filter(m =>
-    m.categoria === categoria &&
-    m.nombre.toLowerCase().includes(busqueda.toLowerCase())
-  )
+ const itemsFiltrados = tablaActiva.filter(m =>
+  m.categoria === categoria &&
+  (m.nombre || '').toLowerCase().includes(busqueda.toLowerCase())
+)
   const criticos = tablaActiva.filter(m => m.categoria === categoria && m.stock_minimo > 0 && m.stock_actual <= m.stock_minimo)
   const bajos = tablaActiva.filter(m => m.categoria === categoria && m.stock_minimo > 0 && m.stock_actual > m.stock_minimo && m.stock_actual <= m.stock_minimo * 2)
 
@@ -302,6 +311,41 @@ export default function DashboardPanolero() {
         {/* VISTA CHECKINS */}
         {vista === 'checkins' && (
           <>
+            <div className="flex gap-2 mb-3">
+              <button onClick={() => setCheckinsSubvista('pendientes')}
+                className={`flex-1 text-xs font-bold py-2 rounded-lg ${checkinsSubvista === 'pendientes' ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
+                PENDIENTES {checkinsFaltantes.length > 0 ? `(${checkinsFaltantes.length})` : ''}
+              </button>
+              <button onClick={() => setCheckinsSubvista('historial')}
+                className={`flex-1 text-xs font-bold py-2 rounded-lg ${checkinsSubvista === 'historial' ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
+                HISTORIAL
+              </button>
+            </div>
+
+            {checkinsSubvista === 'historial' && (
+              <div>
+                {checkinsHistorial.length === 0 ? (
+                  <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm">Sin checkins registrados</div>
+                ) : checkinsHistorial.map(c => (
+                  <div key={c.id} onClick={() => abrirCheckin(c)}
+                    className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#F0FAFB]">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-[#0F3A42] font-bold text-sm">Caja {c.caja?.toUpperCase()}</div>
+                        <div className="text-[#7A9EA5] text-xs">{c.profiles?.nombre}</div>
+                        <div className="text-[#7A9EA5] text-xs">{new Date(c.created_at).toLocaleString('es-AR')}</div>
+                      </div>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.estado === 'con_faltantes' ? 'bg-[#FCEBEB] text-[#A32D2D]' : c.estado === 'completado' ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#E8E8E6] text-[#5F5E5A]'}`}>
+                        {c.estado === 'con_faltantes' ? '⚠️ FALTANTE' : c.estado === 'completado' ? '✅ OK' : c.estado}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {checkinsSubvista === 'pendientes' && (
+            <>
             {checkinDetalle && (
               <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
                 <div className="bg-white rounded-t-2xl p-4 max-h-[85vh] flex flex-col">
@@ -357,6 +401,8 @@ export default function DashboardPanolero() {
                 </div>
               </div>
             ))}
+            </>
+            )}
           </>
         )}
 

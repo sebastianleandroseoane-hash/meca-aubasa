@@ -17,6 +17,10 @@ export default function Historial() {
     desde: '',
     hasta: ''
   })
+  const [subvista, setSubvista] = useState<'ordenes' | 'checkins'>('ordenes')
+  const [checkins, setCheckins] = useState<any[]>([])
+  const [loadingCheckins, setLoadingCheckins] = useState(false)
+  const [checkinDetalle, setCheckinDetalle] = useState<any>(null)
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -55,7 +59,25 @@ export default function Historial() {
     setOrdenes(data || [])
     setLoading(false)
   }
+async function cargarCheckins() {
+    setLoadingCheckins(true)
+    const { data } = await supabase
+      .from('checkins_herramientas')
+      .select('*, profiles!checkins_herramientas_tecnico_id_fkey(nombre)')
+      .order('created_at', { ascending: false })
+      .limit(100)
+    setCheckins(data || [])
+    setLoadingCheckins(false)
+  }
 
+  async function abrirCheckinDetalle(checkin: any) {
+    const { data: items } = await supabase
+      .from('checkin_items')
+      .select('*')
+      .eq('checkin_id', checkin.id)
+      .order('created_at')
+    setCheckinDetalle({ ...checkin, items: items || [] })
+  }
   async function abrirDetalle(orden: any) {
     const { data: tecnicos } = await supabase
       .from('orden_tecnicos')
@@ -194,6 +216,75 @@ export default function Historial() {
       )}
 
       <div className="px-4 pt-3">
+
+        <div className="flex gap-2 mb-3">
+          <button onClick={() => setSubvista('ordenes')}
+            className={`flex-1 text-xs font-bold py-2 rounded-lg ${subvista === 'ordenes' ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
+            ÓRDENES
+          </button>
+          <button onClick={() => { setSubvista('checkins'); cargarCheckins() }}
+            className={`flex-1 text-xs font-bold py-2 rounded-lg ${subvista === 'checkins' ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
+            CHECKINS
+          </button>
+        </div>
+
+        {checkinDetalle && (
+          <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
+            <div className="bg-white rounded-t-2xl p-4 max-h-[85vh] flex flex-col">
+              <div className="flex justify-between items-center mb-3">
+                <div>
+                  <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase">Checkin · Caja {checkinDetalle.caja?.toUpperCase()}</div>
+                  <div className="text-[#0F3A42] font-bold text-sm">{checkinDetalle.profiles?.nombre}</div>
+                  <div className="text-[#7A9EA5] text-xs">{new Date(checkinDetalle.created_at).toLocaleString('es-AR')}</div>
+                </div>
+                <button onClick={() => setCheckinDetalle(null)} className="text-[#7A9EA5] text-xs font-bold">CERRAR</button>
+              </div>
+              <div className="overflow-y-auto flex-1">
+                {checkinDetalle.items?.length === 0 ? (
+                  <div className="text-center text-[#7A9EA5] text-sm py-4">Sin ítems registrados</div>
+                ) : checkinDetalle.items?.map((item: any, idx: number) => (
+                  <div key={idx} className={`rounded-lg p-3 mb-2 border ${item.estado === 'faltante' ? 'bg-[#FFF8F8] border-[#F5C6CB]' : item.estado === 'ok' ? 'bg-[#F0FFF4] border-[#B2E0C8]' : 'bg-[#FFFBF2] border-[#FFE69C]'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.estado === 'faltante' ? 'bg-[#FCEBEB] text-[#A32D2D]' : item.estado === 'ok' ? 'bg-[#D6F4E8] text-[#1A7A4A]' : 'bg-[#FAEEDA] text-[#854F0B]'}`}>
+                        {item.estado === 'faltante' ? '❌ FALTANTE' : item.estado === 'ok' ? '✅ OK' : '🔄 REEMPLAZO'}
+                      </span>
+                      <span className="text-[#7A9EA5] text-xs">×{item.cantidad}</span>
+                    </div>
+                    <div className="text-[#0F3A42] text-sm font-medium">{item.detalle}</div>
+                    {item.observacion && <div className="text-[#7A9EA5] text-xs mt-1">Obs: {item.observacion}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {subvista === 'checkins' && (
+          <div>
+            {loadingCheckins ? (
+              <div className="text-center text-[#7A9EA5] text-sm py-4">Cargando...</div>
+            ) : checkins.length === 0 ? (
+              <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm">Sin checkins registrados</div>
+            ) : checkins.map(c => (
+              <div key={c.id} onClick={() => abrirCheckinDetalle(c)}
+                className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#F0FAFB]">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-[#0F3A42] font-bold text-sm">Caja {c.caja?.toUpperCase()}</div>
+                    <div className="text-[#7A9EA5] text-xs">{c.profiles?.nombre}</div>
+                    <div className="text-[#7A9EA5] text-xs">{new Date(c.created_at).toLocaleString('es-AR')}</div>
+                  </div>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.estado === 'con_faltantes' ? 'bg-[#FCEBEB] text-[#A32D2D]' : c.estado === 'completado' ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#E8E8E6] text-[#5F5E5A]'}`}>
+                    {c.estado === 'con_faltantes' ? '⚠️ FALTANTE' : c.estado === 'completado' ? '✅ OK' : c.estado}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {subvista === 'ordenes' && (
+        <>
         <input
           className="w-full bg-white border border-[#B2E0E8] rounded-xl px-3 py-2 text-sm text-[#0F3A42] mb-2 outline-none"
           placeholder="Buscar por título, km, ubicación, nomenclatura..."
@@ -270,6 +361,8 @@ export default function Historial() {
         ))}
 
         <div className="h-24"></div>
+        </>
+        )}
       </div>
     </main>
   )

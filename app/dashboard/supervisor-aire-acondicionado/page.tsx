@@ -28,7 +28,8 @@ const [materialesOrden, setMaterialesOrden] = useState<{id: string, nombre: stri
     tipo: 'correctivo_programado',
     origen: 'supervisor',
     nomenclatura: '',
-    fecha_programada: new Date().toISOString().split('T')[0]
+    fecha_programada: new Date().toISOString().split('T')[0],
+    campo_libre: ''
   })
   const [nomenclaturas, setNomenclaturas] = useState<any[]>([])
   const [solicitudes, setSolicitudes] = useState<any[]>([])
@@ -167,7 +168,8 @@ function cambiarCantidad(id: string, valor: number) {
         asignado_a: tecnicosSeleccionados[0],
         creado_por: perfil.id,
         turno: perfil.turno,
-        fecha_programada: form.fecha_programada
+        fecha_programada: form.fecha_programada,
+        campo_libre: form.campo_libre || null
       })
       .select()
       .single()
@@ -207,7 +209,8 @@ setMaterialesOrden([])
         titulo: '', descripcion: '', km: '', ubicacion: '',
         prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor',
         nomenclatura: '',
-        fecha_programada: new Date().toISOString().split('T')[0]
+        fecha_programada: new Date().toISOString().split('T')[0],
+        campo_libre: ''
       })
       await cargarDatos(perfil.turno)
     }
@@ -536,6 +539,18 @@ setMaterialesOrden([])
               value={form.descripcion}
               onChange={e => setForm({ ...form, descripcion: e.target.value })}
             />
+            {nomenclaturas.find(n => n.codigo === form.nomenclatura)?.pide_campo_libre && (
+              <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-3 mb-3">
+                <div className="text-[#0F3A42] text-xs font-bold uppercase tracking-widest mb-2">📋 Detalle de inspección</div>
+                <textarea
+                  className="w-full bg-white border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+                  placeholder="Describí lo relevado en la inspección..."
+                  rows={3}
+                  value={form.campo_libre}
+                  onChange={e => setForm({ ...form, campo_libre: e.target.value })}
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2 mb-3">
               <div>

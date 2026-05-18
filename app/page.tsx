@@ -10,7 +10,7 @@ function getDashboard(rol: string): string {
     superadmin: '/dashboard/superadmin',
     gerente: '/dashboard/gerente',
     subgerente: '/dashboard/Sub-gerente',
-    jefe: '/dashboard/jefe',
+    jefe: '/dashboard/superadmin',
     delegado: '/dashboard/delegado-gremial',
     supervisor_electrico: '/dashboard/supervisor-electrico',
     supervisor_ac: '/dashboard/supervisor-aire-acondicionado',

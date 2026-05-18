@@ -31,6 +31,8 @@ export default function CheckinPage() {
   const [enviado, setEnviado] = useState(false)
   const [error, setError] = useState('')
   const [checkinExistente, setCheckinExistente] = useState<any>(null)
+  const [ordenesActivas, setOrdenesActivas] = useState<any[]>([])
+  const [ordenSeleccionada, setOrdenSeleccionada] = useState<string>('')
 
   useEffect(() => {
     getPerfil().then(p => {
@@ -61,7 +63,18 @@ export default function CheckinPage() {
         setCaja(cajaAsignada)
       }
     }
+    const cargarOrdenes = async () => {
+      const { data } = await supabase
+        .from('orden_tecnicos')
+        .select('orden_id, ordenes_trabajo!orden_tecnicos_orden_id_fkey(id, titulo, numero_orden, estado)')
+        .eq('tecnico_id', perfil.id)
+      const activas = (data || [])
+        .map((r: any) => r.ordenes_trabajo)
+        .filter((o: any) => o && (o.estado === 'pendiente' || o.estado === 'en_curso'))
+      setOrdenesActivas(activas)
+    }
     verificarCheckin()
+    cargarOrdenes()
   }, [perfil])
 
   useEffect(() => {
@@ -110,7 +123,8 @@ export default function CheckinPage() {
         fecha: new Date().toISOString().split('T')[0],
         hora_inicio: horaInicio.toISOString(),
         estado,
-        tiene_faltantes: tieneFaltantes
+        tiene_faltantes: tieneFaltantes,
+        orden_trabajo_id: ordenSeleccionada || null
       })
       .select('id')
       .single()
@@ -212,9 +226,23 @@ export default function CheckinPage() {
       {/* Lista de herramientas */}
       {caja && items.length > 0 && (
         <>
-          <div style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', border: '1px solid #B2E0E8', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', border: '1px solid #B2E0E8', marginBottom: 12 }}>
             <span style={{ color: '#0F3A42', fontWeight: 700, fontSize: 14 }}>CAJA {caja.toUpperCase()} — {items.length} ítems</span>
-            
+            {ordenesActivas.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ color: '#7A9EA5', fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Vincular a orden (opcional)</div>
+                <select
+                  value={ordenSeleccionada}
+                  onChange={e => setOrdenSeleccionada(e.target.value)}
+                  style={{ width: '100%', background: '#F0FAFB', border: '1px solid #B2E0E8', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#0F3A42', outline: 'none' }}
+                >
+                  <option value="">Sin vincular</option>
+                  {ordenesActivas.map((o: any) => (
+                    <option key={o.id} value={o.id}>OT-{String(o.numero_orden).padStart(5, '0')} · {o.titulo}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
