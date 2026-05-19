@@ -10,12 +10,15 @@ export default function DashboardJefe() {
   const [stats, setStats] = useState({ operativas: 0, con_falla: 0, tecnicos: 0 })
   const [alertas, setAlertas] = useState<any[]>([])
   const [informes, setInformes] = useState<any[]>([])
+  const [pedidos, setPedidos] = useState<any[]>([])
+  const [obsMap, setObsMap] = useState<Record<string, string>>({})
+  const [loadingResp, setLoadingResp] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
-      if (p.rol !== 'jefe' && p.rol !== 'delegado' && p.rol !== 'superadmin' && p.rol !== 'jefe') { router.push('/'); return }
+      if (p.rol !== 'jefe' && p.rol !== 'delegado' && p.rol !== 'superadmin') { router.push('/'); return }
       setPerfil(p)
       await cargarDatos()
       setLoading(false)
@@ -25,55 +28,54 @@ export default function DashboardJefe() {
   async function cargarDatos() {
     const hoy = new Date().toISOString().split('T')[0]
 
-    const { data: ordenes } = await supabase
-      .from('ordenes_trabajo')
-      .select('estado')
-
+    const { data: ordenes } = await supabase.from('ordenes_trabajo').select('estado')
     const operativas = (ordenes || []).filter((o: any) => o.estado === 'pendiente' || o.estado === 'en_curso').length
     const con_falla = (ordenes || []).filter((o: any) => o.estado === 'pendiente').length
 
     const { data: tecnicos } = await supabase
-      .from('profiles')
-      .select('id')
+      .from('profiles').select('id')
       .in('rol', ['tecnico_electrico', 'tecnico_ac', 'tecnico_electrico_edificio'])
       .eq('activo', true)
-
-    setStats({
-      operativas,
-      con_falla,
-      tecnicos: (tecnicos || []).length
-    })
+    setStats({ operativas, con_falla, tecnicos: (tecnicos || []).length })
 
     const { data: alertasData } = await supabase
-      .from('alertas')
-      .select('*')
+      .from('alertas').select('*')
       .in('estado', ['activa', 'en_atencion'])
-      .order('created_at', { ascending: false })
-      .limit(5)
-
+      .order('created_at', { ascending: false }).limit(5)
     setAlertas(alertasData || [])
 
     const { data: informesData } = await supabase
       .from('informes_turno')
       .select('*, supervisor:supervisor_id(nombre, apellido)')
-      .eq('fecha', hoy)
-      .order('turno', { ascending: true })
-
+      .eq('fecha', hoy).order('turno', { ascending: true })
     setInformes(informesData || [])
+
+    const { data: pedsData } = await supabase
+      .from('pedidos_jefe')
+      .select('*, pedidos_jefe_items(*), profiles!pedidos_jefe_panolero_id_fkey(nombre, apellido)')
+      .eq('estado', 'pendiente')
+      .order('created_at', { ascending: true })
+    setPedidos(pedsData || [])
+  }
+
+  async function responderPedido(id: string, accion: 'aprobado' | 'rechazado') {
+    setLoadingResp(id)
+    await supabase.from('pedidos_jefe').update({
+      estado: accion,
+      observaciones_jefe: obsMap[id] || null,
+      resuelta_at: new Date().toISOString(),
+    }).eq('id', id)
+    setPedidos(prev => prev.filter(p => p.id !== id))
+    setLoadingResp(null)
   }
 
   if (!perfil || loading) return (
-    <div className="min-h-screen bg-[#F0FAFB] flex items-center justify-center text-[#0F3A42]">
-      Cargando...
-    </div>
+    <div className="min-h-screen bg-[#F0FAFB] flex items-center justify-center text-[#0F3A42]">Cargando...</div>
   )
 
   const turnosNombre: Record<string, string> = {
-    '1': 'Turno mañana 07–15',
-    '2': 'Turno tarde 14–22',
-    '3': 'Turno noche 22–06',
+    '1': 'Turno mañana 07–15', '2': 'Turno tarde 14–22', '3': 'Turno noche 22–06',
   }
-
   const prioridadColor: Record<string, string> = {
     critica: 'bg-[#FCEBEB] border-[#F09595] text-[#A32D2D]',
     urgente: 'bg-[#FAEEDA] border-[#E8C97A] text-[#854F0B]',
@@ -92,34 +94,104 @@ export default function DashboardJefe() {
         </div>
       </div>
 
-      <div className="px-4 pt-3">
+      <div className="px-4 pt-3 pb-28">
+
+        {/* PEDIDOS DEL PAÑOLERO */}
+        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">
+          Pedidos del pañolero {pedidos.length > 0 && <span className="text-[#E24B4A]">· {pedidos.length} pendiente{pedidos.length > 1 ? 's' : ''}</span>}
+        </div>
+        {pedidos.length === 0 ? (
+          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-4 text-center text-[#7A9EA5] text-xs">Sin pedidos pendientes</div>
+        ) : (
+          pedidos.map((p: any) => (
+            <div key={p.id} className="bg-white border border-[#B2E0E8] rounded-xl mb-3 overflow-hidden">
+              <div className="bg-[#0F3A42] px-4 py-3">
+                <div className="flex justify-between items-center">
+                  <div className="text-white font-bold text-sm">📧 PJ-{String(p.numero_pedido).padStart(4, '0')}</div>
+                  <div className="text-[#7ADCE8] text-xs">{new Date(p.created_at).toLocaleDateString('es-AR')}</div>
+                </div>
+                <div className="text-[#7ADCE8] text-xs mt-0.5">De: {p.profiles?.nombre} {p.profiles?.apellido} (Pañolero)</div>
+                <div className="text-[#7ADCE8] text-xs">Para: Jefe de Sector</div>
+                <div className="text-[#7ADCE8] text-xs">Asunto: Solicitud — {p.tipo?.replace(/_/g, ' ')}</div>
+              </div>
+              <div className="px-4 py-3">
+                {(p.pedidos_jefe_items || []).length > 0 ? (
+                  <div className="mb-3">
+                    <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-2">Ítems solicitados</div>
+                    {(p.pedidos_jefe_items || []).map((it: any) => (
+                      <div key={it.id} className="border border-[#B2E0E8] rounded-lg px-3 py-2 mb-1.5">
+                        <div className="flex justify-between items-center">
+                          <div className="text-[#0F3A42] font-bold text-xs">{it.nombre}</div>
+                          <div className="text-[#1ABBD6] font-bold text-xs">{it.cantidad} {it.unidad || 'u'}</div>
+                        </div>
+                        {it.codigo && <div className="text-[#7A9EA5] text-xs">Código: {it.codigo}</div>}
+                        {it.url_externa && (
+                          <a href={it.url_externa} target="_blank" rel="noopener noreferrer"
+                            className="text-[#1ABBD6] text-xs underline">🔗 Ver link</a>
+                        )}
+                        {it.observacion && <div className="text-[#7A9EA5] text-xs mt-0.5">Obs: {it.observacion}</div>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[#0F3A42] text-xs mb-3">{p.descripcion}</div>
+                )}
+                {p.observaciones_panolero && (
+                  <div className="bg-[#FAEEDA] border border-[#E8C97A] rounded-lg px-3 py-2 mb-3 text-xs text-[#854F0B]">
+                    💬 {p.observaciones_panolero}
+                  </div>
+                )}
+                <textarea
+                  className="w-full border border-[#B2E0E8] rounded-lg p-2 text-xs text-[#0F3A42] bg-[#F0FAFB] resize-none mb-2 outline-none"
+                  rows={2} placeholder="Observación del jefe (opcional)..."
+                  value={obsMap[p.id] || ''}
+                  onChange={e => setObsMap(prev => ({ ...prev, [p.id]: e.target.value }))}
+                />
+                <div className="flex gap-2">
+                  <button onClick={() => responderPedido(p.id, 'aprobado')} disabled={loadingResp === p.id}
+                    className="flex-1 bg-[#1ABBD6] text-white text-xs font-bold py-2 rounded-lg disabled:opacity-50">
+                    ✅ Aprobar
+                  </button>
+                  <button onClick={() => responderPedido(p.id, 'rechazado')} disabled={loadingResp === p.id}
+                    className="flex-1 bg-[#FCEBEB] text-[#A32D2D] text-xs font-bold py-2 rounded-lg border border-[#F09595] disabled:opacity-50">
+                    ❌ Rechazar
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+
+        {/* ACCESO RÁPIDO */}
         <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Acceso rápido por rol</div>
-<div className="grid grid-cols-2 gap-2 mb-4">
-  <button onClick={() => router.push('/dashboard/supervisor-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-    <div className="text-[#1ABBD6] font-bold text-sm">Supervisor Elec.</div>
-    <div className="text-[#7A9EA5] text-xs mt-0.5">Turno eléctrico</div>
-  </button>
-  <button onClick={() => router.push('/dashboard/supervisor-aire-acondicionado')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-    <div className="text-[#1ABBD6] font-bold text-sm">Supervisor AC</div>
-    <div className="text-[#7A9EA5] text-xs mt-0.5">Turno AC</div>
-  </button>
-  <button onClick={() => router.push('/dashboard/tecnico-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-    <div className="text-[#1ABBD6] font-bold text-sm">Técnico Elec.</div>
-    <div className="text-[#7A9EA5] text-xs mt-0.5">Campo eléctrico</div>
-  </button>
-  <button onClick={() => router.push('/dashboard/tecnico-aire-acondicionado')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-    <div className="text-[#1ABBD6] font-bold text-sm">Técnico AC</div>
-    <div className="text-[#7A9EA5] text-xs mt-0.5">Campo AC</div>
-  </button>
-  <button onClick={() => router.push('/dashboard/panolero')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-    <div className="text-[#1ABBD6] font-bold text-sm">Pañolero</div>
-    <div className="text-[#7A9EA5] text-xs mt-0.5">Stock</div>
-  </button>
-  <button onClick={() => router.push('/dashboard/tallerista-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-    <div className="text-[#1ABBD6] font-bold text-sm">Tallerista Elec.</div>
-    <div className="text-[#7A9EA5] text-xs mt-0.5">Taller eléctrico</div>
-  </button>
-</div>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <button onClick={() => router.push('/dashboard/supervisor-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+            <div className="text-[#1ABBD6] font-bold text-sm">Supervisor Elec.</div>
+            <div className="text-[#7A9EA5] text-xs mt-0.5">Turno eléctrico</div>
+          </button>
+          <button onClick={() => router.push('/dashboard/supervisor-aire-acondicionado')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+            <div className="text-[#1ABBD6] font-bold text-sm">Supervisor AC</div>
+            <div className="text-[#7A9EA5] text-xs mt-0.5">Turno AC</div>
+          </button>
+          <button onClick={() => router.push('/dashboard/tecnico-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+            <div className="text-[#1ABBD6] font-bold text-sm">Técnico Elec.</div>
+            <div className="text-[#7A9EA5] text-xs mt-0.5">Campo eléctrico</div>
+          </button>
+          <button onClick={() => router.push('/dashboard/tecnico-aire-acondicionado')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+            <div className="text-[#1ABBD6] font-bold text-sm">Técnico AC</div>
+            <div className="text-[#7A9EA5] text-xs mt-0.5">Campo AC</div>
+          </button>
+          <button onClick={() => router.push('/dashboard/panolero')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+            <div className="text-[#1ABBD6] font-bold text-sm">Pañolero</div>
+            <div className="text-[#7A9EA5] text-xs mt-0.5">Stock</div>
+          </button>
+          <button onClick={() => router.push('/dashboard/tallerista-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
+            <div className="text-[#1ABBD6] font-bold text-sm">Tallerista Elec.</div>
+            <div className="text-[#7A9EA5] text-xs mt-0.5">Taller eléctrico</div>
+          </button>
+        </div>
+
+        {/* ESTADO GENERAL */}
         <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Estado general</div>
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">
@@ -136,41 +208,40 @@ export default function DashboardJefe() {
           </div>
         </div>
 
+        {/* ALERTAS */}
         <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Alertas activas</div>
         {alertas.length === 0 ? (
           <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-3 text-center text-[#7A9EA5] text-xs">Sin alertas activas</div>
-        ) : (
-          alertas.map(a => (
-            <div key={a.id} className={`border rounded-xl px-3 py-2 flex gap-2 items-start mb-2 ${prioridadColor[a.prioridad] || prioridadColor.normal}`}>
-              <div className="w-2 h-2 rounded-full bg-current mt-1 shrink-0"></div>
-              <div className="text-xs leading-relaxed">
-                <span className="font-bold">{a.ubicacion || `Km ${a.km}`}</span> · {a.descripcion}
-              </div>
+        ) : alertas.map(a => (
+          <div key={a.id} className={`border rounded-xl px-3 py-2 flex gap-2 items-start mb-2 ${prioridadColor[a.prioridad] || prioridadColor.normal}`}>
+            <div className="w-2 h-2 rounded-full bg-current mt-1 shrink-0"></div>
+            <div className="text-xs leading-relaxed">
+              <span className="font-bold">{a.ubicacion || `Km ${a.km}`}</span> · {a.descripcion}
             </div>
-          ))
-        )}
+          </div>
+        ))}
 
+        {/* INFORMES */}
         <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2 mt-1">Informes de turno · hoy</div>
         {informes.length === 0 ? (
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-24 text-center text-[#7A9EA5] text-xs">Sin informes cargados hoy</div>
-        ) : (
-          informes.map((inf, i) => (
-            <div key={inf.id} className={`bg-white border border-[#B2E0E8] rounded-xl p-3 ${i === informes.length - 1 ? 'mb-24' : 'mb-2'} flex justify-between items-center`}>
-              <div>
-                <div className="text-[#0F3A42] font-bold text-sm">{turnosNombre[inf.turno] || `Turno ${inf.turno}`}</div>
-                <div className="text-[#7A9EA5] text-xs">
-                  {inf.supervisor?.nombre} · {inf.tareas_realizadas} tareas
-                  {inf.observaciones ? ' · con obs.' : ' · sin obs.'}
-                </div>
+          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center text-[#7A9EA5] text-xs">Sin informes cargados hoy</div>
+        ) : informes.map((inf, i) => (
+          <div key={inf.id} className={`bg-white border border-[#B2E0E8] rounded-xl p-3 ${i === informes.length - 1 ? '' : 'mb-2'} flex justify-between items-center`}>
+            <div>
+              <div className="text-[#0F3A42] font-bold text-sm">{turnosNombre[inf.turno] || `Turno ${inf.turno}`}</div>
+              <div className="text-[#7A9EA5] text-xs">
+                {inf.supervisor?.nombre} · {inf.tareas_realizadas} tareas
+                {inf.observaciones ? ' · con obs.' : ' · sin obs.'}
               </div>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${inf.leido_por_jefe ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#FAEEDA] text-[#854F0B]'}`}>
-                {inf.leido_por_jefe ? 'Leído' : 'Sin leer'}
-              </span>
             </div>
-          ))
-        )}
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${inf.leido_por_jefe ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#FAEEDA] text-[#854F0B]'}`}>
+              {inf.leido_por_jefe ? 'Leído' : 'Sin leer'}
+            </span>
+          </div>
+        ))}
       </div>
 
+      {/* NAVBAR */}
       <div className="fixed bottom-0 left-0 right-0 bg-[#0F3A42] border-t border-[#1A4A54] flex justify-around py-2">
         <div className="flex flex-col items-center gap-0.5 cursor-pointer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
@@ -187,10 +258,6 @@ export default function DashboardJefe() {
         <div className="flex flex-col items-center gap-0.5 cursor-pointer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
           <span className="text-[#7ADCE8] text-xs">Personal</span>
-        </div>
-        <div className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          <span className="text-[#7ADCE8] text-xs">Traza</span>
         </div>
         <div onClick={() => router.push('/historial')} className="flex flex-col items-center gap-0.5 cursor-pointer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>

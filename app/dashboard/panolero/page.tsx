@@ -26,8 +26,12 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
   // pedidos al jefe
   const [pedidos, setPedidos] = useState<any[]>([])
   const [showNuevoPedido, setShowNuevoPedido] = useState(false)
-  const [pedidoForm, setPedidoForm] = useState({ tipo: 'materiales_electrico', descripcion: '' })
   const [loadingPedido, setLoadingPedido] = useState(false)
+  const [alertasStock, setAlertasStock] = useState<any[]>([])
+  const [pedidoItems, setPedidoItems] = useState<any[]>([])
+  const [pedidoObs, setPedidoObs] = useState('')
+  const [pedidoBusqueda, setPedidoBusqueda] = useState('')
+  const [busquedaResultados, setBusquedaResultados] = useState<any[]>([])
 
   // solicitudes insumos autorizadas
   const [solicitudes, setSolicitudes] = useState<any[]>([])
@@ -60,8 +64,14 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
     setMateriales(mats || [])
     const { data: herrs } = await supabase.from('herramientas').select('*').order('nombre', { ascending: true })
     setHerramientas(herrs || [])
-    const { data: peds } = await supabase.from('pedidos_jefe').select('*').order('created_at', { ascending: false })
+    const { data: peds } = await supabase
+      .from('pedidos_jefe')
+      .select('*, pedidos_jefe_items(*)')
+      .order('created_at', { ascending: false })
     setPedidos(peds || [])
+    const matsAlerta = (mats || []).filter((m: any) => m.stock_minimo > 0 && m.stock_actual <= m.stock_minimo).map((m: any) => ({ ...m, tipo_item: 'material' }))
+    const herrsAlerta = (herrs || []).filter((h: any) => h.stock_minimo > 0 && h.stock_actual <= h.stock_minimo).map((h: any) => ({ ...h, tipo_item: 'herramienta' }))
+    setAlertasStock([...matsAlerta, ...herrsAlerta])
     const { data: chks } = await supabase
       .from('checkins_herramientas')
       .select('*, profiles!checkins_herramientas_tecnico_id_fkey(nombre)')
@@ -135,18 +145,78 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
     await cargarTodo()
   }
 
+  function buscarItemsStock(q: string) {
+    setPedidoBusqueda(q)
+    if (!q.trim()) { setBusquedaResultados([]); return }
+    const q2 = q.toLowerCase()
+    const mats = materiales.filter(m => m.nombre.toLowerCase().includes(q2) || (m.codigo || '').toLowerCase().includes(q2)).map(m => ({ ...m, tipo_item: 'material' }))
+    const herrs = herramientas.filter(h => h.nombre.toLowerCase().includes(q2) || (h.codigo || '').toLowerCase().includes(q2)).map(h => ({ ...h, tipo_item: 'herramienta' }))
+    setBusquedaResultados([...mats, ...herrs].slice(0, 6))
+  }
+
+  function agregarItemPedido(item: any) {
+    if (pedidoItems.find((i: any) => i.id === item.id)) return
+    setPedidoItems((prev: any[]) => [...prev, { ...item, cantidad: 1, url_externa: '', observacion: '' }])
+    setPedidoBusqueda('')
+    setBusquedaResultados([])
+  }
+
+  function quitarItemPedido(id: string) {
+    setPedidoItems((prev: any[]) => prev.filter((i: any) => i.id !== id))
+  }
+
+  function actualizarItemPedido(id: string, campo: string, valor: any) {
+    setPedidoItems((prev: any[]) => prev.map((i: any) => i.id === id ? { ...i, [campo]: valor } : i))
+  }
+
+  function abrirNuevoPedido() {
+    const preItems = alertasStock.map((a: any) => ({
+      ...a,
+      cantidad: Math.max(1, (a.stock_minimo || 0) - (a.stock_actual || 0) + 5),
+      url_externa: '',
+      observacion: ''
+    }))
+    setPedidoItems(preItems)
+    setPedidoObs('')
+    setPedidoBusqueda('')
+    setBusquedaResultados([])
+    setShowNuevoPedido(true)
+  }
+
   async function enviarPedido() {
-    if (!pedidoForm.descripcion.trim()) return
+    if (pedidoItems.length === 0) return
     setLoadingPedido(true)
-    await supabase.from('pedidos_jefe').insert({
+    const cats = [...new Set(pedidoItems.map((i: any) => i.categoria || 'general'))]
+    const sector = cats.length === 1 ? cats[0] : 'general'
+    const tipo = pedidoItems[0].tipo_item === 'herramienta' ? `herramientas_${sector}` : `materiales_${sector}`
+    const { data: pedido } = await supabase.from('pedidos_jefe').insert({
       panolero_id: perfil.id,
-      tipo: pedidoForm.tipo,
-      descripcion: pedidoForm.descripcion,
-      estado: 'pendiente'
-    })
+      tipo,
+      descripcion: pedidoObs || `Solicitud de ${pedidoItems.length} ítem${pedidoItems.length > 1 ? 's' : ''}`,
+      estado: 'pendiente',
+      sector,
+      observaciones_panolero: pedidoObs || null,
+    }).select().single()
+    if (pedido) {
+      await supabase.from('pedidos_jefe_items').insert(
+        pedidoItems.map((i: any) => ({
+          pedido_id: pedido.id,
+          tipo_item: i.tipo_item,
+          material_id: i.tipo_item === 'material' ? i.id : null,
+          herramienta_id: i.tipo_item === 'herramienta' ? i.id : null,
+          nombre: i.nombre,
+          codigo: i.codigo || null,
+          cantidad: i.cantidad,
+          unidad: i.unidad || null,
+          url_externa: i.url_externa || null,
+          observacion: i.observacion || null,
+        }))
+      )
+    }
     setLoadingPedido(false)
     setShowNuevoPedido(false)
-    setPedidoForm({ tipo: 'materiales_electrico', descripcion: '' })
+    setPedidoItems([])
+    setPedidoObs('')
     await cargarTodo()
   }
 
@@ -409,56 +479,159 @@ const subcategoriasDisponibles = [...new Set(tablaActiva.filter(m => m.categoria
           </>
         )}
 
-        {/* VISTA PEDIDOS */}
+       {/* VISTA PEDIDOS */}
         {vista === 'pedidos' && (
           <>
-            <button onClick={() => setShowNuevoPedido(!showNuevoPedido)}
+            {/* ALERTA DE STOCK BAJO */}
+            {alertasStock.length > 0 && !showNuevoPedido && (
+              <div className="bg-[#FAEEDA] border border-[#E8C97A] rounded-xl p-3 mb-3">
+                <div className="text-[#854F0B] font-bold text-xs mb-1">⚠️ {alertasStock.length} ítem{alertasStock.length > 1 ? 's' : ''} con stock bajo</div>
+                {alertasStock.slice(0, 3).map((a: any) => (
+                  <div key={a.id} className="text-[#854F0B] text-xs">· {a.nombre} — stock: {a.stock_actual} / mín: {a.stock_minimo}</div>
+                ))}
+                {alertasStock.length > 3 && <div className="text-[#854F0B] text-xs">· y {alertasStock.length - 3} más...</div>}
+              </div>
+            )}
+
+            <button onClick={abrirNuevoPedido}
               className="w-full bg-[#1ABBD6] text-white font-bold text-sm tracking-widest rounded-xl py-3 mb-3">
-              + NUEVO PEDIDO AL JEFE
+              {alertasStock.length > 0 ? `📋 NUEVO PEDIDO (${alertasStock.length} alertas pre-cargadas)` : '+ NUEVO PEDIDO AL JEFE'}
             </button>
+
+            {/* FORMULARIO NUEVO PEDIDO — FORMATO MAIL */}
             {showNuevoPedido && (
-              <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 mb-3">
-                <div className="text-[#0F3A42] font-bold text-sm mb-3">Nuevo pedido</div>
-                <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Tipo</div>
-                <select className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
-                  value={pedidoForm.tipo} onChange={e => setPedidoForm({ ...pedidoForm, tipo: e.target.value })}>
-                  <option value="materiales_electrico">Materiales Eléctricos</option>
-                  <option value="materiales_ac">Materiales AC</option>
-                  <option value="herramientas_electrico">Herramientas Eléctricas</option>
-                  <option value="herramientas_ac">Herramientas AC</option>
-                  <option value="general">General</option>
-                </select>
-                <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Descripción *</div>
-                <textarea className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-4 outline-none"
-                  rows={4} placeholder="Pegá o escribí el detalle del pedido..."
-                  value={pedidoForm.descripcion} onChange={e => setPedidoForm({ ...pedidoForm, descripcion: e.target.value })} />
-                <div className="flex gap-2">
-                  <button onClick={enviarPedido} disabled={loadingPedido || !pedidoForm.descripcion.trim()}
-                    className="flex-1 bg-[#1ABBD6] text-white font-bold text-sm py-3 rounded-xl disabled:opacity-50">
-                    {loadingPedido ? 'Enviando...' : 'ENVIAR AL JEFE'}
-                  </button>
-                  <button onClick={() => setShowNuevoPedido(false)}
-                    className="flex-1 bg-[#E8E8E6] text-[#5F5E5A] font-bold text-sm py-3 rounded-xl">CANCELAR</button>
+              <div className="bg-white border border-[#B2E0E8] rounded-xl mb-3 overflow-hidden">
+                {/* Cabecera mail */}
+                <div className="bg-[#0F3A42] px-4 py-3">
+                  <div className="text-white font-bold text-sm">📧 Nuevo pedido al jefe</div>
+                  <div className="text-[#7ADCE8] text-xs mt-0.5">De: {perfil.nombre} {perfil.apellido} · {new Date().toLocaleDateString('es-AR')}</div>
+                  <div className="text-[#7ADCE8] text-xs">Para: Jefe de Sector</div>
+                  <div className="text-[#7ADCE8] text-xs">Asunto: Solicitud de materiales/herramientas</div>
+                </div>
+
+                <div className="p-4">
+                  {/* Buscador de ítems */}
+                  <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Buscar ítem del stock</div>
+                  <input
+                    className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-1 outline-none"
+                    placeholder="Nombre o código..."
+                    value={pedidoBusqueda}
+                    onChange={e => buscarItemsStock(e.target.value)}
+                  />
+                  {busquedaResultados.length > 0 && (
+                    <div className="border border-[#B2E0E8] rounded-lg mb-3 overflow-hidden">
+                      {busquedaResultados.map((r: any) => (
+                        <button key={r.id} onClick={() => agregarItemPedido(r)}
+                          className="w-full text-left px-3 py-2 text-xs border-b border-[#F0FAFB] hover:bg-[#F0FAFB] flex justify-between">
+                          <span className="text-[#0F3A42] font-bold">{r.nombre}</span>
+                          <span className="text-[#7A9EA5]">{r.codigo || ''} · stock: {r.stock_actual}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Lista de ítems del pedido */}
+                  {pedidoItems.length === 0 ? (
+                    <div className="text-center text-[#7A9EA5] text-xs py-4 border border-dashed border-[#B2E0E8] rounded-xl mb-3">
+                      Buscá o los ítems con stock bajo se pre-cargan solos
+                    </div>
+                  ) : (
+                    <div className="mb-3">
+                      <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-2">Ítems del pedido · {pedidoItems.length}</div>
+                      {pedidoItems.map((item: any) => (
+                        <div key={item.id} className={`border rounded-xl p-3 mb-2 ${item.stock_actual <= item.stock_minimo && item.stock_minimo > 0 ? 'border-[#E8C97A] bg-[#FFFBF2]' : 'border-[#B2E0E8] bg-[#F0FAFB]'}`}>
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <div className="text-[#0F3A42] font-bold text-xs">{item.nombre}</div>
+                              <div className="text-[#7A9EA5] text-xs">{item.codigo || 'sin código'} · {item.tipo_item === 'material' ? '📦' : '🔧'} · stock: {item.stock_actual}</div>
+                            </div>
+                            <button onClick={() => quitarItemPedido(item.id)} className="text-[#E24B4A] text-xs font-bold">✕</button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <div className="text-xs text-[#7A9EA5] mb-0.5">Cantidad ({item.unidad || 'u'})</div>
+                              <input type="number" min="1"
+                                className="w-full bg-white border border-[#B2E0E8] rounded-lg px-2 py-1.5 text-sm text-[#0F3A42] outline-none"
+                                value={item.cantidad}
+                                onChange={e => actualizarItemPedido(item.id, 'cantidad', parseInt(e.target.value) || 1)} />
+                            </div>
+                            <div>
+                              <div className="text-xs text-[#7A9EA5] mb-0.5">Link (MercadoLibre, etc.)</div>
+                              <input type="url"
+                                className="w-full bg-white border border-[#B2E0E8] rounded-lg px-2 py-1.5 text-sm text-[#0F3A42] outline-none"
+                                placeholder="https://..."
+                                value={item.url_externa}
+                                onChange={e => actualizarItemPedido(item.id, 'url_externa', e.target.value)} />
+                            </div>
+                          </div>
+                          <div className="mt-2">
+                            <input
+                              className="w-full bg-white border border-[#B2E0E8] rounded-lg px-2 py-1.5 text-xs text-[#0F3A42] outline-none"
+                              placeholder="Observación del ítem..."
+                              value={item.observacion}
+                              onChange={e => actualizarItemPedido(item.id, 'observacion', e.target.value)} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Observaciones generales */}
+                  <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Observaciones generales</div>
+                  <textarea
+                    className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-4 outline-none resize-none"
+                    rows={2}
+                    placeholder="Urgencia, turno, contexto..."
+                    value={pedidoObs}
+                    onChange={e => setPedidoObs(e.target.value)} />
+
+                  <div className="flex gap-2">
+                    <button onClick={enviarPedido} disabled={loadingPedido || pedidoItems.length === 0}
+                      className="flex-1 bg-[#1ABBD6] text-white font-bold text-sm py-3 rounded-xl disabled:opacity-50">
+                      {loadingPedido ? 'Enviando...' : '📤 ENVIAR AL JEFE'}
+                    </button>
+                    <button onClick={() => setShowNuevoPedido(false)}
+                      className="flex-1 bg-[#E8E8E6] text-[#5F5E5A] font-bold text-sm py-3 rounded-xl">CANCELAR</button>
+                  </div>
                 </div>
               </div>
             )}
+
+            {/* LISTA DE PEDIDOS ENVIADOS */}
             <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Mis pedidos · {pedidos.length}</div>
             {pedidos.length === 0 ? (
               <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm">Sin pedidos</div>
-            ) : pedidos.map(p => (
-              <div key={p.id} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2">
-                <div className="flex justify-between items-start mb-1">
-                  <div className="text-[#7A9EA5] text-xs">PJ-{String(p.numero_pedido).padStart(4, '0')} · {p.tipo.replace('_', ' ')}</div>
+            ) : pedidos.map((p: any) => (
+              <div key={p.id} className="bg-white border border-[#B2E0E8] rounded-xl mb-2 overflow-hidden">
+                {/* Cabecera mail compacta */}
+                <div className="bg-[#F0FAFB] border-b border-[#B2E0E8] px-3 py-2 flex justify-between items-center">
+                  <div>
+                    <div className="text-[#0F3A42] font-bold text-xs">📧 PJ-{String(p.numero_pedido).padStart(4, '0')}</div>
+                    <div className="text-[#7A9EA5] text-xs">{new Date(p.created_at).toLocaleDateString('es-AR')} · {p.tipo?.replace(/_/g, ' ')}</div>
+                  </div>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.estado === 'aprobado' ? 'bg-[#D6F4F8] text-[#0F8FAA]' : p.estado === 'rechazado' ? 'bg-[#FCEBEB] text-[#A32D2D]' : p.estado === 'visto' ? 'bg-[#FAEEDA] text-[#854F0B]' : 'bg-[#E8E8E6] text-[#5F5E5A]'}`}>
                     {p.estado}
                   </span>
                 </div>
-                <div className="text-[#0F3A42] text-sm">{p.descripcion.slice(0, 80)}{p.descripcion.length > 80 ? '...' : ''}</div>
-                {p.observaciones_jefe && <div className="text-[#7A9EA5] text-xs mt-1">Jefe: {p.observaciones_jefe}</div>}
+                <div className="px-3 py-2">
+                  {(p.pedidos_jefe_items || []).length > 0 ? (
+                    (p.pedidos_jefe_items || []).map((it: any) => (
+                      <div key={it.id} className="text-xs text-[#0F3A42] py-0.5 flex justify-between">
+                        <span>· {it.nombre}</span>
+                        <span className="text-[#7A9EA5]">{it.cantidad} {it.unidad || 'u'}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-[#7A9EA5]">{p.descripcion?.slice(0, 60)}</div>
+                  )}
+                  {p.observaciones_jefe && (
+                    <div className="text-xs text-[#854F0B] mt-1 pt-1 border-t border-[#F0FAFB]">💬 Jefe: {p.observaciones_jefe}</div>
+                  )}
+                </div>
               </div>
             ))}
           </>
-        )}
+        )} 
 
         {/* VISTA STOCK / HERRAMIENTAS */}
         {(vista === 'stock' || vista === 'herramientas') && (
