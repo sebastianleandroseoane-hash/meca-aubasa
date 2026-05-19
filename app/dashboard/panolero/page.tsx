@@ -13,6 +13,7 @@ export default function DashboardPanolero() {
   const [herramientas, setHerramientas] = useState<any[]>([])
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState<string | null>(null)
+  const [subcategoria, setSubcategoria] = useState<string | null>(null)
   const [vista, setVista] = useState<'stock' | 'herramientas' | 'pedidos' | 'checkins'>('stock')
   const [loading, setLoading] = useState(true)
 
@@ -204,8 +205,10 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
   const tablaActiva = vista === 'herramientas' ? herramientas : materiales
  const itemsFiltrados = tablaActiva.filter(m =>
   m.categoria === categoria &&
+  (!subcategoria || m.subcategoria === subcategoria) &&
   (m.nombre || '').toLowerCase().includes(busqueda.toLowerCase())
 )
+const subcategoriasDisponibles = [...new Set(tablaActiva.filter(m => m.categoria === categoria).map(m => m.subcategoria).filter(Boolean))] as string[]
   const criticos = tablaActiva.filter(m => m.categoria === categoria && m.stock_minimo > 0 && m.stock_actual <= m.stock_minimo)
   const bajos = tablaActiva.filter(m => m.categoria === categoria && m.stock_minimo > 0 && m.stock_actual > m.stock_minimo && m.stock_actual <= m.stock_minimo * 2)
 
@@ -485,7 +488,7 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
               <>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => { setCategoria(null); setBusqueda('') }}
+                    <button onClick={() => { setCategoria(null); setSubcategoria(null); setBusqueda('') }}
                       className="text-[#1ABBD6] text-xs font-bold">← Volver</button>
                     <div className="text-[#0F3A42] font-bold text-sm">
                       {vista === 'herramientas' ? 'Herramientas' : 'Stock'} · {labelCategoria(categoria)}
@@ -498,6 +501,23 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
                       className="bg-[#1ABBD6] text-white text-xs font-bold px-2 py-1.5 rounded-lg">+ NUEVO</button>
                   </div>
                 </div>
+
+                {subcategoriasDisponibles.length > 0 && (
+                  <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+                    <button
+                      onClick={() => setSubcategoria(null)}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap ${!subcategoria ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
+                      Todos
+                    </button>
+                    {subcategoriasDisponibles.map(s => (
+                      <button key={s}
+                        onClick={() => setSubcategoria(s)}
+                        className={`text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap ${subcategoria === s ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">

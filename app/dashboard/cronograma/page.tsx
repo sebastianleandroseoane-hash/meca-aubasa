@@ -37,7 +37,9 @@ export default function CronogramaPage() {
   const [anio] = useState(2026)
   const [registros, setRegistros] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [turnoFiltro, setTurnoFiltro] = useState('todos')
+  const [turnoFiltro, setTurnoFiltro] = useState('auto')
+  const [sectorFiltro, setSectorFiltro] = useState('auto')
+  const [vistaCompleta, setVistaCompleta] = useState(false)
   const [diaSeleccionado, setDiaSeleccionado] = useState<number | null>(null)
 
   useEffect(() => {
@@ -59,6 +61,7 @@ export default function CronogramaPage() {
       .eq('mes', mes)
       .eq('anio', anio)
       .order('turno')
+    console.log('cronograma data:', data, 'mes:', mes)
     setRegistros(data || [])
     setLoading(false)
   }
@@ -67,9 +70,14 @@ export default function CronogramaPage() {
 
   const turnosUnicos = [...new Set(registros.map(r => r.turno))]
 
-  const registrosFiltrados = turnoFiltro === 'todos'
-    ? registros
-    : registros.filter(r => r.turno === turnoFiltro)
+  const turnoEfectivo = vistaCompleta ? 'todos' : (perfil?.turno || 'todos')
+  const sectorEfectivo = vistaCompleta ? 'todos' : (perfil?.sector_trabajo || 'todos')
+
+  const registrosFiltrados = registros.filter(r => {
+    const turnoOk = vistaCompleta || !perfil?.turno || r.turno === turnoEfectivo
+    const sectorOk = vistaCompleta || !perfil?.sector_trabajo || r.sector === sectorEfectivo
+    return turnoOk && sectorOk
+  })
 
   // Para el día seleccionado: quién trabaja (T)
   const presentesHoy = diaSeleccionado
