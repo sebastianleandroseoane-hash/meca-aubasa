@@ -32,6 +32,7 @@ const [materialesOrden, setMaterialesOrden] = useState<{id: string, nombre: stri
     campo_libre: ''
   })
   const [nomenclaturas, setNomenclaturas] = useState<any[]>([])
+  const [busquedaOrden, setBusquedaOrden] = useState('')
   const [solicitudes, setSolicitudes] = useState<any[]>([])
   const [showSolicitudes, setShowSolicitudes] = useState(false)
 
@@ -675,32 +676,52 @@ setMaterialesOrden([])
           Órdenes de trabajo · {ordenes.length} total
         </div>
 
+        <input
+          className="w-full bg-white border border-[#B2E0E8] rounded-xl px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
+          placeholder="Buscar por número (ej: 42) o fecha (ej: 19/05/2026)..."
+          value={busquedaOrden}
+          onChange={e => setBusquedaOrden(e.target.value)}
+        />
+
         {ordenes.length === 0 ? (
           <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm mb-3">
             No hay órdenes de trabajo
           </div>
         ) : (
-          ordenes.map(o => (
-            <div key={o.id} onClick={() => abrirDetalle(o)} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#F0FAFB]">
-              <div className="flex justify-between items-start mb-1">
-                <div className="flex-1">
-                  <div className="text-[#0F3A42] font-bold text-sm">{o.titulo}</div>
-                  {o.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
-                  {o.profiles && <div className="text-[#7A9EA5] text-xs">Responsable: {o.profiles.nombre}</div>}
-                </div>
-                <div className="flex flex-col items-end gap-1 ml-2">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor(o.estado)}`}>
-                    {badgeLabel(o.estado)}
-                  </span>
-                  {o.tipo && (
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tipoColor(o.tipo)}`}>
-                      {tipoLabel(o.tipo)}
+          ordenes
+            .filter(o => {
+              if (!busquedaOrden.trim()) return true
+              const q = busquedaOrden.toLowerCase()
+              const num = String(o.numero_orden || '').padStart(5, '0')
+              const fecha = o.fecha_programada ? new Date(o.fecha_programada).toLocaleDateString('es-AR') : ''
+              const fechaCreacion = o.created_at ? new Date(o.created_at).toLocaleDateString('es-AR') : ''
+              return num.includes(q) || o.titulo?.toLowerCase().includes(q) || fecha.includes(q) || fechaCreacion.includes(q)
+            })
+            .map(o => (
+              <div key={o.id} onClick={() => abrirDetalle(o)} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#F0FAFB]">
+                <div className="flex justify-between items-start mb-1">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[#1ABBD6] font-bold text-xs">OT-{String(o.numero_orden || 0).padStart(5, '0')}</span>
+                      {o.fecha_programada && <span className="text-[#7A9EA5] text-xs">{new Date(o.fecha_programada).toLocaleDateString('es-AR')}</span>}
+                    </div>
+                    <div className="text-[#0F3A42] font-bold text-sm">{o.titulo}</div>
+                    {o.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
+                    {o.profiles && <div className="text-[#7A9EA5] text-xs">Responsable: {o.profiles.nombre}</div>}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 ml-2">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor(o.estado)}`}>
+                      {badgeLabel(o.estado)}
                     </span>
-                  )}
+                    {o.tipo && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tipoColor(o.tipo)}`}>
+                        {tipoLabel(o.tipo)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))
         )}
 
       </div>
@@ -735,6 +756,10 @@ setMaterialesOrden([])
         <div onClick={() => router.push('/dashboard/checkin/historial')} className="flex flex-col items-center gap-0.5 cursor-pointer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           <span className="text-[#7ADCE8] text-xs">Checkins</span>
+        </div>
+        <div onClick={() => router.push('/dashboard/cronograma')} className="flex flex-col items-center gap-0.5 cursor-pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span className="text-[#7ADCE8] text-xs">Cronograma</span>
         </div>
       </div>
     </main>

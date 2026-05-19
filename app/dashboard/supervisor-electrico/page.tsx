@@ -38,6 +38,7 @@ export default function DashboardSupervisorElectrico() {
     campo_libre: ''
   })
   const [nomenclaturas, setNomenclaturas] = useState<any[]>([])
+  const [busquedaOrden, setBusquedaOrden] = useState('')
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -746,32 +747,53 @@ function SolicitudItem({ solicitud, onResolver }: { solicitud: any, onResolver: 
           Órdenes de trabajo · {ordenes.length} total
         </div>
 
+        {/* BUSCADOR DE ÓRDENES */}
+        <input
+          className="w-full bg-white border border-[#B2E0E8] rounded-xl px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
+          placeholder="Buscar por número (ej: 42) o fecha (ej: 19/05/2026)..."
+          value={busquedaOrden}
+          onChange={e => setBusquedaOrden(e.target.value)}
+        />
+
         {ordenes.length === 0 ? (
           <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm mb-3">
             No hay órdenes de trabajo
           </div>
         ) : (
-          ordenes.map(o => (
-            <div key={o.id} onClick={() => abrirDetalle(o)} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#F0FAFB]">
-              <div className="flex justify-between items-start mb-1">
-                <div className="flex-1">
-                  <div className="text-[#0F3A42] font-bold text-sm">{o.titulo}</div>
-                  {o.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
-                  {o.profiles && <div className="text-[#7A9EA5] text-xs">Responsable: {o.profiles.nombre}</div>}
-                </div>
-                <div className="flex flex-col items-end gap-1 ml-2">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor(o.estado)}`}>
-                    {badgeLabel(o.estado)}
-                  </span>
-                  {o.tipo && (
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tipoColor(o.tipo)}`}>
-                      {tipoLabel(o.tipo)}
+          ordenes
+            .filter(o => {
+              if (!busquedaOrden.trim()) return true
+              const q = busquedaOrden.toLowerCase()
+              const num = String(o.numero_orden || '').padStart(5, '0')
+              const fecha = o.fecha_programada ? new Date(o.fecha_programada).toLocaleDateString('es-AR') : ''
+              const fechaCreacion = o.created_at ? new Date(o.created_at).toLocaleDateString('es-AR') : ''
+              return num.includes(q) || o.titulo?.toLowerCase().includes(q) || fecha.includes(q) || fechaCreacion.includes(q)
+            })
+            .map(o => (
+              <div key={o.id} onClick={() => abrirDetalle(o)} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#F0FAFB]">
+                <div className="flex justify-between items-start mb-1">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[#1ABBD6] font-bold text-xs">OT-{String(o.numero_orden || 0).padStart(5, '0')}</span>
+                      {o.fecha_programada && <span className="text-[#7A9EA5] text-xs">{new Date(o.fecha_programada).toLocaleDateString('es-AR')}</span>}
+                    </div>
+                    <div className="text-[#0F3A42] font-bold text-sm">{o.titulo}</div>
+                    {o.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
+                    {o.profiles && <div className="text-[#7A9EA5] text-xs">Responsable: {o.profiles.nombre}</div>}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 ml-2">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor(o.estado)}`}>
+                      {badgeLabel(o.estado)}
                     </span>
-                  )}
+                    {o.tipo && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tipoColor(o.tipo)}`}>
+                        {tipoLabel(o.tipo)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))
         )}
 
       </div>
