@@ -112,9 +112,9 @@ export default function DashboardTecnicoAC() {
             <div className="text-[#7ADCE8] text-xs mt-0.5">{perfil.nombre} · Turno {perfil.turno}</div>
           </div>
           <div className="flex items-center gap-2">
-  <button onClick={() => router.push('/dashboard/checkin')}
+  <button onClick={() => router.push('/dashboard/checkin/vehiculos')}
     className="bg-[#1ABBD6] text-white text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">
-    ✅ CHECKIN
+    VEHÍCULOS
   </button>
 </div>
         </div>
@@ -302,6 +302,10 @@ export default function DashboardTecnicoAC() {
         <div onClick={() => router.push('/historial')} className="flex flex-col items-center gap-0.5 cursor-pointer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span className="text-[#7ADCE8] text-xs">Historial</span>
+        </div>
+        <div onClick={() => router.push('/dashboard/checkin/vehiculos')} className="flex flex-col items-center gap-0.5 cursor-pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          <span className="text-[#7ADCE8] text-xs">Vehículos</span>
         </div>
       </div>
     </main>
