@@ -1,6 +1,5 @@
 'use client'
-// @ts-ignore
-import '../../../../../styles/print-checkin.css'
+
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
