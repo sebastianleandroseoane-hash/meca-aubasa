@@ -1,4 +1,6 @@
 'use client'
+// @ts-ignore
+import '../../../../../styles/print-checkin.css'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -104,7 +106,7 @@ export default function HistorialCheckinVehiculos() {
       {/* DETALLE / APROBACIÓN */}
       {detalle && (
         <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
-          <div className="bg-white rounded-t-2xl p-4 max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-t-2xl p-4 max-h-[90vh] flex flex-col print-area">
             <div className="flex justify-between items-center mb-3">
               <div>
                 <div className="text-[#1ABBD6] font-bold text-xs">CHK-{String(detalle.numero_checkin).padStart(4, '0')}</div>
@@ -152,6 +154,26 @@ export default function HistorialCheckinVehiculos() {
               )}
 
               {/* APROBADO POR */}
+              {['panolero', 'supervisor_electrico', 'supervisor_ac', 'jefe', 'superadmin'].includes(perfil.rol) && (
+                <button
+                  onClick={() => window.print()}
+                  className="w-full bg-[#0F3A42] text-white font-bold text-sm py-3 rounded-xl mb-3 flex items-center justify-center gap-2"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  IMPRIMIR PLANILLA
+                </button>
+              )}
+
+              {['panolero', 'supervisor_electrico', 'supervisor_ac', 'jefe', 'superadmin'].includes(perfil.rol) && (
+                <button
+                  onClick={() => window.print()}
+                  className="w-full bg-[#0F3A42] text-white font-bold text-sm py-3 rounded-xl mb-3 flex items-center justify-center gap-2"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  IMPRIMIR PLANILLA
+                </button>
+              )}
+
               {detalle.aprobador && (
                 <div className="bg-[#D6F4F8] border border-[#1ABBD6] rounded-xl px-3 py-2 mb-3">
                   <div className="text-[#0F8FAA] text-xs font-bold mb-0.5">Aprobado por</div>
