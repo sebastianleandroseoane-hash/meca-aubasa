@@ -74,7 +74,7 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
     setAlertasStock([...matsAlerta, ...herrsAlerta])
     const { data: chks } = await supabase
       .from('checkins_herramientas')
-      .select('*, profiles!checkins_herramientas_tecnico_id_fkey(nombre)')
+      .select('*, profiles!checkins_herramientas_tecnico_id_fkey(nombre, apellido)')
       .eq('tiene_faltantes', true)
       .eq('estado', 'con_faltantes')
       .order('created_at', { ascending: false })
@@ -82,7 +82,7 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
 
     const { data: historial } = await supabase
       .from('checkins_herramientas')
-      .select('*, profiles!checkins_herramientas_tecnico_id_fkey(nombre)')
+      .select('*, profiles!checkins_herramientas_tecnico_id_fkey(nombre, apellido)')
       .order('created_at', { ascending: false })
       .limit(50)
     setCheckinsHistorial(historial || [])
@@ -405,7 +405,7 @@ const subcategoriasDisponibles = [...new Set(tablaActiva.filter(m => m.categoria
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="text-[#0F3A42] font-bold text-sm">Caja {c.caja?.toUpperCase()}</div>
-                        <div className="text-[#7A9EA5] text-xs">{c.profiles?.nombre}</div>
+                        <div className="text-[#7A9EA5] text-xs">{c.profiles?.nombre} {c.profiles?.apellido} · Caja: {c.caja?.toUpperCase()}</div>
                         <div className="text-[#7A9EA5] text-xs">{new Date(c.created_at).toLocaleString('es-AR')}</div>
                       </div>
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.estado === 'con_faltantes' ? 'bg-[#FCEBEB] text-[#A32D2D]' : c.estado === 'completado' ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#E8E8E6] text-[#5F5E5A]'}`}>
@@ -467,7 +467,7 @@ const subcategoriasDisponibles = [...new Set(tablaActiva.filter(m => m.categoria
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="text-[#0F3A42] font-bold text-sm">Caja {c.caja?.toUpperCase()}</div>
-                    <div className="text-[#7A9EA5] text-xs">{c.profiles?.nombre}</div>
+                    <div className="text-[#7A9EA5] text-xs">{c.profiles?.nombre} {c.profiles?.apellido} · Caja: {c.caja?.toUpperCase()}</div>
                     <div className="text-[#7A9EA5] text-xs">{new Date(c.hora_inicio).toLocaleString('es-AR')}</div>
                   </div>
                   <span className="bg-[#FCEBEB] text-[#A32D2D] text-xs font-bold px-2 py-0.5 rounded-full">⚠️ FALTANTE</span>
