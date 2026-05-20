@@ -118,9 +118,9 @@ export default function DashboardTecnicoElectrico() {
             <div className="text-[#7ADCE8] text-xs mt-0.5">Técnico Eléctrico · Turno {perfil.turno}</div>
           </div>
           <div className="flex items-center gap-2">
-  <button onClick={() => router.push('/dashboard/checkin')}
+  <button onClick={() => router.push('/dashboard/checkin/hub')}
     className="bg-[#1ABBD6] text-white text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">
-    ✅ CHECKIN
+    CHECKIN
   </button>
 </div>
         </div>
@@ -348,6 +348,10 @@ export default function DashboardTecnicoElectrico() {
         <div onClick={() => router.push('/historial')} className="flex flex-col items-center gap-0.5 cursor-pointer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span className="text-[#7ADCE8] text-xs">Historial</span>
+        </div>
+        <div onClick={() => router.push('/dashboard/checkin/hub')} className="flex flex-col items-center gap-0.5 cursor-pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span className="text-[#7ADCE8] text-xs">Checkin</span>
         </div>
       </div>
     </main>
