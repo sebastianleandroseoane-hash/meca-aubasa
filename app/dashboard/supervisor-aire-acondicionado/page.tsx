@@ -107,7 +107,7 @@ const [materialesOrden, setMaterialesOrden] = useState<{id: string, nombre: stri
   }
 async function abrirStock() {
   if (materiales.length === 0) {
-    const { data } = await supabase.from('materiales').select('*').order('nombre', { ascending: true })
+    const { data } = await supabase.from('materiales').select('*').eq('sector', 'ac').order('nombre', { ascending: true })
     setMateriales(data || [])
     setMaterialesFiltrados(data || [])
   }
