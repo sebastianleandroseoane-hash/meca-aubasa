@@ -112,9 +112,9 @@ export default function DashboardTecnicoAC() {
             <div className="text-[#7ADCE8] text-xs mt-0.5">{perfil.nombre} · Turno {perfil.turno}</div>
           </div>
           <div className="flex items-center gap-2">
-  <button onClick={() => router.push('/dashboard/checkin/vehiculos')}
+  <button onClick={() => router.push('/dashboard/checkin/hub')}
     className="bg-[#1ABBD6] text-white text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">
-    VEHÍCULOS
+    CHECKIN
   </button>
 </div>
         </div>
@@ -303,9 +303,13 @@ export default function DashboardTecnicoAC() {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span className="text-[#7ADCE8] text-xs">Historial</span>
         </div>
-        <div onClick={() => router.push('/dashboard/checkin/vehiculos')} className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-          <span className="text-[#7ADCE8] text-xs">Vehículos</span>
+        <div onClick={() => router.push('/dashboard/checkin/hub')} className="flex flex-col items-center gap-0.5 cursor-pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span className="text-[#7ADCE8] text-xs">Checkin</span>
+        </div>
+        <div onClick={() => router.push('/dashboard/cronograma')} className="flex flex-col items-center gap-0.5 cursor-pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span className="text-[#7ADCE8] text-xs">Cronograma</span>
         </div>
       </div>
     </main>
