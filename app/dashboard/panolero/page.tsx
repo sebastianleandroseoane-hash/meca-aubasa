@@ -431,11 +431,11 @@ const subcategoriasDisponibles = [...new Set(tablaActiva.filter(m => m.categoria
                     <button onClick={() => setCheckinDetalle(null)} className="text-[#7A9EA5] text-xs font-bold">CERRAR</button>
                   </div>
                   <div className="overflow-y-auto flex-1 mb-3">
-                    {checkinDetalle.items?.filter((i: any) => i.estado !== 'ok').map((item: any, idx: number) => (
-                      <div key={idx} className={`rounded-lg p-3 mb-2 border ${item.estado === 'faltante' ? 'bg-[#FFF8F8] border-[#F5C6CB]' : 'bg-[#FFFBF2] border-[#FFE69C]'}`}>
+                    {checkinDetalle.items?.map((item: any, idx: number) => (
+                      <div key={idx} className={`rounded-lg p-3 mb-2 border ${item.estado === 'faltante' ? 'bg-[#FFF8F8] border-[#F5C6CB]' : item.estado === 'reemplazo' ? 'bg-[#FFFBF2] border-[#FFE69C]' : 'bg-[#F0FFF4] border-[#B2E0C8]'}`}>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.estado === 'faltante' ? 'bg-[#FCEBEB] text-[#A32D2D]' : 'bg-[#FAEEDA] text-[#854F0B]'}`}>
-                            {item.estado === 'faltante' ? '❌ FALTANTE' : '🔄 REEMPLAZO'}
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.estado === 'faltante' ? 'bg-[#FCEBEB] text-[#A32D2D]' : item.estado === 'reemplazo' ? 'bg-[#FAEEDA] text-[#854F0B]' : 'bg-[#D6F4F8] text-[#0F8FAA]'}`}>
+                            {item.estado === 'faltante' ? '❌ FALTANTE' : item.estado === 'reemplazo' ? '🔄 REEMPLAZO' : '✅ OK'}
                           </span>
                           <span className="text-[#7A9EA5] text-xs">×{item.cantidad}</span>
                         </div>
