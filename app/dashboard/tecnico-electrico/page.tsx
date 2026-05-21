@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 
@@ -9,350 +9,332 @@ export default function DashboardTecnicoElectrico() {
   const [perfil, setPerfil] = useState<any>(null)
   const [ordenes, setOrdenes] = useState<any[]>([])
   const [ordenActiva, setOrdenActiva] = useState<any>(null)
-  const [showCierre, setShowCierre] = useState(false)
-  const [informe, setInforme] = useState('')
-  const [loading, setLoading] = useState(false)
   const [ordenDetalle, setOrdenDetalle] = useState<any>(null)
+  const [informe, setInforme] = useState('')
+  const [showCierre, setShowCierre] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [supervisor, setSupervisor] = useState<any>(null)
+  const [hora, setHora] = useState('')
+  const [fecha, setFecha] = useState('')
 
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
       if (p.rol !== 'tecnico_electrico' && p.rol !== 'superadmin' && p.rol !== 'jefe') { router.push('/'); return }
       setPerfil(p)
-      await cargarOrdenes(p.id)
+      await Promise.all([cargarOrdenes(p.id), cargarSupervisor(p)])
     })
+    const tick = () => {
+      const now = new Date()
+      setHora(now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }))
+      setFecha(now.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' }))
+    }
+    tick()
+    const interval = setInterval(tick, 60000)
+    return () => clearInterval(interval)
   }, [])
 
+  async function cargarSupervisor(p: any) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('nombre, apellido')
+      .eq('rol', 'supervisor_electrico')
+      .eq('turno', p.turno)
+      .eq('activo', true)
+      .limit(1)
+      .single()
+    setSupervisor(data || null)
+  }
+
   async function cargarOrdenes(userId: string) {
-    // ordenes donde es responsable principal
-    const { data: ords1 } = await supabase
-      .from('ordenes_trabajo')
-      .select('*')
-      .eq('asignado_a', userId)
-      .in('estado', ['pendiente', 'en_curso'])
-
-    // ordenes donde figura en orden_tecnicos
-    const { data: ots } = await supabase
-      .from('orden_tecnicos')
-      .select('orden_id')
-      .eq('tecnico_id', userId)
-
+    const { data: ords1 } = await supabase.from('ordenes_trabajo').select('*')
+      .eq('asignado_a', userId).in('estado', ['pendiente', 'en_curso'])
+    const { data: ots } = await supabase.from('orden_tecnicos').select('orden_id').eq('tecnico_id', userId)
     const ids = (ots || []).map((o: any) => o.orden_id)
     let ords2: any[] = []
     if (ids.length > 0) {
-      const { data } = await supabase
-        .from('ordenes_trabajo')
-        .select('*')
-        .in('id', ids)
-        .in('estado', ['pendiente', 'en_curso'])
+      const { data } = await supabase.from('ordenes_trabajo').select('*')
+        .in('id', ids).in('estado', ['pendiente', 'en_curso'])
       ords2 = data || []
     }
-
-    // unir sin duplicados
     const todas = [...(ords1 || []), ...ords2]
     const unicas = todas.filter((o, i, arr) => arr.findIndex(x => x.id === o.id) === i)
     const ordenadas = unicas.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
     setOrdenes(ordenadas)
-    const activa = ordenadas.find((o: any) => o.estado === 'en_curso')
-    setOrdenActiva(activa || ordenadas[0] || null)
+    setOrdenActiva(ordenadas.find((o: any) => o.estado === 'en_curso') || ordenadas[0] || null)
   }
 
   async function abrirDetalle(orden: any) {
-    const { data: tecnicos } = await supabase
-      .from('orden_tecnicos')
-      .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, rol)')
-      .eq('orden_id', orden.id)
-
-    const { data: materiales } = await supabase
-      .from('orden_materiales')
-      .select('*, materiales!orden_materiales_material_id_fkey(nombre, unidad)')
-      .eq('orden_id', orden.id)
-
-    const { data: pedidos } = await supabase
-      .from('pedidos_material')
-      .select('*')
-      .eq('orden_trabajo_id', orden.id)
-
+    const { data: tecnicos } = await supabase.from('orden_tecnicos')
+      .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, rol)').eq('orden_id', orden.id)
+    const { data: materiales } = await supabase.from('orden_materiales')
+      .select('*, materiales!orden_materiales_material_id_fkey(nombre, unidad)').eq('orden_id', orden.id)
+    const { data: pedidos } = await supabase.from('pedidos_material').select('*').eq('orden_trabajo_id', orden.id)
     setOrdenDetalle({ ...orden, tecnicos: tecnicos || [], materiales: materiales || [], pedidos: pedidos || [] })
   }
-  async function iniciarOrden(orden: any) {
-    await supabase
-      .from('ordenes_trabajo')
-      .update({ estado: 'en_curso', fecha_inicio: new Date().toISOString() })
-      .eq('id', orden.id)
+
+  async function iniciarOrden(id: string) {
+    await supabase.from('ordenes_trabajo').update({ estado: 'en_curso', fecha_inicio: new Date().toISOString() }).eq('id', id)
     await cargarOrdenes(perfil.id)
+    setOrdenDetalle(null)
   }
 
-  async function cerrarOrden() {
-    if (!informe || !ordenActiva) return
+  async function cerrarOrden(id: string) {
+    if (!informe) return
     setLoading(true)
-    await supabase
-      .from('ordenes_trabajo')
-      .update({
-        estado: 'completada',
-        fecha_cierre: new Date().toISOString(),
-        observaciones: informe
-      })
-      .eq('id', ordenActiva.id)
+    await supabase.from('ordenes_trabajo').update({ estado: 'completada', fecha_cierre: new Date().toISOString(), observaciones: informe }).eq('id', id)
+    await supabase.from('orden_tecnicos').update({ cerro: true }).eq('orden_id', id).eq('tecnico_id', perfil.id)
     setLoading(false)
     setShowCierre(false)
     setInforme('')
+    setOrdenDetalle(null)
     await cargarOrdenes(perfil.id)
   }
 
-  function badgeColor(estado: string) {
-    if (estado === 'en_curso') return 'bg-[#FAEEDA] text-[#854F0B]'
-    if (estado === 'completada') return 'bg-[#D6F4F8] text-[#0F8FAA]'
-    return 'bg-[#E8E8E6] text-[#5F5E5A]'
+  function badgeLabel(estado: string) {
+    if (estado === 'en_curso') return 'En curso'
+    if (estado === 'completada') return 'Completada'
+    if (estado === 'cancelada') return 'Cancelada'
+    return 'Pendiente'
   }
 
-  if (!perfil) return <div className="min-h-screen bg-[#F0FAFB] flex items-center justify-center text-[#0F3A42]">Cargando...</div>
+  const enCurso = ordenes.filter(o => o.estado === 'en_curso').length
+
+  if (!perfil) return (
+    <div style={{ minHeight: '100vh', background: '#07131a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1ABBD6', fontFamily: 'system-ui' }}>
+      Cargando...
+    </div>
+  )
+
+  const iconos: Record<string, React.ReactNode> = {
+    ordenes: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
+    checkin: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
+    cronograma: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+    historial: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+    vehiculos: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v5"/><circle cx="16" cy="19" r="2"/><circle cx="7" cy="19" r="2"/><path d="M13 17H9"/></svg>,
+    calculadora: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2a5060" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>,
+  }
+
+  const items = [
+    { label: 'Órdenes', sub: enCurso > 0 ? `${enCurso} en curso` : `${ordenes.length} total`, key: 'ordenes', path: '', action: () => ordenActiva ? abrirDetalle(ordenActiva) : null, active: true },
+    { label: 'Checkin', sub: 'Vehículos · Herram.', key: 'checkin', path: '/dashboard/checkin/hub', active: true },
+    { label: 'Cronograma', sub: `Turno ${perfil.turno}`, key: 'cronograma', path: '/dashboard/cronograma', active: true },
+    { label: 'Historial', sub: 'Mis trabajos', key: 'historial', path: '/historial', active: true },
+    { label: 'Vehículos', sub: 'Checkin de flota', key: 'vehiculos', path: '/dashboard/checkin/vehiculos', active: true },
+    { label: 'Calculadora', sub: 'Próximamente', key: 'calculadora', path: '', active: false },
+  ]
 
   return (
-    <main className="min-h-screen bg-[#F0FAFB]">
-      <div className="bg-[#0F3A42] px-4 py-3">
-        <div className="flex justify-between items-center">
-          <div>
-            <div className="text-white font-bold text-lg tracking-wide">Buen día, {perfil.nombre.split(' ')[0]}</div>
-            <div className="text-[#7ADCE8] text-xs mt-0.5">Técnico Eléctrico · Turno {perfil.turno}</div>
+    <main style={{ minHeight: '100vh', background: '#07131a', fontFamily: 'system-ui, -apple-system, sans-serif', color: '#e8f4f8' }}>
+
+      {/* HEADER */}
+      <div style={{ background: '#0c1c24', borderBottom: '1px solid #1a3040', padding: '12px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#1a3040', border: '1.5px solid #1ABBD6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: '#1ABBD6' }}>
+              {perfil.nombre?.[0]}{perfil.apellido?.[0]}
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#e8f4f8' }}>{perfil.nombre} {perfil.apellido}</div>
+              <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 1 }}>Técnico Eléctrico · Turno {perfil.turno}</div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-  <button onClick={() => router.push('/dashboard/checkin/hub')}
-    className="bg-[#1ABBD6] text-white text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">
-    CHECKIN
-  </button>
-</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: '#1ABBD6' }}>{hora}</div>
+              <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'capitalize' }}>{fecha}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#1D9E75' }}></div>
+              <span style={{ fontSize: 10, color: '#1D9E75', fontWeight: 600 }}>ONLINE</span>
+            </div>
+          </div>
         </div>
       </div>
 
-{ordenDetalle && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
-          <div className="bg-white rounded-t-2xl p-4 max-h-[85vh] flex flex-col">
-            <div className="flex justify-between items-center mb-3">
+      {/* MODAL DETALLE */}
+      {ordenDetalle && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+          <div style={{ background: '#0c1c24', borderRadius: '16px 16px 0 0', padding: 16, maxHeight: '85vh', display: 'flex', flexDirection: 'column', border: '1px solid #1a3040' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
-                <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase">OT-{String(ordenDetalle.numero_orden).padStart(5, '0')}</div>
-                <div className="text-[#0F3A42] font-bold text-sm">{ordenDetalle.titulo}</div>
+                <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>OT-{String(ordenDetalle.numero_orden).padStart(5, '0')}</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: '#e8f4f8' }}>{ordenDetalle.titulo}</div>
               </div>
-              <button onClick={() => setOrdenDetalle(null)} className="text-[#7A9EA5] text-xs font-bold">CERRAR</button>
+              <button onClick={() => { setOrdenDetalle(null); setShowCierre(false); setInforme('') }}
+                style={{ background: 'none', border: 'none', color: '#4a8fa0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
             </div>
-
-            <div className="overflow-y-auto flex-1">
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2">
-                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Estado</div>
-                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5 capitalize">{ordenDetalle.estado}</div>
-                </div>
-                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2">
-                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Prioridad</div>
-                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5 capitalize">{ordenDetalle.prioridad}</div>
-                </div>
-                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2">
-                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Tipo</div>
-                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5">{ordenDetalle.tipo}</div>
-                </div>
-                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2">
-                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Origen</div>
-                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5 capitalize">{ordenDetalle.origen}</div>
-                </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                {[['Estado', ordenDetalle.estado], ['Prioridad', ordenDetalle.prioridad]].map(([k, v]) => (
+                  <div key={k} style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px' }}>
+                    <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5 }}>{k}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8', marginTop: 2, textTransform: 'capitalize' }}>{v}</div>
+                  </div>
+                ))}
               </div>
-
               {(ordenDetalle.km || ordenDetalle.ubicacion) && (
-                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2 mb-3">
-                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Ubicación</div>
-                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5">
+                <div style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ubicación</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8', marginTop: 2 }}>
                     {ordenDetalle.km ? `Km ${ordenDetalle.km}` : ''}{ordenDetalle.ubicacion ? ` · ${ordenDetalle.ubicacion}` : ''}
                   </div>
                 </div>
               )}
-
               {ordenDetalle.descripcion && (
-                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2 mb-3">
-                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Descripción</div>
-                  <div className="text-[#0F3A42] text-sm mt-0.5">{ordenDetalle.descripcion}</div>
+                <div style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5 }}>Descripción</div>
+                  <div style={{ fontSize: 13, color: '#e8f4f8', marginTop: 2 }}>{ordenDetalle.descripcion}</div>
                 </div>
               )}
-
-              {ordenDetalle.tecnicos.length > 0 && (
-                <div className="mb-3">
-                  <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-1">Técnicos</div>
+              {ordenDetalle.tecnicos?.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Técnicos</div>
                   {ordenDetalle.tecnicos.map((t: any) => (
-                    <div key={t.id} className="flex items-center justify-between bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 mb-1">
-                      <span className="text-[#0F3A42] text-sm">{t.profiles?.nombre}</span>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${t.cerro ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#E8E8E6] text-[#5F5E5A]'}`}>
+                    <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, color: '#e8f4f8' }}>{t.profiles?.nombre}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: t.cerro ? '#0F6E56' : '#1a3040', color: t.cerro ? '#9FE1CB' : '#4a8fa0' }}>
                         {t.cerro ? 'Cerró' : 'Pendiente'}
                       </span>
                     </div>
                   ))}
                 </div>
               )}
-
-              {ordenDetalle.materiales.length > 0 && (
-                <div className="mb-3">
-                  <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-1">Materiales</div>
+              {ordenDetalle.materiales?.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Materiales</div>
                   {ordenDetalle.materiales.map((m: any) => (
-                    <div key={m.id} className="flex items-center justify-between bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 mb-1">
-                      <span className="text-[#0F3A40] text-sm">{m.materiales?.nombre}</span>
-                      <span className="text-[#7A9EA5] text-xs">{m.cantidad_solicitada} {m.materiales?.unidad}</span>
+                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, color: '#e8f4f8' }}>{m.materiales?.nombre}</span>
+                      <span style={{ fontSize: 11, color: '#4a8fa0' }}>{m.cantidad_solicitada} {m.materiales?.unidad}</span>
                     </div>
                   ))}
                 </div>
               )}
-
-              {ordenDetalle.pedidos.length > 0 && (
-                <div className="mb-3">
-                  <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-1">Pedidos a pañol</div>
-                  {ordenDetalle.pedidos.map((p: any) => (
-                    <div key={p.id} className="flex items-center justify-between bg-[#FCEBEB] border border-[#F09595] rounded-lg px-3 py-2 mb-1">
-                      <span className="text-[#A32D2D] text-sm">{p.material_nombre}</span>
-                      <span className="text-[#A32D2D] text-xs font-bold">{p.estado}</span>
-                    </div>
-                  ))}
+              {showCierre && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Informe de cierre *</div>
+                  <textarea
+                    style={{ width: '100%', background: '#07131a', border: '1px solid #1ABBD6', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#e8f4f8', outline: 'none', resize: 'none', boxSizing: 'border-box' }}
+                    rows={4} placeholder="Describí qué hiciste..." value={informe} onChange={e => setInforme(e.target.value)} />
                 </div>
               )}
-
-              {ordenDetalle.fecha_programada && (
-                <div className="bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg p-2 mb-3">
-                  <div className="text-[#7A9EA5] text-xs uppercase tracking-widest">Fecha programada</div>
-                  <div className="text-[#0F3A42] text-sm font-bold mt-0.5">{ordenDetalle.fecha_programada}</div>
-                </div>
-              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                {ordenDetalle.estado === 'pendiente' && (
+                  <button onClick={() => iniciarOrden(ordenDetalle.id)}
+                    style={{ flex: 1, background: '#1ABBD6', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    INICIAR
+                  </button>
+                )}
+                {ordenDetalle.estado === 'en_curso' && !showCierre && (
+                  <button onClick={() => setShowCierre(true)}
+                    style={{ flex: 1, background: '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    CERRAR ORDEN
+                  </button>
+                )}
+                {ordenDetalle.estado === 'en_curso' && showCierre && (
+                  <button onClick={() => cerrarOrden(ordenDetalle.id)} disabled={loading || !informe}
+                    style={{ flex: 1, background: loading || !informe ? '#1a3040' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    {loading ? 'Cerrando...' : 'CONFIRMAR CIERRE'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
-      <div className="px-4 pt-3">
 
-        {/* STATS */}
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3">
-            <div className="text-[#B87C0F] font-bold text-2xl">{ordenes.length}</div>
-            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Tareas asignadas</div>
+      <div style={{ padding: '12px 14px 100px' }}>
+
+        {/* SUPERVISOR + ÓRDENES */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+          <div style={{ background: '#0c1c24', border: '1px solid #1a3040', borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ fontSize: 9, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Supervisor de turno</div>
+            {supervisor ? (
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#e8f4f8' }}>{supervisor.nombre} {supervisor.apellido}</div>
+            ) : (
+              <div style={{ fontSize: 11, color: '#E24B4A' }}>No conectado</div>
+            )}
           </div>
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3">
-            <div className="text-[#1ABBD6] font-bold text-2xl">{ordenes.filter(o => o.estado === 'en_curso').length}</div>
-            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">En curso</div>
+          <div style={{ background: '#0c1c24', border: '1px solid #1a3040', borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ fontSize: 9, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Mis órdenes</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontSize: 20, fontWeight: 700, color: enCurso > 0 ? '#1ABBD6' : '#4a8fa0' }}>{ordenes.length}</span>
+              {enCurso > 0 && <span style={{ fontSize: 11, color: '#1D9E75' }}>{enCurso} en curso</span>}
+            </div>
           </div>
         </div>
 
         {/* ORDEN ACTIVA */}
         {ordenActiva && (
-          <>
-            <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Orden activa</div>
-            <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-3">
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1">
-                  <div className="text-[#0F3A42] font-bold text-sm">{ordenActiva.titulo}</div>
-                  {ordenActiva.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {ordenActiva.km} {ordenActiva.ubicacion ? `· ${ordenActiva.ubicacion}` : ''}</div>}
-                  {ordenActiva.descripcion && <div className="text-[#7A9EA5] text-xs mt-1">{ordenActiva.descripcion}</div>}
-                </div>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ml-2 ${badgeColor(ordenActiva.estado)}`}>
-                  {ordenActiva.estado === 'en_curso' ? 'En curso' : 'Pendiente'}
-                </span>
-              </div>
-
-              {ordenActiva.estado === 'pendiente' && (
-                <button
-                  onClick={() => iniciarOrden(ordenActiva)}
-                  className="w-full bg-[#1ABBD6] text-white font-bold text-sm py-2 rounded-lg mt-1"
-                >
-                  INICIAR ORDEN
-                </button>
-              )}
-
-              {ordenActiva.estado === 'en_curso' && !showCierre && (
-                <button
-                  onClick={() => setShowCierre(true)}
-                  className="w-full bg-[#3B6D11] text-white font-bold text-sm py-2 rounded-lg mt-1"
-                >
-                  CERRAR ORDEN
-                </button>
-              )}
-
-              {showCierre && (
-                <div className="mt-2">
-                  <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Informe de cierre *</div>
-                  <textarea
-                    className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-2 outline-none"
-                    placeholder="Describí qué hiciste o por qué no pudiste completar la tarea"
-                    rows={4}
-                    value={informe}
-                    onChange={e => setInforme(e.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={cerrarOrden}
-                      disabled={loading || !informe}
-                      className="flex-1 bg-[#3B6D11] text-white font-bold text-sm py-2 rounded-lg disabled:opacity-50"
-                    >
-                      {loading ? 'Cerrando...' : 'CONFIRMAR CIERRE'}
-                    </button>
-                    <button
-                      onClick={() => setShowCierre(false)}
-                      className="flex-1 bg-[#E8E8E6] text-[#5F5E5A] font-bold text-sm py-2 rounded-lg"
-                    >
-                      CANCELAR
-                    </button>
-                  </div>
-                </div>
-              )}
+          <div onClick={() => abrirDetalle(ordenActiva)}
+            style={{ background: '#0c1c24', border: `1px solid ${ordenActiva.estado === 'en_curso' ? '#BA7517' : '#1a3040'}`, borderLeft: `3px solid ${ordenActiva.estado === 'en_curso' ? '#EF9F27' : '#1ABBD6'}`, borderRadius: 10, padding: '10px 12px', marginBottom: 10, cursor: 'pointer' }}>
+            <div style={{ fontSize: 9, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+              {ordenActiva.estado === 'en_curso' ? '⚡ Orden en curso' : '📋 Orden pendiente'}
             </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{ordenActiva.titulo}</div>
+                <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 2 }}>OT-{String(ordenActiva.numero_orden).padStart(5, '0')}{ordenActiva.km ? ` · Km ${ordenActiva.km}` : ''}</div>
+              </div>
+              <div style={{ background: ordenActiva.estado === 'en_curso' ? '#FAEEDA' : '#1a3040', color: ordenActiva.estado === 'en_curso' ? '#854F0B' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, marginLeft: 8, whiteSpace: 'nowrap' }}>
+                {badgeLabel(ordenActiva.estado)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* GRID ACCESOS */}
+        <div style={{ fontSize: 9, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Accesos rápidos</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+          {items.map((item, i) => (
+            <div key={i}
+              onClick={() => item.active && (item.path ? router.push(item.path) : item.action?.())}
+              style={{ background: '#0c1c24', border: `1px solid ${item.active ? '#1a3040' : '#0f1e28'}`, borderRadius: 12, padding: '14px 12px', cursor: item.active ? 'pointer' : 'default', opacity: item.active ? 1 : 0.4, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {iconos[item.key]}
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{item.label}</div>
+                <div style={{ fontSize: 10, color: item.active ? '#4a8fa0' : '#2a5060', marginTop: 2 }}>{item.sub}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* LISTA ÓRDENES */}
+        {ordenes.length > 1 && (
+          <>
+            <div style={{ fontSize: 9, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Todas mis órdenes</div>
+            {ordenes.map(o => (
+              <div key={o.id} onClick={() => abrirDetalle(o)}
+                style={{ background: '#0c1c24', border: '1px solid #1a3040', borderRadius: 10, padding: '10px 12px', marginBottom: 6, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 10, color: '#4a8fa0' }}>OT-{String(o.numero_orden).padStart(5, '0')}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{o.titulo}</div>
+                </div>
+                <div style={{ background: o.estado === 'en_curso' ? '#FAEEDA' : '#1a3040', color: o.estado === 'en_curso' ? '#854F0B' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+                  {badgeLabel(o.estado)}
+                </div>
+              </div>
+            ))}
           </>
         )}
-
-        {/* TODAS LAS ORDENES */}
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Mis órdenes</div>
-        {ordenes.length === 0 ? (
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm mb-3">
-            No tenés órdenes asignadas
-          </div>
-        ) : (
-          ordenes.map(o => (
-            <div key={o.id} onClick={() => abrirDetalle(o)} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 flex justify-between items-center cursor-pointer active:bg-[#F0FAFB]">
-              <div>
-                <div className="text-[#0F3A42] font-bold text-sm">{o.titulo}</div>
-                {o.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {o.km}</div>}
-              </div>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor(o.estado)}`}>
-                {o.estado === 'en_curso' ? 'En curso' : 'Pendiente'}
-              </span>
-            </div>
-          ))
-        )}
-
       </div>
 
-      <div className="h-24"></div>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-[#0F3A42] border-t border-[#1A4A54] flex justify-around py-2">
-        <div className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-          <span className="text-[#1ABBD6] text-xs">Inicio</span>
-        </div>
-        <div className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          <span className="text-[#7ADCE8] text-xs">Órdenes</span>
-        </div>
-        <div className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/></svg>
-          <span className="text-[#7ADCE8] text-xs">Traza</span>
-        </div>
-        <div className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <span className="text-[#7ADCE8] text-xs">Informe</span>
-        </div>
-        <div className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-          <span className="text-[#7ADCE8] text-xs">Manual</span>
-        </div>
-        <div onClick={() => router.push('/historial')} className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span className="text-[#7ADCE8] text-xs">Historial</span>
-        </div>
-        <div onClick={() => router.push('/dashboard/checkin/hub')} className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          <span className="text-[#7ADCE8] text-xs">Checkin</span>
-        </div>
+      {/* NAVBAR */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(12,28,36,0.97)', borderTop: '1px solid #1a3040', display: 'flex', justifyContent: 'space-around', padding: '8px 0 14px' }}>
+        {[
+          { label: 'Panel', active: true, path: '', svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
+          { label: enCurso > 0 ? 'En curso' : 'Órdenes', active: false, path: '', action: () => ordenActiva && abrirDetalle(ordenActiva), svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4a8fa0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> },
+          { label: 'Checkin', active: false, path: '/dashboard/checkin/hub', svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4a8fa0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> },
+          { label: 'Historial', active: false, path: '/historial', svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4a8fa0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
+          { label: 'Cronograma', active: false, path: '/dashboard/cronograma', svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4a8fa0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
+        ].map((item, i) => (
+          <div key={i} onClick={() => item.path ? router.push(item.path) : (item as any).action?.()}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', minWidth: 44 }}>
+            {item.svg}
+            <span style={{ fontSize: 10, color: item.active ? '#1ABBD6' : '#4a8fa0', fontWeight: item.active ? 600 : 400 }}>{item.label}</span>
+          </div>
+        ))}
       </div>
     </main>
   )

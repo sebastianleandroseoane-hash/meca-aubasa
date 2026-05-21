@@ -70,11 +70,12 @@ export default function CronogramaPage() {
 
   const turnosUnicos = [...new Set(registros.map(r => r.turno))]
 
-  const turnoEfectivo = vistaCompleta ? 'todos' : (perfil?.turno || 'todos')
+  const normalizarTurno = (t: string) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const turnoEfectivo = vistaCompleta ? 'todos' : normalizarTurno(perfil?.turno || '')
   const sectorEfectivo = vistaCompleta ? 'todos' : (perfil?.sector_trabajo || 'todos')
 
   const registrosFiltrados = registros.filter(r => {
-    const turnoOk = vistaCompleta || !perfil?.turno || r.turno === turnoEfectivo
+    const turnoOk = vistaCompleta || !perfil?.turno || normalizarTurno(r.turno) === turnoEfectivo
     const sectorOk = vistaCompleta || !perfil?.sector_trabajo || r.sector === sectorEfectivo
     return turnoOk && sectorOk
   })
@@ -109,17 +110,17 @@ export default function CronogramaPage() {
         >→</button>
       </div>
 
-      {/* Filtro turno */}
-      <div className="flex gap-2 px-4 mb-3 overflow-x-auto">
-        {['todos', ...turnosUnicos].map(t => (
-          <button
-            key={t}
-            onClick={() => setTurnoFiltro(t)}
-            className={`text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap ${turnoFiltro === t ? 'bg-[#1ABBD6] text-white' : 'bg-[#1A4A54] text-[#7ADCE8]'}`}
-          >
-            {t === 'todos' ? 'Todos' : TURNOS[t] || t}
-          </button>
-        ))}
+      {/* Toggle vista */}
+      <div className="flex items-center justify-between px-4 mb-3">
+        <div className="text-[#7ADCE8] text-xs font-bold uppercase tracking-widest">
+          {vistaCompleta ? 'Todo el personal' : `Mi turno · ${TURNOS[perfil?.turno] || perfil?.turno || ''}`}
+        </div>
+        <button
+          onClick={() => setVistaCompleta(v => !v)}
+          className={`text-xs font-bold px-3 py-1.5 rounded-full ${vistaCompleta ? 'bg-[#1ABBD6] text-white' : 'bg-[#1A4A54] text-[#7ADCE8]'}`}
+        >
+          {vistaCompleta ? 'Ver mi turno' : 'Ver todos'}
+        </button>
       </div>
 
       {/* Selector de día */}
