@@ -4,6 +4,34 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 
+function SolicitudItem({ s, onResolver }: { s: any, onResolver: (id: string, decision: 'autorizada' | 'rechazada', obs: string) => void }) {
+  const [obs, setObs] = useState('')
+  const [open, setOpen] = useState(false)
+  const C2 = { bg: '#07131a', border: '#1a3040', text: '#e8f4f8', sub: '#4a8fa0', accent: '#1ABBD6', warn: '#EF9F27', ok: '#1D9E75', err: '#E24B4A' }
+  const input2 = { width: '100%', background: C2.bg, border: `1px solid ${C2.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C2.text, outline: 'none', boxSizing: 'border-box' as const }
+  return (
+    <div style={{ background: C2.bg, border: `1px solid ${C2.warn}33`, borderRadius: 10, padding: '10px 12px', marginBottom: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
+        <div>
+          <div style={{ fontSize: 11, color: C2.sub }}>{s.profiles?.nombre} · OT-{String(s.ordenes_trabajo?.numero_orden || 0).padStart(5, '0')}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C2.text }}>{s.materiales?.nombre}</div>
+          <div style={{ fontSize: 11, color: C2.sub }}>×{s.cantidad} {s.materiales?.unidad}</div>
+        </div>
+        <span style={{ fontSize: 11, color: C2.warn }}>{open ? '▲' : '▼'}</span>
+      </div>
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          <input style={{ ...input2, marginBottom: 8 }} placeholder="Observación (opcional)" value={obs} onChange={e => setObs(e.target.value)} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => onResolver(s.id, 'autorizada', obs)} style={{ flex: 1, background: C2.ok, border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 12, padding: '10px 0', cursor: 'pointer' }}>AUTORIZAR</button>
+            <button onClick={() => onResolver(s.id, 'rechazada', obs)} style={{ flex: 1, background: '#7B1E1E', border: 'none', borderRadius: 8, color: '#F09595', fontWeight: 700, fontSize: 12, padding: '10px 0', cursor: 'pointer' }}>RECHAZAR</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function DashboardSupervisorElectrico() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<any>(null)
@@ -218,32 +246,6 @@ export default function DashboardSupervisorElectrico() {
   const inputErr = { ...input, border: `1px solid ${C.err}` }
   const sel = { ...input }
   const selErr = { ...inputErr }
-
-  function SolicitudItem({ s }: { s: any }) {
-    const [obs, setObs] = useState('')
-    const [open, setOpen] = useState(false)
-    return (
-      <div style={{ background: C.bg, border: `1px solid ${C.warn}33`, borderRadius: 10, padding: '10px 12px', marginBottom: 6 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
-          <div>
-            <div style={{ fontSize: 11, color: C.sub }}>{s.profiles?.nombre} · OT-{String(s.ordenes_trabajo?.numero_orden || 0).padStart(5, '0')}</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{s.materiales?.nombre}</div>
-            <div style={{ fontSize: 11, color: C.sub }}>×{s.cantidad} {s.materiales?.unidad}</div>
-          </div>
-          <span style={{ fontSize: 11, color: C.warn }}>{open ? '▲' : '▼'}</span>
-        </div>
-        {open && (
-          <div style={{ marginTop: 8 }}>
-            <input style={{ ...input, marginBottom: 8 }} placeholder="Observación (opcional)" value={obs} onChange={e => setObs(e.target.value)} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => resolverSolicitud(s.id, 'autorizada', obs)} style={{ flex: 1, background: C.ok, border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 12, padding: '10px 0', cursor: 'pointer' }}>AUTORIZAR</button>
-              <button onClick={() => resolverSolicitud(s.id, 'rechazada', obs)} style={{ flex: 1, background: '#7B1E1E', border: 'none', borderRadius: 8, color: '#F09595', fontWeight: 700, fontSize: 12, padding: '10px 0', cursor: 'pointer' }}>RECHAZAR</button>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
 
   if (!perfil) return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.accent, fontFamily: 'system-ui' }}>Cargando...</div>
@@ -609,7 +611,7 @@ export default function DashboardSupervisorElectrico() {
           <div style={{ overflowY: 'auto', flex: 1 }}>
             {solicitudes.length === 0
               ? <div style={{ textAlign: 'center', color: C.sub, fontSize: 13, padding: 20 }}>Sin solicitudes pendientes</div>
-              : solicitudes.map(s => <SolicitudItem key={s.id} s={s} />)
+              : solicitudes.map(s => <SolicitudItem key={s.id} s={s} onResolver={resolverSolicitud} />)
             }
           </div>
         </>,
@@ -720,15 +722,15 @@ export default function DashboardSupervisorElectrico() {
 
         {/* STATS */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' as const }}>
+          <div onClick={() => setShowOrdenes(true)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' as const, cursor: 'pointer' }}>
             <div style={{ fontSize: 22, fontWeight: 700, color: activas > 0 ? C.accent : C.sub }}>{activas}</div>
             <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginTop: 2 }}>Activas</div>
           </div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' as const }}>
             <div style={{ fontSize: 22, fontWeight: 700, color: tecnicos.length > 0 ? C.ok : C.sub }}>{tecnicos.length}</div>
-            <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginTop: 2 }}>Disponibles</div>
+            <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginTop: 2 }}>Técnicos</div>
           </div>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' as const }}>
+          <div onClick={() => setShowVehiculos(true)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' as const, cursor: 'pointer' }}>
             <div style={{ fontSize: 22, fontWeight: 700, color: pendientesCheckin > 0 ? C.warn : C.sub }}>{pendientesCheckin}</div>
             <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginTop: 2 }}>Checkins pend.</div>
           </div>
