@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation'
 import { supabase, getPerfil } from '@/lib/supabase'
 
 const PIN_CRITICO = '2006'
+const C = {
+  bg: '#07131a', card: '#0c1c24', border: '#1a3040', text: '#e8f4f8',
+  sub: '#4a8fa0', accent: '#1ABBD6', warn: '#EF9F27', err: '#E24B4A', ok: '#1D9E75'
+}
+const inp = { width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const }
 
 export default function DashboardPanolero() {
   const router = useRouter()
@@ -14,16 +19,14 @@ export default function DashboardPanolero() {
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState<string | null>(null)
   const [subcategoria, setSubcategoria] = useState<string | null>(null)
-  const [vista, setVista] = useState<'stock' | 'herramientas' | 'pedidos' | 'checkins'>('stock')
+  const [vista, setVista] = useState<'stock' | 'herramientas' | 'ordenes' | 'pedidos' | 'checkins'>('stock')
   const [loading, setLoading] = useState(true)
-
-  // checkins con faltantes
   const [checkinsFaltantes, setCheckinsFaltantes] = useState<any[]>([])
-const [checkinsHistorial, setCheckinsHistorial] = useState<any[]>([])
-const [checkinDetalle, setCheckinDetalle] = useState<any>(null)
-const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'historial'>('pendientes')
-
-  // pedidos al jefe
+  const [checkinsHistorial, setCheckinsHistorial] = useState<any[]>([])
+  const [checkinDetalle, setCheckinDetalle] = useState<any>(null)
+  const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'historial' | 'vehiculos'>('pendientes')
+  const [checkinsVehiculos, setCheckinsVehiculos] = useState<any[]>([])
+  const [checkinVehDetalle, setCheckinVehDetalle] = useState<any>(null)
   const [pedidos, setPedidos] = useState<any[]>([])
   const [showNuevoPedido, setShowNuevoPedido] = useState(false)
   const [loadingPedido, setLoadingPedido] = useState(false)
@@ -32,11 +35,9 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
   const [pedidoObs, setPedidoObs] = useState('')
   const [pedidoBusqueda, setPedidoBusqueda] = useState('')
   const [busquedaResultados, setBusquedaResultados] = useState<any[]>([])
-
-  // solicitudes insumos autorizadas
   const [solicitudes, setSolicitudes] = useState<any[]>([])
-
-  // edicion inline
+  const [ordenesPanol, setOrdenesPanol] = useState<any[]>([])
+  const [ordenPanolDetalle, setOrdenPanolDetalle] = useState<any>(null)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [editValor, setEditValor] = useState('')
   const [pinInput, setPinInput] = useState('')
@@ -44,10 +45,10 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
   const [accionPin, setAccionPin] = useState<'editar' | 'borrar' | 'nuevo' | null>(null)
   const [targetId, setTargetId] = useState<string | null>(null)
   const [pinError, setPinError] = useState(false)
-
-  // nuevo item
   const [showNuevoItem, setShowNuevoItem] = useState(false)
   const [nuevoItem, setNuevoItem] = useState({ nombre: '', codigo: '', unidad: '', stock_actual: '0', stock_minimo: '0', ubicacion_panol: '' })
+  const [hora, setHora] = useState('')
+  const [fechaDisplay, setFechaDisplay] = useState('')
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -57,6 +58,14 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
       await cargarTodo()
       setLoading(false)
     })
+    const tick = () => {
+      const now = new Date()
+      setHora(now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }))
+      setFechaDisplay(now.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' }))
+    }
+    tick()
+    const iv = setInterval(tick, 60000)
+    return () => clearInterval(iv)
   }, [])
 
   async function cargarTodo() {
@@ -64,43 +73,35 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
     setMateriales(mats || [])
     const { data: herrs } = await supabase.from('herramientas').select('*').order('nombre', { ascending: true })
     setHerramientas(herrs || [])
-    const { data: peds } = await supabase
-      .from('pedidos_jefe')
-      .select('*, pedidos_jefe_items(*)')
-      .order('created_at', { ascending: false })
+    const { data: peds } = await supabase.from('pedidos_jefe').select('*, pedidos_jefe_items(*)').order('created_at', { ascending: false })
     setPedidos(peds || [])
     const matsAlerta = (mats || []).filter((m: any) => m.stock_minimo > 0 && m.stock_actual <= m.stock_minimo).map((m: any) => ({ ...m, tipo_item: 'material' }))
     const herrsAlerta = (herrs || []).filter((h: any) => h.stock_minimo > 0 && h.stock_actual <= h.stock_minimo).map((h: any) => ({ ...h, tipo_item: 'herramienta' }))
     setAlertasStock([...matsAlerta, ...herrsAlerta])
-    const { data: chks } = await supabase
-      .from('checkins_herramientas')
+    const { data: chks } = await supabase.from('checkins_herramientas')
       .select('*, profiles!checkins_herramientas_tecnico_id_fkey(nombre, apellido)')
-      .eq('tiene_faltantes', true)
-      .eq('estado', 'con_faltantes')
-      .order('created_at', { ascending: false })
+      .eq('tiene_faltantes', true).eq('estado', 'con_faltantes').order('created_at', { ascending: false })
     setCheckinsFaltantes(chks || [])
-
-    const { data: historial } = await supabase
-      .from('checkins_herramientas')
+    const { data: historial } = await supabase.from('checkins_herramientas')
       .select('*, profiles!checkins_herramientas_tecnico_id_fkey(nombre, apellido)')
-      .order('created_at', { ascending: false })
-      .limit(50)
+      .order('created_at', { ascending: false }).limit(50)
     setCheckinsHistorial(historial || [])
-
-    const { data: sols } = await supabase
-      .from('solicitudes_insumos')
+    const { data: chkVeh } = await supabase.from('checkins_vehiculos')
+      .select('*, moviles(marca, modelo, patente, sector), conductor:conductor_id(nombre, apellido)')
+      .order('created_at', { ascending: false }).limit(50)
+    setCheckinsVehiculos(chkVeh || [])
+    const { data: sols } = await supabase.from('solicitudes_insumos')
       .select('*, materiales!solicitudes_insumos_material_id_fkey(nombre, unidad), profiles!solicitudes_insumos_tallerista_id_fkey(nombre), ordenes_trabajo!solicitudes_insumos_orden_trabajo_id_fkey(titulo, numero_orden)')
-      .eq('estado', 'autorizada')
-      .order('created_at', { ascending: false })
+      .eq('estado', 'autorizada').order('created_at', { ascending: false })
     setSolicitudes(sols || [])
+    const { data: ords } = await supabase.from('ordenes_trabajo')
+      .select('*, orden_materiales(cantidad, materiales(nombre, unidad)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)')
+      .in('estado', ['pendiente', 'en_curso']).order('created_at', { ascending: false })
+    setOrdenesPanol(ords || [])
   }
 
   function pedirPin(accion: 'editar' | 'borrar' | 'nuevo', id?: string) {
-    setAccionPin(accion)
-    setTargetId(id || null)
-    setPinInput('')
-    setPinError(false)
-    setShowPin(true)
+    setAccionPin(accion); setTargetId(id || null); setPinInput(''); setPinError(false); setShowPin(true)
   }
 
   async function confirmarPin() {
@@ -129,16 +130,8 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
 
   async function crearItem() {
     const tabla = vista === 'herramientas' ? 'herramientas' : 'materiales'
-    const payload: any = {
-      nombre: nuevoItem.nombre,
-      codigo: nuevoItem.codigo || null,
-      unidad: nuevoItem.unidad,
-      stock_actual: parseInt(nuevoItem.stock_actual) || 0,
-      stock_minimo: parseInt(nuevoItem.stock_minimo) || 0,
-      ubicacion_panol: nuevoItem.ubicacion_panol || null,
-    }
-    if (tabla === 'materiales') payload.categoria = categoria
-    else payload.categoria = categoria
+    const payload: any = { nombre: nuevoItem.nombre, codigo: nuevoItem.codigo || null, unidad: nuevoItem.unidad, stock_actual: parseInt(nuevoItem.stock_actual) || 0, stock_minimo: parseInt(nuevoItem.stock_minimo) || 0, ubicacion_panol: nuevoItem.ubicacion_panol || null }
+    payload.categoria = categoria
     await supabase.from(tabla).insert(payload)
     setShowNuevoItem(false)
     setNuevoItem({ nombre: '', codigo: '', unidad: '', stock_actual: '0', stock_minimo: '0', ubicacion_panol: '' })
@@ -157,30 +150,15 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
   function agregarItemPedido(item: any) {
     if (pedidoItems.find((i: any) => i.id === item.id)) return
     setPedidoItems((prev: any[]) => [...prev, { ...item, cantidad: 1, url_externa: '', observacion: '' }])
-    setPedidoBusqueda('')
-    setBusquedaResultados([])
+    setPedidoBusqueda(''); setBusquedaResultados([])
   }
 
-  function quitarItemPedido(id: string) {
-    setPedidoItems((prev: any[]) => prev.filter((i: any) => i.id !== id))
-  }
-
-  function actualizarItemPedido(id: string, campo: string, valor: any) {
-    setPedidoItems((prev: any[]) => prev.map((i: any) => i.id === id ? { ...i, [campo]: valor } : i))
-  }
+  function quitarItemPedido(id: string) { setPedidoItems((prev: any[]) => prev.filter((i: any) => i.id !== id)) }
+  function actualizarItemPedido(id: string, campo: string, valor: any) { setPedidoItems((prev: any[]) => prev.map((i: any) => i.id === id ? { ...i, [campo]: valor } : i)) }
 
   function abrirNuevoPedido() {
-    const preItems = alertasStock.map((a: any) => ({
-      ...a,
-      cantidad: Math.max(1, (a.stock_minimo || 0) - (a.stock_actual || 0) + 5),
-      url_externa: '',
-      observacion: ''
-    }))
-    setPedidoItems(preItems)
-    setPedidoObs('')
-    setPedidoBusqueda('')
-    setBusquedaResultados([])
-    setShowNuevoPedido(true)
+    const preItems = alertasStock.map((a: any) => ({ ...a, cantidad: Math.max(1, (a.stock_minimo || 0) - (a.stock_actual || 0) + 5), url_externa: '', observacion: '' }))
+    setPedidoItems(preItems); setPedidoObs(''); setPedidoBusqueda(''); setBusquedaResultados([]); setShowNuevoPedido(true)
   }
 
   async function enviarPedido() {
@@ -189,58 +167,27 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
     const cats = [...new Set(pedidoItems.map((i: any) => i.categoria || 'general'))]
     const sector = cats.length === 1 ? cats[0] : 'general'
     const tipo = pedidoItems[0].tipo_item === 'herramienta' ? `herramientas_${sector}` : `materiales_${sector}`
-    const { data: pedido } = await supabase.from('pedidos_jefe').insert({
-      panolero_id: perfil.id,
-      tipo,
-      descripcion: pedidoObs || `Solicitud de ${pedidoItems.length} ítem${pedidoItems.length > 1 ? 's' : ''}`,
-      estado: 'pendiente',
-      sector,
-      observaciones_panolero: pedidoObs || null,
-    }).select().single()
+    const { data: pedido } = await supabase.from('pedidos_jefe').insert({ panolero_id: perfil.id, tipo, descripcion: pedidoObs || `Solicitud de ${pedidoItems.length} ítem${pedidoItems.length > 1 ? 's' : ''}`, estado: 'pendiente', sector, observaciones_panolero: pedidoObs || null }).select().single()
     if (pedido) {
-      await supabase.from('pedidos_jefe_items').insert(
-        pedidoItems.map((i: any) => ({
-          pedido_id: pedido.id,
-          tipo_item: i.tipo_item,
-          material_id: i.tipo_item === 'material' ? i.id : null,
-          herramienta_id: i.tipo_item === 'herramienta' ? i.id : null,
-          nombre: i.nombre,
-          codigo: i.codigo || null,
-          cantidad: i.cantidad,
-          unidad: i.unidad || null,
-          url_externa: i.url_externa || null,
-          observacion: i.observacion || null,
-        }))
-      )
+      await supabase.from('pedidos_jefe_items').insert(pedidoItems.map((i: any) => ({ pedido_id: pedido.id, tipo_item: i.tipo_item, material_id: i.tipo_item === 'material' ? i.id : null, herramienta_id: i.tipo_item === 'herramienta' ? i.id : null, nombre: i.nombre, codigo: i.codigo || null, cantidad: i.cantidad, unidad: i.unidad || null, url_externa: i.url_externa || null, observacion: i.observacion || null })))
     }
-    setLoadingPedido(false)
-    setShowNuevoPedido(false)
-    setPedidoItems([])
-    setPedidoObs('')
+    setLoadingPedido(false); setShowNuevoPedido(false); setPedidoItems([]); setPedidoObs('')
     await cargarTodo()
   }
 
   async function recibirCheckin(id: string) {
-    await supabase
-      .from('checkins_herramientas')
-      .update({ recibido_por: perfil.id, recibido_at: new Date().toISOString(), estado: 'completado' })
-      .eq('id', id)
-    await cargarTodo()
-    setCheckinDetalle(null)
-  }
-
-  async function cargarItemsCheckin(checkinId: string) {
-    const { data } = await supabase
-      .from('checkin_items')
-      .select('*')
-      .eq('checkin_id', checkinId)
-      .order('created_at')
-    return data || []
+    await supabase.from('checkins_herramientas').update({ recibido_por: perfil.id, recibido_at: new Date().toISOString(), estado: 'completado' }).eq('id', id)
+    await cargarTodo(); setCheckinDetalle(null)
   }
 
   async function abrirCheckin(checkin: any) {
-    const items = await cargarItemsCheckin(checkin.id)
-    setCheckinDetalle({ ...checkin, items })
+    const { data } = await supabase.from('checkin_items').select('*').eq('checkin_id', checkin.id).order('created_at')
+    setCheckinDetalle({ ...checkin, items: data || [] })
+  }
+
+  async function abrirCheckinVeh(ch: any) {
+    const { data } = await supabase.from('checkins_vehiculos_items').select('*').eq('checkin_id', ch.id).order('orden', { ascending: true })
+    setCheckinVehDetalle({ ...ch, items: data || [] })
   }
 
   async function entregarSolicitud(id: string) {
@@ -248,578 +195,604 @@ const [checkinsSubvista, setCheckinsSubvista] = useState<'pendientes' | 'histori
     await cargarTodo()
   }
 
+  async function abrirOrdenDetalle(orden: any) {
+    setOrdenPanolDetalle(orden)
+  }
+
   function imprimirStock() {
     const tabla = vista === 'herramientas' ? herramientas : materiales
     const items = tabla.filter(m => m.categoria === categoria)
     const titulo = categoria === 'electrico' ? 'Pañol Eléctrico' : categoria === 'ac' ? 'Pañol AC' : categoria === 'general' ? 'Pañol General' : 'Pañol Edificios'
-    const html = `
-      <html><head><title>${titulo}</title>
-      <style>body{font-family:Arial;font-size:12px;padding:20px}
-      table{width:100%;border-collapse:collapse}
-      th{background:#0F3A42;color:white;padding:6px;text-align:left}
-      td{padding:6px;border-bottom:1px solid #ddd}
-      h2{color:#0F3A42}</style></head>
-      <body><h2>MECA Aubasa · ${titulo}</h2>
-      <p>Fecha: ${new Date().toLocaleDateString('es-AR')}</p>
-      <table><tr><th>Material</th><th>Código</th><th>Unidad</th><th>Stock</th><th>Mínimo</th><th>Estado</th></tr>
-      ${items.map(m => `<tr>
-        <td>${m.nombre}</td><td>${m.codigo || '-'}</td><td>${m.unidad || '-'}</td>
-        <td>${m.stock_actual}</td><td>${m.stock_minimo}</td>
-        <td>${m.stock_actual <= m.stock_minimo ? 'CRÍTICO' : m.stock_actual <= m.stock_minimo * 2 ? 'BAJO' : 'OK'}</td>
-      </tr>`).join('')}
-      </table></body></html>`
+    const html = `<html><head><title>${titulo}</title><style>body{font-family:Arial;font-size:12px;padding:20px}table{width:100%;border-collapse:collapse}th{background:#0F3A42;color:white;padding:6px;text-align:left}td{padding:6px;border-bottom:1px solid #ddd}h2{color:#0F3A42}</style></head><body><h2>MECA Aubasa · ${titulo}</h2><p>Fecha: ${new Date().toLocaleDateString('es-AR')}</p><table><tr><th>Material</th><th>Código</th><th>Unidad</th><th>Stock</th><th>Mínimo</th><th>Estado</th></tr>${items.map(m => `<tr><td>${m.nombre}</td><td>${m.codigo || '-'}</td><td>${m.unidad || '-'}</td><td>${m.stock_actual}</td><td>${m.stock_minimo}</td><td>${m.stock_actual <= m.stock_minimo ? 'CRÍTICO' : m.stock_actual <= m.stock_minimo * 2 ? 'BAJO' : 'OK'}</td></tr>`).join('')}</table></body></html>`
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close(); w.print() }
   }
 
   const tablaActiva = vista === 'herramientas' ? herramientas : materiales
- const itemsFiltrados = tablaActiva.filter(m =>
-  m.categoria === categoria &&
-  (!subcategoria || m.subcategoria === subcategoria) &&
-  (m.nombre || '').toLowerCase().includes(busqueda.toLowerCase())
-)
-const subcategoriasDisponibles = [...new Set(tablaActiva.filter(m => m.categoria === categoria).map(m => m.subcategoria).filter(Boolean))] as string[]
+  const itemsFiltrados = tablaActiva.filter(m => m.categoria === categoria && (!subcategoria || m.subcategoria === subcategoria) && (m.nombre || '').toLowerCase().includes(busqueda.toLowerCase()))
+  const subcategoriasDisponibles = [...new Set(tablaActiva.filter(m => m.categoria === categoria).map(m => m.subcategoria).filter(Boolean))] as string[]
   const criticos = tablaActiva.filter(m => m.categoria === categoria && m.stock_minimo > 0 && m.stock_actual <= m.stock_minimo)
   const bajos = tablaActiva.filter(m => m.categoria === categoria && m.stock_minimo > 0 && m.stock_actual > m.stock_minimo && m.stock_actual <= m.stock_minimo * 2)
 
-  const labelCategoria = (c: string | null) => c === 'electrico' ? 'Eléctrico' : c === 'ac' ? 'AC' : c === 'general' ? 'General' : 'Edificios'
+  if (!perfil || loading) return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.accent, fontFamily: 'system-ui' }}>Cargando...</div>
+  )
 
-  if (!perfil || loading) return <div className="min-h-screen bg-[#F0FAFB] flex items-center justify-center text-[#0F3A42]">Cargando...</div>
+  const modalWrap = (content: React.ReactNode, onClose: () => void) => (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+      <div style={{ background: C.card, borderRadius: '16px 16px 0 0', padding: 16, maxHeight: '90vh', display: 'flex', flexDirection: 'column', border: `1px solid ${C.border}` }}>
+        {content}
+      </div>
+    </div>
+  )
+
+  const navItems = [
+    { key: 'stock', label: 'Stock', svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'stock' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg> },
+    { key: 'herramientas', label: 'Herram.', svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'herramientas' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> },
+    { key: 'ordenes', label: 'OT', badge: ordenesPanol.length, svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'ordenes' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> },
+    { key: 'pedidos', label: 'Pedidos', badge: alertasStock.length, svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'pedidos' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
+    { key: 'checkins', label: 'Checkins', badge: checkinsFaltantes.length, svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'checkins' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> },
+  ]
 
   return (
-    <main className="min-h-screen bg-[#F0FAFB]">
-      <div className="bg-[#0F3A42] px-4 py-3">
-        <div className="flex justify-between items-center">
-          <div>
-            <div className="text-white font-bold text-lg tracking-wide">Pañol</div>
-            <div className="text-[#7ADCE8] text-xs mt-0.5">{perfil.nombre}</div>
+    <main style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text }}>
+
+      {/* HEADER */}
+      <div style={{ background: C.card, borderBottom: `1px solid ${C.border}`, padding: '12px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: C.bg, border: `1.5px solid ${C.accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: C.accent }}>
+              {perfil.nombre?.[0]}{perfil.apellido?.[0]}
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{perfil.apellido}, {perfil.nombre}</div>
+              <div style={{ fontSize: 11, color: C.sub, marginTop: 1 }}>Pañolero
+                {alertasStock.length > 0 && <span style={{ marginLeft: 8, background: C.err, color: 'white', fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 10 }}>⚠️ {alertasStock.length} alertas</span>}
+              </div>
+            </div>
           </div>
-          <div className="bg-[#0A2830] text-[#7ADCE8] text-xs font-bold px-3 py-1 rounded-full tracking-wide uppercase">PAÑOL</div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: C.accent }}>{hora}</div>
+            <div style={{ fontSize: 10, color: C.sub, textTransform: 'capitalize' }}>{fechaDisplay}</div>
+          </div>
         </div>
       </div>
 
-      {/* PIN MODAL */}
+      {/* MODAL PIN */}
       {showPin && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-xs">
-            <div className="text-[#0F3A42] font-bold text-sm mb-1">PIN requerido</div>
-            <div className="text-[#7A9EA5] text-xs mb-3">Ingresá tu PIN para continuar</div>
-            <input
-              type="password"
-              className={`w-full bg-[#F0FAFB] border rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none mb-2 ${pinError ? 'border-[#E24B4A]' : 'border-[#B2E0E8]'}`}
-              placeholder="PIN"
-              value={pinInput}
-              onChange={e => { setPinInput(e.target.value); setPinError(false) }}
-              autoFocus
-            />
-            {pinError && <div className="text-[#E24B4A] text-xs mb-2">PIN incorrecto</div>}
-            <div className="flex gap-2">
-              <button onClick={confirmarPin} className="flex-1 bg-[#1ABBD6] text-white font-bold text-sm py-2 rounded-xl">CONFIRMAR</button>
-              <button onClick={() => setShowPin(false)} className="flex-1 bg-[#E8E8E6] text-[#5F5E5A] font-bold text-sm py-2 rounded-xl">CANCELAR</button>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: C.card, borderRadius: 16, padding: 24, width: '100%', maxWidth: 320, border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>PIN requerido</div>
+            <div style={{ fontSize: 11, color: C.sub, marginBottom: 16 }}>Ingresá tu PIN para continuar</div>
+            <input type="password" style={{ ...inp, marginBottom: 8, border: `1px solid ${pinError ? C.err : C.border}` }}
+              placeholder="PIN" value={pinInput}
+              onChange={e => { setPinInput(e.target.value); setPinError(false) }} autoFocus />
+            {pinError && <div style={{ fontSize: 11, color: C.err, marginBottom: 8 }}>PIN incorrecto</div>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={confirmarPin} style={{ flex: 1, background: C.accent, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '11px 0', cursor: 'pointer' }}>CONFIRMAR</button>
+              <button onClick={() => setShowPin(false)} style={{ flex: 1, background: C.border, border: 'none', borderRadius: 10, color: C.sub, fontWeight: 700, fontSize: 13, padding: '11px 0', cursor: 'pointer' }}>CANCELAR</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* NUEVO ITEM MODAL */}
-      {showNuevoItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
-          <div className="bg-white rounded-t-2xl p-4">
-            <div className="text-[#0F3A42] font-bold text-sm mb-3">Nuevo {vista === 'herramientas' ? 'herramienta' : 'material'} · {labelCategoria(categoria)}</div>
-            {[
-              { label: 'Nombre *', key: 'nombre', placeholder: 'Nombre del ítem' },
-              { label: 'Código', key: 'codigo', placeholder: 'Ej: EL-001' },
-              { label: 'Unidad', key: 'unidad', placeholder: 'Ej: unidad, kg, m' },
-              { label: 'Stock inicial', key: 'stock_actual', placeholder: '0' },
-              { label: 'Stock mínimo', key: 'stock_minimo', placeholder: '0' },
-              { label: 'Ubicación pañol', key: 'ubicacion_panol', placeholder: 'Ej: Estante A3' },
-            ].map(f => (
-              <div key={f.key} className="mb-2">
-                <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-0.5">{f.label}</div>
-                <input
-                  className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
-                  placeholder={f.placeholder}
-                  value={(nuevoItem as any)[f.key]}
-                  onChange={e => setNuevoItem({ ...nuevoItem, [f.key]: e.target.value })}
-                />
+      {/* MODAL NUEVO ITEM */}
+      {showNuevoItem && modalWrap(
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Nuevo {vista === 'herramientas' ? 'herramienta' : 'material'}</div>
+            <button onClick={() => setShowNuevoItem(false)} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CANCELAR</button>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {[{ label: 'Nombre *', key: 'nombre', ph: 'Nombre del ítem' }, { label: 'Código', key: 'codigo', ph: 'Ej: EL-001' }, { label: 'Unidad', key: 'unidad', ph: 'unidad, kg, m...' }, { label: 'Stock inicial', key: 'stock_actual', ph: '0' }, { label: 'Stock mínimo', key: 'stock_minimo', ph: '0' }, { label: 'Ubicación pañol', key: 'ubicacion_panol', ph: 'Estante A3' }].map(f => (
+              <div key={f.key} style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>{f.label}</div>
+                <input style={inp} placeholder={f.ph} value={(nuevoItem as any)[f.key]} onChange={e => setNuevoItem({ ...nuevoItem, [f.key]: e.target.value })} />
               </div>
             ))}
-            <div className="flex gap-2 mt-3">
-              <button onClick={crearItem} disabled={!nuevoItem.nombre} className="flex-1 bg-[#1ABBD6] text-white font-bold text-sm py-3 rounded-xl disabled:opacity-50">GUARDAR</button>
-              <button onClick={() => setShowNuevoItem(false)} className="flex-1 bg-[#E8E8E6] text-[#5F5E5A] font-bold text-sm py-3 rounded-xl">CANCELAR</button>
-            </div>
+            <button onClick={crearItem} disabled={!nuevoItem.nombre}
+              style={{ width: '100%', background: nuevoItem.nombre ? C.accent : C.border, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 14, padding: '13px 0', cursor: nuevoItem.nombre ? 'pointer' : 'default', marginTop: 8 }}>
+              GUARDAR
+            </button>
           </div>
-        </div>
+        </>,
+        () => setShowNuevoItem(false)
       )}
 
-      <div className="px-4 pt-3">
-
-        {/* TABS */}
-        <div className="flex gap-2 mb-3">
-          {(['stock', 'herramientas', 'pedidos', 'checkins'] as const).map(t => (
-            <button key={t} onClick={() => { setVista(t); setCategoria(null); setBusqueda('') }}
-              className={`flex-1 text-xs font-bold py-2 rounded-lg ${vista === t ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
-              {t === 'stock' ? 'STOCK' : t === 'herramientas' ? 'HERRAM.' : t === 'pedidos' ? 'PEDIDOS' : `CHECK${checkinsFaltantes.length > 0 ? ` (${checkinsFaltantes.length})` : ''}`}
-            </button>
-          ))}
-        </div>
-
-        {/* SOLICITUDES AUTORIZADAS */}
-        {(() => {
-          const solicsFiltradas = categoria
-            ? solicitudes.filter((s: any) => s.materiales?.categoria === categoria)
-            : solicitudes
-          const badgeColor = (cat: string) =>
-            cat === 'electrico' ? 'bg-[#FFF3CD] text-[#856404]' :
-            cat === 'ac' ? 'bg-[#D6F4F8] text-[#0F8FAA]' :
-            cat === 'edificio' ? 'bg-[#E8E8E6] text-[#5F5E5A]' : 'bg-[#F0FAFB] text-[#7A9EA5]'
-          const badgeLabel = (cat: string) =>
-            cat === 'electrico' ? '⚡ Eléc' : cat === 'ac' ? '❄️ AC' : cat === 'edificio' ? '🏢 Edif' : '🔧 Gral'
-          if (solicsFiltradas.length === 0) return null
-          return (
-            <div className="bg-[#D6F4F8] border border-[#1ABBD6] rounded-xl p-3 mb-3">
-              <div className="text-[#0F3A42] text-xs font-bold uppercase tracking-widest mb-2">
-                📦 Solicitudes autorizadas · {solicsFiltradas.length}
-                {categoria && solicitudes.length > solicsFiltradas.length && (
-                  <span className="text-[#7A9EA5] font-normal ml-1">(de {solicitudes.length} totales)</span>
-                )}
-              </div>
-              {solicsFiltradas.map((s: any) => (
-                <div key={s.id} className="flex items-center justify-between bg-white border border-[#B2E0E8] rounded-lg px-3 py-2 mb-1">
-                  <div className="flex-1 mr-2">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${badgeColor(s.materiales?.categoria)}`}>
-                        {badgeLabel(s.materiales?.categoria)}
-                      </span>
-                    </div>
-                    <div className="text-[#0F3A42] text-xs font-bold">{s.materiales?.nombre}</div>
-                    <div className="text-[#7A9EA5] text-xs">{s.profiles?.nombre} · ×{s.cantidad} {s.materiales?.unidad}</div>
-                  </div>
-                  <button onClick={() => entregarSolicitud(s.id)}
-                    className="bg-[#3B6D11] text-white text-xs font-bold px-3 py-1.5 rounded-lg shrink-0">ENTREGAR</button>
+      {/* MODAL DETALLE OT */}
+      {ordenPanolDetalle && modalWrap(
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 10, color: C.sub, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' as const }}>OT-{String(ordenPanolDetalle.numero_orden).padStart(5, '0')}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{ordenPanolDetalle.titulo}</div>
+              <div style={{ fontSize: 11, color: C.sub }}>Creado por: {ordenPanolDetalle.profiles?.nombre} {ordenPanolDetalle.profiles?.apellido}</div>
+            </div>
+            <button onClick={() => setOrdenPanolDetalle(null)} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+              {[['Sector', ordenPanolDetalle.sector], ['Estado', ordenPanolDetalle.estado], ['Prioridad', ordenPanolDetalle.prioridad], ['Tipo', ordenPanolDetalle.tipo?.replace(/_/g, ' ')]].map(([k, v]) => (
+                <div key={k} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px' }}>
+                  <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const }}>{k}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, marginTop: 2, textTransform: 'capitalize' as const }}>{v}</div>
                 </div>
               ))}
+            </div>
+            {(ordenPanolDetalle.km || ordenPanolDetalle.ubicacion) && (
+              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
+                <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const }}>Ubicación</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 2 }}>{ordenPanolDetalle.km ? `Km ${ordenPanolDetalle.km}` : ''}{ordenPanolDetalle.ubicacion ? ` · ${ordenPanolDetalle.ubicacion}` : ''}</div>
+              </div>
+            )}
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 8 }}>
+              Materiales asignados {ordenPanolDetalle.orden_materiales?.length > 0 ? `(${ordenPanolDetalle.orden_materiales.length})` : ''}
+            </div>
+            {!ordenPanolDetalle.orden_materiales?.length ? (
+              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 12, color: C.sub, textAlign: 'center' as const }}>Sin materiales cargados en esta orden</div>
+            ) : ordenPanolDetalle.orden_materiales.map((om: any) => (
+              <div key={om.id || om.materiales?.nombre} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
+                <span style={{ fontSize: 13, color: C.text }}>{om.materiales?.nombre}</span>
+                <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>×{om.cantidad} {om.materiales?.unidad}</span>
+              </div>
+            ))}
+          </div>
+        </>,
+        () => setOrdenPanolDetalle(null)
+      )}
+
+      {/* MODAL CHECKIN HERRAMIENTA DETALLE */}
+      {checkinDetalle && modalWrap(
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 10, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const }}>Checkin · Caja {checkinDetalle.caja?.toUpperCase()}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{checkinDetalle.profiles?.nombre} {checkinDetalle.profiles?.apellido}</div>
+              <div style={{ fontSize: 11, color: C.sub }}>{new Date(checkinDetalle.hora_inicio || checkinDetalle.created_at).toLocaleString('es-AR')}</div>
+            </div>
+            <button onClick={() => setCheckinDetalle(null)} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {checkinDetalle.items?.map((item: any, idx: number) => (
+              <div key={idx} style={{ background: item.estado === 'faltante' ? '#2A0F0F' : item.estado === 'reemplazo' ? '#3A2A00' : C.bg, border: `1px solid ${item.estado === 'faltante' ? C.err : item.estado === 'reemplazo' ? C.warn : C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: item.estado === 'faltante' ? '#7B1E1E' : item.estado === 'reemplazo' ? '#3A2A00' : '#0F3A42', color: item.estado === 'faltante' ? '#F09595' : item.estado === 'reemplazo' ? C.warn : C.accent }}>
+                    {item.estado === 'faltante' ? '❌ FALTANTE' : item.estado === 'reemplazo' ? '🔄 REEMPLAZO' : '✅ OK'}
+                  </span>
+                  <span style={{ fontSize: 11, color: C.sub }}>×{item.cantidad}</span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 4 }}>{item.detalle}</div>
+                {item.observacion && <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>Obs: {item.observacion}</div>}
+              </div>
+            ))}
+            {checkinDetalle.estado !== 'completado' && (
+              <button onClick={() => recibirCheckin(checkinDetalle.id)}
+                style={{ width: '100%', background: C.accent, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 14, padding: '13px 0', cursor: 'pointer', marginTop: 8 }}>
+                ✅ MARCAR COMO RECIBIDO
+              </button>
+            )}
+          </div>
+        </>,
+        () => setCheckinDetalle(null)
+      )}
+
+      {/* MODAL CHECKIN VEHICULO DETALLE */}
+      {checkinVehDetalle && modalWrap(
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 10, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const }}>CHK-{String(checkinVehDetalle.numero_checkin).padStart(4, '0')}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{checkinVehDetalle.moviles?.marca} {checkinVehDetalle.moviles?.modelo} — {checkinVehDetalle.moviles?.patente}</div>
+              <div style={{ fontSize: 11, color: C.sub }}>{checkinVehDetalle.conductor?.nombre} {checkinVehDetalle.conductor?.apellido} · {checkinVehDetalle.turno} · {checkinVehDetalle.fecha}</div>
+            </div>
+            <button onClick={() => setCheckinVehDetalle(null)} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px', textAlign: 'center' as const }}>
+                <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const }}>Km Inicial</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: C.accent, marginTop: 4 }}>{checkinVehDetalle.km_inicial ?? '—'}</div>
+              </div>
+              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px', textAlign: 'center' as const }}>
+                <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const }}>Km Final</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: C.accent, marginTop: 4 }}>{checkinVehDetalle.km_final ?? '—'}</div>
+              </div>
+            </div>
+            {checkinVehDetalle.observaciones_generales && (
+              <div style={{ background: '#3A2A00', border: `1px solid ${C.warn}`, borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
+                <div style={{ fontSize: 9, color: C.warn, textTransform: 'uppercase' as const, marginBottom: 2 }}>Observaciones</div>
+                <div style={{ fontSize: 12, color: C.text }}>{checkinVehDetalle.observaciones_generales}</div>
+              </div>
+            )}
+            {checkinVehDetalle.items?.map((it: any) => (
+              <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: it.estado === 'mal' ? '#2A0F0F' : C.bg, border: `1px solid ${it.estado === 'mal' ? C.err : C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
+                <span style={{ fontSize: 12, color: C.text, flex: 1 }}>{it.item}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: it.estado === 'bien' ? '#0F3A42' : '#7B1E1E', color: it.estado === 'bien' ? C.accent : '#F09595', marginLeft: 8 }}>{it.estado.toUpperCase()}</span>
+              </div>
+            ))}
+          </div>
+        </>,
+        () => setCheckinVehDetalle(null)
+      )}
+
+      {/* BODY */}
+      <div style={{ padding: '14px 16px 110px' }}>
+
+        {/* SOLICITUDES AUTORIZADAS — siempre visibles arriba */}
+        {solicitudes.length > 0 && (() => {
+          const solicsFiltradas = categoria ? solicitudes.filter((s: any) => s.materiales?.categoria === categoria) : solicitudes
+          if (solicsFiltradas.length === 0) return null
+          const badgeC = (cat: string) => cat === 'electrico' ? { bg: '#3A2A00', color: C.warn } : cat === 'ac' ? { bg: '#0F2A35', color: C.accent } : { bg: C.border, color: C.sub }
+          const badgeL = (cat: string) => cat === 'electrico' ? '⚡ Eléc' : cat === 'ac' ? '❄️ AC' : cat === 'edificio' ? '🏢 Edif' : '🔧 Gral'
+          return (
+            <div style={{ background: '#0F2A35', border: `1px solid ${C.accent}`, borderRadius: 12, padding: '12px 14px', marginBottom: 12 }}>
+              <div style={{ fontSize: 9, color: C.accent, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 10 }}>
+                📦 Solicitudes autorizadas · {solicsFiltradas.length}
+                {categoria && solicitudes.length > solicsFiltradas.length && <span style={{ color: C.sub, fontWeight: 400, marginLeft: 4 }}>(de {solicitudes.length} totales)</span>}
+              </div>
+              {solicsFiltradas.map((s: any) => {
+                const bc = badgeC(s.materiales?.categoria)
+                return (
+                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '8px 12px', marginBottom: 6 }}>
+                    <div style={{ flex: 1, marginRight: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 8, background: bc.bg, color: bc.color }}>{badgeL(s.materiales?.categoria)}</span>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{s.materiales?.nombre}</div>
+                      <div style={{ fontSize: 11, color: C.sub }}>{s.profiles?.nombre} · ×{s.cantidad} {s.materiales?.unidad}</div>
+                    </div>
+                    <button onClick={() => entregarSolicitud(s.id)}
+                      style={{ background: C.ok, border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 11, padding: '8px 12px', cursor: 'pointer', flexShrink: 0 }}>
+                      ENTREGAR
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           )
         })()}
 
+        {/* VISTA ORDENES */}
+        {vista === 'ordenes' && (
+          <div>
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 10 }}>
+              Órdenes activas · {ordenesPanol.length}
+            </div>
+            {ordenesPanol.length === 0 ? (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, textAlign: 'center' as const, fontSize: 13, color: C.sub }}>Sin órdenes activas</div>
+            ) : ordenesPanol.map(o => (
+              <div key={o.id} onClick={() => abrirOrdenDetalle(o)}
+                style={{ background: C.card, border: `1px solid ${o.estado === 'en_curso' ? C.warn : C.border}`, borderLeft: `3px solid ${o.estado === 'en_curso' ? C.warn : C.accent}`, borderRadius: 12, padding: '12px 14px', marginBottom: 8, cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                      <span style={{ fontSize: 11, color: C.accent, fontWeight: 700 }}>OT-{String(o.numero_orden).padStart(5, '0')}</span>
+                      <span style={{ fontSize: 10, color: C.sub }}>{o.sector?.toUpperCase()}</span>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{o.titulo}</div>
+                    {o.km && <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
+                    {o.orden_materiales?.length > 0 && (
+                      <div style={{ fontSize: 11, color: C.accent, marginTop: 4 }}>
+                        📦 {o.orden_materiales.length} material{o.orden_materiales.length > 1 ? 'es' : ''}: {o.orden_materiales.slice(0, 2).map((om: any) => om.materiales?.nombre).join(', ')}{o.orden_materiales.length > 2 ? '...' : ''}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap' as const, background: o.estado === 'en_curso' ? '#FAEEDA' : C.bg, color: o.estado === 'en_curso' ? '#854F0B' : C.sub, marginLeft: 8 }}>
+                    {o.estado === 'en_curso' ? 'En curso' : 'Pendiente'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* VISTA CHECKINS */}
         {vista === 'checkins' && (
-          <>
-            <div className="flex gap-2 mb-3">
-              <button onClick={() => setCheckinsSubvista('pendientes')}
-                className={`flex-1 text-xs font-bold py-2 rounded-lg ${checkinsSubvista === 'pendientes' ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
-                PENDIENTES {checkinsFaltantes.length > 0 ? `(${checkinsFaltantes.length})` : ''}
-              </button>
-              <button onClick={() => setCheckinsSubvista('historial')}
-                className={`flex-1 text-xs font-bold py-2 rounded-lg ${checkinsSubvista === 'historial' ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
-                HISTORIAL
-              </button>
+          <div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              {[{ key: 'pendientes', label: `Faltantes${checkinsFaltantes.length > 0 ? ` (${checkinsFaltantes.length})` : ''}` }, { key: 'historial', label: 'Herramientas' }, { key: 'vehiculos', label: 'Vehículos' }].map(t => (
+                <button key={t.key} onClick={() => setCheckinsSubvista(t.key as any)}
+                  style={{ flex: 1, background: checkinsSubvista === t.key ? C.accent : C.card, border: `1px solid ${checkinsSubvista === t.key ? C.accent : C.border}`, borderRadius: 8, color: checkinsSubvista === t.key ? 'white' : C.sub, fontWeight: 600, fontSize: 11, padding: '8px 4px', cursor: 'pointer' }}>
+                  {t.label}
+                </button>
+              ))}
             </div>
 
-            {checkinsSubvista === 'historial' && (
-              <div>
-                {checkinsHistorial.length === 0 ? (
-                  <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm">Sin checkins registrados</div>
-                ) : checkinsHistorial.map(c => (
+            {checkinsSubvista === 'pendientes' && (
+              checkinsFaltantes.length === 0
+                ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, textAlign: 'center' as const, fontSize: 13, color: C.sub }}>✅ Sin faltantes pendientes</div>
+                : checkinsFaltantes.map(c => (
                   <div key={c.id} onClick={() => abrirCheckin(c)}
-                    className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#F0FAFB]">
-                    <div className="flex justify-between items-start">
+                    style={{ background: C.card, border: `1px solid ${C.err}`, borderLeft: `3px solid ${C.err}`, borderRadius: 12, padding: '12px 14px', marginBottom: 8, cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <div className="text-[#0F3A42] font-bold text-sm">Caja {c.caja?.toUpperCase()}</div>
-                        <div className="text-[#7A9EA5] text-xs">{c.profiles?.nombre} {c.profiles?.apellido} · Caja: {c.caja?.toUpperCase()}</div>
-                        <div className="text-[#7A9EA5] text-xs">{new Date(c.created_at).toLocaleString('es-AR')}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Caja {c.caja?.toUpperCase()}</div>
+                        <div style={{ fontSize: 11, color: C.sub }}>{c.profiles?.nombre} {c.profiles?.apellido}</div>
+                        <div style={{ fontSize: 11, color: C.sub }}>{new Date(c.created_at).toLocaleString('es-AR')}</div>
                       </div>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.estado === 'con_faltantes' ? 'bg-[#FCEBEB] text-[#A32D2D]' : c.estado === 'completado' ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#E8E8E6] text-[#5F5E5A]'}`}>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#7B1E1E', color: '#F09595' }}>⚠️ FALTANTE</span>
+                    </div>
+                  </div>
+                ))
+            )}
+
+            {checkinsSubvista === 'historial' && (
+              checkinsHistorial.length === 0
+                ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, textAlign: 'center' as const, fontSize: 13, color: C.sub }}>Sin checkins registrados</div>
+                : checkinsHistorial.map(c => (
+                  <div key={c.id} onClick={() => abrirCheckin(c)}
+                    style={{ background: C.card, border: `1px solid ${c.estado === 'con_faltantes' ? C.err : C.border}`, borderRadius: 12, padding: '12px 14px', marginBottom: 8, cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Caja {c.caja?.toUpperCase()}</div>
+                        <div style={{ fontSize: 11, color: C.sub }}>{c.profiles?.nombre} {c.profiles?.apellido} · {new Date(c.created_at).toLocaleString('es-AR')}</div>
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: c.estado === 'con_faltantes' ? '#7B1E1E' : '#0F2A35', color: c.estado === 'con_faltantes' ? '#F09595' : C.accent }}>
                         {c.estado === 'con_faltantes' ? '⚠️ FALTANTE' : c.estado === 'completado' ? '✅ OK' : c.estado}
                       </span>
                     </div>
                   </div>
-                ))}
-              </div>
+                ))
             )}
 
-            {checkinsSubvista === 'pendientes' && (
-            <>
-            {checkinDetalle && (
-              <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
-                <div className="bg-white rounded-t-2xl p-4 max-h-[85vh] flex flex-col">
-                  <div className="flex justify-between items-center mb-3">
-                    <div>
-                      <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase">Checkin · Caja {checkinDetalle.caja?.toUpperCase()}</div>
-                      <div className="text-[#0F3A42] font-bold text-sm">{checkinDetalle.profiles?.nombre}</div>
-                      <div className="text-[#7A9EA5] text-xs">{new Date(checkinDetalle.hora_inicio).toLocaleString('es-AR')}</div>
-                    </div>
-                    <button onClick={() => setCheckinDetalle(null)} className="text-[#7A9EA5] text-xs font-bold">CERRAR</button>
-                  </div>
-                  <div className="overflow-y-auto flex-1 mb-3">
-                    {checkinDetalle.items?.map((item: any, idx: number) => (
-                      <div key={idx} className={`rounded-lg p-3 mb-2 border ${item.estado === 'faltante' ? 'bg-[#FFF8F8] border-[#F5C6CB]' : item.estado === 'reemplazo' ? 'bg-[#FFFBF2] border-[#FFE69C]' : 'bg-[#F0FFF4] border-[#B2E0C8]'}`}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.estado === 'faltante' ? 'bg-[#FCEBEB] text-[#A32D2D]' : item.estado === 'reemplazo' ? 'bg-[#FAEEDA] text-[#854F0B]' : 'bg-[#D6F4F8] text-[#0F8FAA]'}`}>
-                            {item.estado === 'faltante' ? '❌ FALTANTE' : item.estado === 'reemplazo' ? '🔄 REEMPLAZO' : '✅ OK'}
-                          </span>
-                          <span className="text-[#7A9EA5] text-xs">×{item.cantidad}</span>
-                        </div>
-                        <div className="text-[#0F3A42] text-sm font-medium">{item.detalle}</div>
-                        {item.observacion && <div className="text-[#7A9EA5] text-xs mt-1">Obs: {item.observacion}</div>}
+            {checkinsSubvista === 'vehiculos' && (
+              checkinsVehiculos.length === 0
+                ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, textAlign: 'center' as const, fontSize: 13, color: C.sub }}>Sin checkins de vehículos</div>
+                : checkinsVehiculos.map(c => (
+                  <div key={c.id} onClick={() => abrirCheckinVeh(c)}
+                    style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 14px', marginBottom: 8, cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{c.moviles?.marca} {c.moviles?.modelo} — {c.moviles?.patente}</div>
+                        <div style={{ fontSize: 11, color: C.sub }}>{c.conductor?.nombre} {c.conductor?.apellido} · {c.turno} · {c.fecha}</div>
+                        {c.km_inicial && <div style={{ fontSize: 12, color: C.accent, fontWeight: 600, marginTop: 2 }}>Km: {c.km_inicial}{c.km_final ? ` → ${c.km_final}` : ''}</div>}
                       </div>
-                    ))}
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: c.estado === 'pendiente_aprobacion' ? '#3A2A00' : '#0F2A35', color: c.estado === 'pendiente_aprobacion' ? C.warn : C.accent, whiteSpace: 'nowrap' as const }}>
+                        {c.estado === 'pendiente_aprobacion' ? '⏳' : '✅'}
+                      </span>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => recibirCheckin(checkinDetalle.id)}
-                    className="w-full bg-[#1ABBD6] text-white font-bold text-sm py-3 rounded-xl"
-                  >
-                    ✅ MARCAR COMO RECIBIDO
-                  </button>
-                </div>
-              </div>
+                ))
             )}
-
-            <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">
-              Checkins con faltantes · {checkinsFaltantes.length}
-            </div>
-            {checkinsFaltantes.length === 0 ? (
-              <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm">
-                Sin faltantes pendientes ✅
-              </div>
-            ) : checkinsFaltantes.map(c => (
-              <div key={c.id} onClick={() => abrirCheckin(c)}
-                className="bg-white border border-[#F5C6CB] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#FFF8F8]">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="text-[#0F3A42] font-bold text-sm">Caja {c.caja?.toUpperCase()}</div>
-                    <div className="text-[#7A9EA5] text-xs">{c.profiles?.nombre} {c.profiles?.apellido} · Caja: {c.caja?.toUpperCase()}</div>
-                    <div className="text-[#7A9EA5] text-xs">{new Date(c.hora_inicio).toLocaleString('es-AR')}</div>
-                  </div>
-                  <span className="bg-[#FCEBEB] text-[#A32D2D] text-xs font-bold px-2 py-0.5 rounded-full">⚠️ FALTANTE</span>
-                </div>
-              </div>
-            ))}
-            </>
-            )}
-          </>
+          </div>
         )}
 
-       {/* VISTA PEDIDOS */}
+        {/* VISTA PEDIDOS */}
         {vista === 'pedidos' && (
-          <>
-            {/* ALERTA DE STOCK BAJO */}
+          <div>
             {alertasStock.length > 0 && !showNuevoPedido && (
-              <div className="bg-[#FAEEDA] border border-[#E8C97A] rounded-xl p-3 mb-3">
-                <div className="text-[#854F0B] font-bold text-xs mb-1">⚠️ {alertasStock.length} ítem{alertasStock.length > 1 ? 's' : ''} con stock bajo</div>
+              <div style={{ background: '#3A2A00', border: `1px solid ${C.warn}`, borderRadius: 12, padding: '12px 14px', marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.warn, marginBottom: 6 }}>⚠️ {alertasStock.length} ítem{alertasStock.length > 1 ? 's' : ''} con stock bajo</div>
                 {alertasStock.slice(0, 3).map((a: any) => (
-                  <div key={a.id} className="text-[#854F0B] text-xs">· {a.nombre} — stock: {a.stock_actual} / mín: {a.stock_minimo}</div>
+                  <div key={a.id} style={{ fontSize: 11, color: C.warn }}>· {a.nombre} — stock: {a.stock_actual} / mín: {a.stock_minimo}</div>
                 ))}
-                {alertasStock.length > 3 && <div className="text-[#854F0B] text-xs">· y {alertasStock.length - 3} más...</div>}
+                {alertasStock.length > 3 && <div style={{ fontSize: 11, color: C.warn }}>· y {alertasStock.length - 3} más...</div>}
               </div>
             )}
 
-            <button onClick={abrirNuevoPedido}
-              className="w-full bg-[#1ABBD6] text-white font-bold text-sm tracking-widest rounded-xl py-3 mb-3">
-              {alertasStock.length > 0 ? `📋 NUEVO PEDIDO (${alertasStock.length} alertas pre-cargadas)` : '+ NUEVO PEDIDO AL JEFE'}
-            </button>
+            {!showNuevoPedido && (
+              <button onClick={abrirNuevoPedido}
+                style={{ width: '100%', background: C.accent, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 14, padding: '13px 0', cursor: 'pointer', marginBottom: 14 }}>
+                {alertasStock.length > 0 ? `📋 NUEVO PEDIDO (${alertasStock.length} alertas pre-cargadas)` : '+ NUEVO PEDIDO AL JEFE'}
+              </button>
+            )}
 
-            {/* FORMULARIO NUEVO PEDIDO — FORMATO MAIL */}
             {showNuevoPedido && (
-              <div className="bg-white border border-[#B2E0E8] rounded-xl mb-3 overflow-hidden">
-                {/* Cabecera mail */}
-                <div className="bg-[#0F3A42] px-4 py-3">
-                  <div className="text-white font-bold text-sm">📧 Nuevo pedido al jefe</div>
-                  <div className="text-[#7ADCE8] text-xs mt-0.5">De: {perfil.nombre} {perfil.apellido} · {new Date().toLocaleDateString('es-AR')}</div>
-                  <div className="text-[#7ADCE8] text-xs">Para: Jefe de Sector</div>
-                  <div className="text-[#7ADCE8] text-xs">Asunto: Solicitud de materiales/herramientas</div>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '14px', marginBottom: 14 }}>
+                <div style={{ background: C.bg, borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>📧 Nuevo pedido al jefe</div>
+                  <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>De: {perfil.nombre} {perfil.apellido} · {new Date().toLocaleDateString('es-AR')}</div>
+                  <div style={{ fontSize: 11, color: C.sub }}>Para: Jefe de Sector</div>
                 </div>
 
-                <div className="p-4">
-                  {/* Buscador de ítems */}
-                  <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Buscar ítem del stock</div>
-                  <input
-                    className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-1 outline-none"
-                    placeholder="Nombre o código..."
-                    value={pedidoBusqueda}
-                    onChange={e => buscarItemsStock(e.target.value)}
-                  />
-                  {busquedaResultados.length > 0 && (
-                    <div className="border border-[#B2E0E8] rounded-lg mb-3 overflow-hidden">
-                      {busquedaResultados.map((r: any) => (
-                        <button key={r.id} onClick={() => agregarItemPedido(r)}
-                          className="w-full text-left px-3 py-2 text-xs border-b border-[#F0FAFB] hover:bg-[#F0FAFB] flex justify-between">
-                          <span className="text-[#0F3A42] font-bold">{r.nombre}</span>
-                          <span className="text-[#7A9EA5]">{r.codigo || ''} · stock: {r.stock_actual}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Lista de ítems del pedido */}
-                  {pedidoItems.length === 0 ? (
-                    <div className="text-center text-[#7A9EA5] text-xs py-4 border border-dashed border-[#B2E0E8] rounded-xl mb-3">
-                      Buscá o los ítems con stock bajo se pre-cargan solos
-                    </div>
-                  ) : (
-                    <div className="mb-3">
-                      <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-2">Ítems del pedido · {pedidoItems.length}</div>
-                      {pedidoItems.map((item: any) => (
-                        <div key={item.id} className={`border rounded-xl p-3 mb-2 ${item.stock_actual <= item.stock_minimo && item.stock_minimo > 0 ? 'border-[#E8C97A] bg-[#FFFBF2]' : 'border-[#B2E0E8] bg-[#F0FAFB]'}`}>
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <div className="text-[#0F3A42] font-bold text-xs">{item.nombre}</div>
-                              <div className="text-[#7A9EA5] text-xs">{item.codigo || 'sin código'} · {item.tipo_item === 'material' ? '📦' : '🔧'} · stock: {item.stock_actual}</div>
-                            </div>
-                            <button onClick={() => quitarItemPedido(item.id)} className="text-[#E24B4A] text-xs font-bold">✕</button>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <div className="text-xs text-[#7A9EA5] mb-0.5">Cantidad ({item.unidad || 'u'})</div>
-                              <input type="number" min="1"
-                                className="w-full bg-white border border-[#B2E0E8] rounded-lg px-2 py-1.5 text-sm text-[#0F3A42] outline-none"
-                                value={item.cantidad}
-                                onChange={e => actualizarItemPedido(item.id, 'cantidad', parseInt(e.target.value) || 1)} />
-                            </div>
-                            <div>
-                              <div className="text-xs text-[#7A9EA5] mb-0.5">Link (MercadoLibre, etc.)</div>
-                              <input type="url"
-                                className="w-full bg-white border border-[#B2E0E8] rounded-lg px-2 py-1.5 text-sm text-[#0F3A42] outline-none"
-                                placeholder="https://..."
-                                value={item.url_externa}
-                                onChange={e => actualizarItemPedido(item.id, 'url_externa', e.target.value)} />
-                            </div>
-                          </div>
-                          <div className="mt-2">
-                            <input
-                              className="w-full bg-white border border-[#B2E0E8] rounded-lg px-2 py-1.5 text-xs text-[#0F3A42] outline-none"
-                              placeholder="Observación del ítem..."
-                              value={item.observacion}
-                              onChange={e => actualizarItemPedido(item.id, 'observacion', e.target.value)} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Observaciones generales */}
-                  <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Observaciones generales</div>
-                  <textarea
-                    className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-4 outline-none resize-none"
-                    rows={2}
-                    placeholder="Urgencia, turno, contexto..."
-                    value={pedidoObs}
-                    onChange={e => setPedidoObs(e.target.value)} />
-
-                  <div className="flex gap-2">
-                    <button onClick={enviarPedido} disabled={loadingPedido || pedidoItems.length === 0}
-                      className="flex-1 bg-[#1ABBD6] text-white font-bold text-sm py-3 rounded-xl disabled:opacity-50">
-                      {loadingPedido ? 'Enviando...' : '📤 ENVIAR AL JEFE'}
-                    </button>
-                    <button onClick={() => setShowNuevoPedido(false)}
-                      className="flex-1 bg-[#E8E8E6] text-[#5F5E5A] font-bold text-sm py-3 rounded-xl">CANCELAR</button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* LISTA DE PEDIDOS ENVIADOS */}
-            <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Mis pedidos · {pedidos.length}</div>
-            {pedidos.length === 0 ? (
-              <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm">Sin pedidos</div>
-            ) : pedidos.map((p: any) => (
-              <div key={p.id} className="bg-white border border-[#B2E0E8] rounded-xl mb-2 overflow-hidden">
-                {/* Cabecera mail compacta */}
-                <div className="bg-[#F0FAFB] border-b border-[#B2E0E8] px-3 py-2 flex justify-between items-center">
-                  <div>
-                    <div className="text-[#0F3A42] font-bold text-xs">📧 PJ-{String(p.numero_pedido).padStart(4, '0')}</div>
-                    <div className="text-[#7A9EA5] text-xs">{new Date(p.created_at).toLocaleDateString('es-AR')} · {p.tipo?.replace(/_/g, ' ')}</div>
-                  </div>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.estado === 'aprobado' ? 'bg-[#D6F4F8] text-[#0F8FAA]' : p.estado === 'rechazado' ? 'bg-[#FCEBEB] text-[#A32D2D]' : p.estado === 'visto' ? 'bg-[#FAEEDA] text-[#854F0B]' : 'bg-[#E8E8E6] text-[#5F5E5A]'}`}>
-                    {p.estado}
-                  </span>
-                </div>
-                <div className="px-3 py-2">
-                  {(p.pedidos_jefe_items || []).length > 0 ? (
-                    (p.pedidos_jefe_items || []).map((it: any) => (
-                      <div key={it.id} className="text-xs text-[#0F3A42] py-0.5 flex justify-between">
-                        <span>· {it.nombre}</span>
-                        <span className="text-[#7A9EA5]">{it.cantidad} {it.unidad || 'u'}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-xs text-[#7A9EA5]">{p.descripcion?.slice(0, 60)}</div>
-                  )}
-                  {p.observaciones_jefe && (
-                    <div className="text-xs text-[#854F0B] mt-1 pt-1 border-t border-[#F0FAFB]">💬 Jefe: {p.observaciones_jefe}</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </>
-        )} 
-
-        {/* VISTA STOCK / HERRAMIENTAS */}
-        {(vista === 'stock' || vista === 'herramientas') && (
-          <>
-            {!categoria ? (
-              <>
-                <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-3">Seleccioná un pañol</div>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  {[
-                    { key: 'electrico', emoji: '⚡', label: 'Eléctrico' },
-                    { key: 'ac', emoji: '❄️', label: 'AC' },
-                    { key: 'general', emoji: '🔧', label: 'General' },
-                    { key: 'edificio', emoji: '🏢', label: 'Edificios' },
-                  ].map(cat => (
-                    <button key={cat.key} onClick={() => setCategoria(cat.key)}
-                      className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-left active:bg-[#F0FAFB]">
-                      <div className="text-2xl mb-1">{cat.emoji}</div>
-                      <div className="text-[#0F3A42] font-bold text-sm">Pañol {cat.label}</div>
-                      <div className="text-[#7A9EA5] text-xs mt-0.5">
-                        {tablaActiva.filter(m => m.categoria === cat.key).length} ítems
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => { setCategoria(null); setSubcategoria(null); setBusqueda('') }}
-                      className="text-[#1ABBD6] text-xs font-bold">← Volver</button>
-                    <div className="text-[#0F3A42] font-bold text-sm">
-                      {vista === 'herramientas' ? 'Herramientas' : 'Stock'} · {labelCategoria(categoria)}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={imprimirStock}
-                      className="bg-[#F0FAFB] border border-[#B2E0E8] text-[#0F3A42] text-xs font-bold px-2 py-1.5 rounded-lg">🖨️</button>
-                    <button onClick={() => pedirPin('nuevo')}
-                      className="bg-[#1ABBD6] text-white text-xs font-bold px-2 py-1.5 rounded-lg">+ NUEVO</button>
-                  </div>
-                </div>
-
-                {subcategoriasDisponibles.length > 0 && (
-                  <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
-                    <button
-                      onClick={() => setSubcategoria(null)}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap ${!subcategoria ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
-                      Todos
-                    </button>
-                    {subcategoriasDisponibles.map(s => (
-                      <button key={s}
-                        onClick={() => setSubcategoria(s)}
-                        className={`text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap ${subcategoria === s ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
-                        {s}
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Buscar ítem del stock</div>
+                <input style={{ ...inp, marginBottom: 8 }} placeholder="Nombre o código..." value={pedidoBusqueda} onChange={e => buscarItemsStock(e.target.value)} />
+                {busquedaResultados.length > 0 && (
+                  <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 10, overflow: 'hidden' }}>
+                    {busquedaResultados.map((r: any) => (
+                      <button key={r.id} onClick={() => agregarItemPedido(r)}
+                        style={{ width: '100%', background: 'none', border: 'none', borderBottom: `1px solid ${C.border}`, padding: '8px 12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{r.nombre}</span>
+                        <span style={{ fontSize: 11, color: C.sub }}>{r.codigo || ''} · stock: {r.stock_actual}</span>
                       </button>
                     ))}
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">
-                    <div className="text-[#1ABBD6] font-bold text-xl">{itemsFiltrados.length}</div>
-                    <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Ítems</div>
+                {pedidoItems.length === 0 ? (
+                  <div style={{ textAlign: 'center' as const, color: C.sub, fontSize: 12, padding: '16px', border: `1px dashed ${C.border}`, borderRadius: 8, marginBottom: 12 }}>Buscá ítems o se pre-cargan los de stock bajo</div>
+                ) : pedidoItems.map((item: any) => (
+                  <div key={item.id} style={{ background: C.bg, border: `1px solid ${item.stock_actual <= item.stock_minimo && item.stock_minimo > 0 ? C.warn : C.border}`, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{item.nombre}</div>
+                        <div style={{ fontSize: 11, color: C.sub }}>{item.tipo_item === 'material' ? '📦' : '🔧'} · stock actual: {item.stock_actual}</div>
+                      </div>
+                      <button onClick={() => quitarItemPedido(item.id)} style={{ background: 'none', border: 'none', color: C.err, fontSize: 16, cursor: 'pointer' }}>×</button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 9, color: C.sub, marginBottom: 3 }}>Cantidad ({item.unidad || 'u'})</div>
+                        <input type="number" min="1" style={inp} value={item.cantidad} onChange={e => actualizarItemPedido(item.id, 'cantidad', parseInt(e.target.value) || 1)} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 9, color: C.sub, marginBottom: 3 }}>Link (ML, etc.)</div>
+                        <input type="url" style={inp} placeholder="https://..." value={item.url_externa} onChange={e => actualizarItemPedido(item.id, 'url_externa', e.target.value)} />
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <input style={inp} placeholder="Observación del ítem..." value={item.observacion} onChange={e => actualizarItemPedido(item.id, 'observacion', e.target.value)} />
+                    </div>
                   </div>
-                  <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">
-                    <div className="text-[#E24B4A] font-bold text-xl">{criticos.length}</div>
-                    <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Crítico</div>
+                ))}
+
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4, marginTop: 4 }}>Observaciones generales</div>
+                <textarea style={{ ...inp, resize: 'none', marginBottom: 12 } as any} rows={2} placeholder="Urgencia, turno, contexto..." value={pedidoObs} onChange={e => setPedidoObs(e.target.value)} />
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={enviarPedido} disabled={loadingPedido || pedidoItems.length === 0}
+                    style={{ flex: 1, background: loadingPedido || pedidoItems.length === 0 ? C.border : C.accent, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    {loadingPedido ? 'Enviando...' : '📤 ENVIAR AL JEFE'}
+                  </button>
+                  <button onClick={() => setShowNuevoPedido(false)}
+                    style={{ flex: 1, background: C.border, border: 'none', borderRadius: 10, color: C.sub, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>CANCELAR</button>
+                </div>
+              </div>
+            )}
+
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 10 }}>Mis pedidos · {pedidos.length}</div>
+            {pedidos.length === 0
+              ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, textAlign: 'center' as const, fontSize: 13, color: C.sub }}>Sin pedidos enviados</div>
+              : pedidos.map((p: any) => (
+                <div key={p.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
+                  <div style={{ background: C.bg, borderBottom: `1px solid ${C.border}`, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>📧 PJ-{String(p.numero_pedido).padStart(4, '0')}</div>
+                      <div style={{ fontSize: 11, color: C.sub }}>{new Date(p.created_at).toLocaleDateString('es-AR')} · {p.tipo?.replace(/_/g, ' ')}</div>
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: p.estado === 'aprobado' ? '#0F2A35' : p.estado === 'rechazado' ? '#2A0F0F' : C.border, color: p.estado === 'aprobado' ? C.accent : p.estado === 'rechazado' ? C.err : C.sub }}>
+                      {p.estado}
+                    </span>
                   </div>
-                  <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">
-                    <div className="text-[#B87C0F] font-bold text-xl">{bajos.length}</div>
-                    <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Bajo</div>
+                  <div style={{ padding: '10px 14px' }}>
+                    {(p.pedidos_jefe_items || []).length > 0
+                      ? (p.pedidos_jefe_items || []).map((it: any) => (
+                        <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.text, paddingBottom: 2 }}>
+                          <span>· {it.nombre}</span>
+                          <span style={{ color: C.sub }}>{it.cantidad} {it.unidad || 'u'}</span>
+                        </div>
+                      ))
+                      : <div style={{ fontSize: 12, color: C.sub }}>{p.descripcion?.slice(0, 60)}</div>
+                    }
+                    {p.observaciones_jefe && (
+                      <div style={{ fontSize: 11, color: C.warn, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>💬 Jefe: {p.observaciones_jefe}</div>
+                    )}
                   </div>
                 </div>
+              ))
+            }
+          </div>
+        )}
 
-                <input
-                  className="w-full bg-white border border-[#B2E0E8] rounded-xl px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
-                  placeholder="Buscar..."
-                  value={busqueda}
-                  onChange={e => setBusqueda(e.target.value)}
-                />
+        {/* VISTA STOCK / HERRAMIENTAS */}
+        {(vista === 'stock' || vista === 'herramientas') && (
+          !categoria ? (
+            <div>
+              <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 10 }}>Seleccioná un pañol</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {[{ key: 'electrico', emoji: '⚡', label: 'Eléctrico' }, { key: 'ac', emoji: '❄️', label: 'AC' }, { key: 'general', emoji: '🔧', label: 'General' }, { key: 'edificio', emoji: '🏢', label: 'Edificios' }].map(cat => (
+                  <div key={cat.key} onClick={() => setCategoria(cat.key)}
+                    style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 14px', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 28, marginBottom: 6 }}>{cat.emoji}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Pañol {cat.label}</div>
+                    <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>{tablaActiva.filter(m => m.categoria === cat.key).length} ítems</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button onClick={() => { setCategoria(null); setSubcategoria(null); setBusqueda('') }}
+                    style={{ background: 'none', border: 'none', color: C.accent, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>← Volver</button>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
+                    {vista === 'herramientas' ? 'Herramientas' : 'Stock'} · {categoria}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={imprimirStock} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, color: C.sub, fontSize: 12, padding: '6px 10px', cursor: 'pointer' }}>🖨️</button>
+                  <button onClick={() => pedirPin('nuevo')} style={{ background: C.accent, border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 12, padding: '6px 12px', cursor: 'pointer' }}>+ NUEVO</button>
+                </div>
+              </div>
 
-                {itemsFiltrados.length === 0 ? (
-                  <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm mb-3">Sin resultados</div>
-                ) : (
-                  <div className="bg-white border border-[#B2E0E8] rounded-xl overflow-hidden mb-3">
-                    <div className="grid grid-cols-12 px-3 py-1.5 border-b border-[#E8F4F7] bg-[#F0FAFB]">
-                      <div className="col-span-5 text-[#7A9EA5] text-xs font-bold uppercase tracking-widest">Material</div>
-                      <div className="col-span-2 text-[#7A9EA5] text-xs font-bold uppercase tracking-widest text-right">Stock</div>
-                      <div className="col-span-2 text-[#7A9EA5] text-xs font-bold uppercase tracking-widest text-right">Mín</div>
-                      <div className="col-span-1 text-[#7A9EA5] text-xs font-bold uppercase tracking-widest text-right">Est</div>
-                      <div className="col-span-2 text-[#7A9EA5] text-xs font-bold uppercase tracking-widest text-right">Acc</div>
+              {subcategoriasDisponibles.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12, overflowX: 'auto', paddingBottom: 4 }}>
+                  {[{ key: null, label: 'Todos' }, ...subcategoriasDisponibles.map(s => ({ key: s, label: s }))].map(s => (
+                    <button key={String(s.key)} onClick={() => setSubcategoria(s.key)}
+                      style={{ background: subcategoria === s.key ? C.accent : C.card, border: `1px solid ${subcategoria === s.key ? C.accent : C.border}`, borderRadius: 20, color: subcategoria === s.key ? 'white' : C.sub, fontWeight: 600, fontSize: 11, padding: '5px 12px', cursor: 'pointer', whiteSpace: 'nowrap' as const }}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+                {[{ v: itemsFiltrados.length, label: 'Ítems', color: C.accent }, { v: criticos.length, label: 'Crítico', color: C.err }, { v: bajos.length, label: 'Bajo', color: C.warn }].map(s => (
+                  <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px', textAlign: 'center' as const }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.v}</div>
+                    <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, marginTop: 2 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              <input style={{ ...inp, marginBottom: 12 }} placeholder="Buscar..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+
+              {itemsFiltrados.length === 0
+                ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, textAlign: 'center' as const, fontSize: 13, color: C.sub }}>Sin resultados</div>
+                : (
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '5fr 2fr 2fr 1fr 2fr', padding: '8px 14px', borderBottom: `1px solid ${C.border}`, background: C.bg }}>
+                      {['Material', 'Stock', 'Mín', 'Est', 'Acc'].map(h => (
+                        <div key={h} style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, textAlign: h !== 'Material' ? 'right' as const : 'left' as const }}>{h}</div>
+                      ))}
                     </div>
                     {itemsFiltrados.map((m, i) => {
                       const critico = m.stock_minimo > 0 && m.stock_actual <= m.stock_minimo
                       const bajo = m.stock_minimo > 0 && m.stock_actual > m.stock_minimo && m.stock_actual <= m.stock_minimo * 2
                       return (
-                        <div key={m.id} className={`grid grid-cols-12 px-3 py-2 items-center ${i < itemsFiltrados.length - 1 ? 'border-b border-[#E8F4F7]' : ''} ${critico ? 'bg-[#FFF8F8]' : bajo ? 'bg-[#FFFBF2]' : ''}`}>
-                          <div className="col-span-5">
-                            <div className="text-[#0F3A42] text-xs font-medium leading-tight">{m.nombre}</div>
-                            <div className="text-[#7A9EA5] text-xs">{m.unidad}</div>
+                        <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '5fr 2fr 2fr 1fr 2fr', padding: '10px 14px', alignItems: 'center', borderBottom: i < itemsFiltrados.length - 1 ? `1px solid ${C.border}` : 'none', background: critico ? '#2A0F0F22' : bajo ? '#3A2A0022' : 'transparent' }}>
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{m.nombre}</div>
+                            <div style={{ fontSize: 10, color: C.sub }}>{m.unidad}</div>
                           </div>
-                          <div className="col-span-2 text-right">
+                          <div style={{ textAlign: 'right' as const }}>
                             {editandoId === m.id ? (
-                              <input
-                                type="number"
-                                value={editValor}
-                                onChange={e => setEditValor(e.target.value)}
-                                onBlur={() => guardarEdicion(m.id)}
-                                onKeyDown={e => e.key === 'Enter' && guardarEdicion(m.id)}
-                                className="w-12 bg-white border border-[#1ABBD6] rounded px-1 py-0.5 text-xs text-center text-[#0F3A42] outline-none"
-                                autoFocus
-                              />
+                              <input type="number" value={editValor} onChange={e => setEditValor(e.target.value)}
+                                onBlur={() => guardarEdicion(m.id)} onKeyDown={e => e.key === 'Enter' && guardarEdicion(m.id)}
+                                style={{ width: 48, background: C.bg, border: `1px solid ${C.accent}`, borderRadius: 6, padding: '2px 4px', fontSize: 12, color: C.text, outline: 'none', textAlign: 'center' as const }}
+                                autoFocus />
                             ) : (
-                              <span className={`text-xs font-bold ${critico ? 'text-[#A32D2D]' : bajo ? 'text-[#854F0B]' : 'text-[#0F8FAA]'}`}>
-                                {m.stock_actual}
-                              </span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: critico ? C.err : bajo ? C.warn : C.ok }}>{m.stock_actual}</span>
                             )}
                           </div>
-                          <div className="col-span-2 text-xs text-[#7A9EA5] text-right">{m.stock_minimo}</div>
-                          <div className="col-span-1 text-right">
-                            {critico && <span className="bg-[#FCEBEB] text-[#A32D2D] text-xs font-bold px-1 py-0.5 rounded-full">!</span>}
-                            {bajo && <span className="bg-[#FAEEDA] text-[#854F0B] text-xs font-bold px-1 py-0.5 rounded-full">↓</span>}
-                            {!critico && !bajo && <span className="bg-[#D6F4F8] text-[#0F8FAA] text-xs font-bold px-1 py-0.5 rounded-full">✓</span>}
+                          <div style={{ textAlign: 'right' as const, fontSize: 12, color: C.sub }}>{m.stock_minimo}</div>
+                          <div style={{ textAlign: 'right' as const }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 6, background: critico ? '#7B1E1E' : bajo ? '#3A2A00' : '#0F3A42', color: critico ? '#F09595' : bajo ? C.warn : C.accent }}>
+                              {critico ? '!' : bajo ? '↓' : '✓'}
+                            </span>
                           </div>
-                          <div className="col-span-2 flex justify-end gap-1">
-                            <button onClick={() => pedirPin('editar', m.id)}
-                              className="text-[#1ABBD6] text-xs font-bold">✏️</button>
-                            <button onClick={() => pedirPin('borrar', m.id)}
-                              className="text-[#E24B4A] text-xs font-bold">🗑</button>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                            <button onClick={() => pedirPin('editar', m.id)} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer' }}>✏️</button>
+                            <button onClick={() => pedirPin('borrar', m.id)} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer' }}>🗑</button>
                           </div>
                         </div>
                       )
                     })}
                   </div>
-                )}
-              </>
-            )}
-          </>
+                )
+              }
+            </div>
+          )
         )}
       </div>
 
-      <div className="h-24"></div>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-[#0F3A42] border-t border-[#1A4A54] flex justify-around py-2">
-        <div onClick={() => { setVista('stock'); setCategoria(null) }} className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'stock' ? '#1ABBD6' : '#7ADCE8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-          <span className={`text-xs ${vista === 'stock' ? 'text-[#1ABBD6]' : 'text-[#7ADCE8]'}`}>Stock</span>
-        </div>
-        <div onClick={() => { setVista('herramientas'); setCategoria(null) }} className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'herramientas' ? '#1ABBD6' : '#7ADCE8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-          <span className={`text-xs ${vista === 'herramientas' ? 'text-[#1ABBD6]' : 'text-[#7ADCE8]'}`}>Herram.</span>
-        </div>
-        <div onClick={() => setVista('pedidos')} className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'pedidos' ? '#1ABBD6' : '#7ADCE8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          <span className={`text-xs ${vista === 'pedidos' ? 'text-[#1ABBD6]' : 'text-[#7ADCE8]'}`}>Pedidos</span>
-        </div>
-        <div onClick={() => { setVista('checkins'); setCategoria(null) }} className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'checkins' ? '#1ABBD6' : '#7ADCE8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          <span className={`text-xs ${vista === 'checkins' ? 'text-[#1ABBD6]' : 'text-[#7ADCE8]'}`}>Checkin</span>
-        </div>
-        <div onClick={() => router.push('/historial')} className="flex flex-col items-center gap-0.5 cursor-pointer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ADCE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span className="text-[#7ADCE8] text-xs">Historial</span>
-        </div>
+      {/* NAVBAR */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(12,28,36,0.97)', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-around', padding: '8px 0 14px', zIndex: 30 }}>
+        {navItems.map(item => (
+          <div key={item.key} onClick={() => { setVista(item.key as any); setCategoria(null); setBusqueda('') }}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', minWidth: 44, position: 'relative' as const }}>
+            {item.svg}
+            <span style={{ fontSize: 10, color: vista === item.key ? C.accent : C.sub, fontWeight: vista === item.key ? 600 : 400 }}>{item.label}</span>
+            {(item as any).badge > 0 && (
+              <div style={{ position: 'absolute' as const, top: -2, right: 4, background: C.err, color: 'white', fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 8, minWidth: 14, textAlign: 'center' as const }}>
+                {(item as any).badge}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
+
     </main>
   )
 }
