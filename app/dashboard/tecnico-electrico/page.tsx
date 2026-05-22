@@ -35,15 +35,24 @@ export default function DashboardTecnicoElectrico() {
   }, [])
 
   async function cargarSupervisor(p: any) {
-    const { data } = await supabase
+    const { data: sup } = await supabase
+      .from('profiles')
+      .select('nombre, apellido')
+      .eq('rol', 'supervisor_electrico')
+      .eq('turno', p.turno)
+      .eq('activo', true)
+      .eq('grupo', p.grupo)
+      .maybeSingle()
+    if (sup) { setSupervisor(sup); return }
+    const { data: supFallback } = await supabase
       .from('profiles')
       .select('nombre, apellido')
       .eq('rol', 'supervisor_electrico')
       .eq('turno', p.turno)
       .eq('activo', true)
       .limit(1)
-      .single()
-    setSupervisor(data || null)
+      .maybeSingle()
+    setSupervisor(supFallback || null)
   }
 
   async function cargarOrdenes(userId: string) {
