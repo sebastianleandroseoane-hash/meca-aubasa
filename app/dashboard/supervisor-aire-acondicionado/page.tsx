@@ -33,6 +33,7 @@ const [materialesOrden, setMaterialesOrden] = useState<{id: string, nombre: stri
   })
   const [nomenclaturas, setNomenclaturas] = useState<any[]>([])
   const [busquedaOrden, setBusquedaOrden] = useState('')
+  const [verTodosTecnicos, setVerTodosTecnicos] = useState(false)
   const [solicitudes, setSolicitudes] = useState<any[]>([])
   const [showSolicitudes, setShowSolicitudes] = useState(false)
 
@@ -585,30 +586,46 @@ setMaterialesOrden([])
               onChange={e => setForm({ ...form, ubicacion: e.target.value })}
             />
 
-            <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">
-              Técnicos asignados * {tecnicosSeleccionados.length > 0 && <span className="text-[#1ABBD6]">({tecnicosSeleccionados.length} seleccionados)</span>}
-              {errores.includes('tecnicos') && <span className="text-[#E24B4A] ml-2">Seleccioná al menos uno</span>}
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-xs text-[#7A9EA5] uppercase tracking-widest">
+                Técnicos asignados * {tecnicosSeleccionados.length > 0 && <span className="text-[#1ABBD6]">({tecnicosSeleccionados.length} seleccionados)</span>}
+                {errores.includes('tecnicos') && <span className="text-[#E24B4A] ml-2">Seleccioná al menos uno</span>}
+              </div>
+              <button
+                onClick={() => setVerTodosTecnicos(v => !v)}
+                className={`text-xs font-bold px-2 py-1 rounded-lg border ${verTodosTecnicos ? 'bg-[#FAEEDA] border-[#E8C97A] text-[#854F0B]' : 'bg-[#F0FAFB] border-[#B2E0E8] text-[#7A9EA5]'}`}
+              >
+                {verTodosTecnicos ? '← Mi grupo' : 'Ver todos'}
+              </button>
             </div>
             <div className={`bg-[#F0FAFB] border rounded-lg mb-3 overflow-hidden ${errores.includes('tecnicos') ? 'border-[#E24B4A]' : 'border-[#B2E0E8]'}`}>
-              {tecnicos.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-[#7A9EA5]">No hay técnicos disponibles en este turno</div>
-              ) : (
-                tecnicos.map((t, i) => (
+              {(() => {
+                const lista = verTodosTecnicos
+                  ? tecnicos
+                  : tecnicos.filter((t: any) => t.grupo === perfil?.grupo)
+                if (lista.length === 0) return (
+                  <div className="px-3 py-2 text-sm text-[#7A9EA5]">
+                    {verTodosTecnicos ? 'No hay técnicos disponibles' : 'No hay técnicos de tu grupo disponibles'}
+                  </div>
+                )
+                return lista.map((t: any, i: number) => (
                   <div
                     key={t.id}
                     onClick={() => toggleTecnico(t.id)}
-                    className={`flex items-center gap-3 px-3 py-2 cursor-pointer ${i < tecnicos.length - 1 ? 'border-b border-[#E8F4F7]' : ''} ${tecnicosSeleccionados.includes(t.id) ? 'bg-[#D6F4F8]' : ''}`}
+                    className={`flex items-center gap-3 px-3 py-2 cursor-pointer ${i < lista.length - 1 ? 'border-b border-[#E8F4F7]' : ''} ${tecnicosSeleccionados.includes(t.id) ? 'bg-[#D6F4F8]' : ''}`}
                   >
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${tecnicosSeleccionados.includes(t.id) ? 'bg-[#1ABBD6] border-[#1ABBD6]' : 'border-[#B2E0E8]'}`}>
                       {tecnicosSeleccionados.includes(t.id) && (
                         <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       )}
                     </div>
-                    <span className="text-sm text-[#0F3A42]">{t.nombre}</span>
-                    <span className="text-xs text-[#7A9EA5] ml-auto">{t.rol?.replace('tecnico_', 'Téc. ')}</span>
+                    <span className="text-sm text-[#0F3A42] font-medium">{t.apellido}, {t.nombre}</span>
+                    {verTodosTecnicos && t.grupo !== perfil?.grupo && (
+                      <span className="text-xs text-[#854F0B] bg-[#FAEEDA] px-1.5 py-0.5 rounded-full ml-1">Gr.{t.grupo}</span>
+                    )}
                   </div>
                 ))
-              )}
+              })()}
             </div>
 <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">
   Materiales {materialesOrden.length > 0 && <span className="text-[#1ABBD6]">({materialesOrden.length} agregados)</span>}

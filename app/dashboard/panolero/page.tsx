@@ -365,21 +365,43 @@ const subcategoriasDisponibles = [...new Set(tablaActiva.filter(m => m.categoria
         </div>
 
         {/* SOLICITUDES AUTORIZADAS */}
-        {solicitudes.length > 0 && (
-          <div className="bg-[#D6F4F8] border border-[#1ABBD6] rounded-xl p-3 mb-3">
-            <div className="text-[#0F3A42] text-xs font-bold uppercase tracking-widest mb-2">📦 Solicitudes autorizadas · {solicitudes.length}</div>
-            {solicitudes.map(s => (
-              <div key={s.id} className="flex items-center justify-between bg-white border border-[#B2E0E8] rounded-lg px-3 py-2 mb-1">
-                <div>
-                  <div className="text-[#0F3A42] text-xs font-bold">{s.materiales?.nombre}</div>
-                  <div className="text-[#7A9EA5] text-xs">{s.profiles?.nombre} · ×{s.cantidad} {s.materiales?.unidad}</div>
-                </div>
-                <button onClick={() => entregarSolicitud(s.id)}
-                  className="bg-[#3B6D11] text-white text-xs font-bold px-3 py-1.5 rounded-lg">ENTREGAR</button>
+        {(() => {
+          const solicsFiltradas = categoria
+            ? solicitudes.filter((s: any) => s.materiales?.categoria === categoria)
+            : solicitudes
+          const badgeColor = (cat: string) =>
+            cat === 'electrico' ? 'bg-[#FFF3CD] text-[#856404]' :
+            cat === 'ac' ? 'bg-[#D6F4F8] text-[#0F8FAA]' :
+            cat === 'edificio' ? 'bg-[#E8E8E6] text-[#5F5E5A]' : 'bg-[#F0FAFB] text-[#7A9EA5]'
+          const badgeLabel = (cat: string) =>
+            cat === 'electrico' ? '⚡ Eléc' : cat === 'ac' ? '❄️ AC' : cat === 'edificio' ? '🏢 Edif' : '🔧 Gral'
+          if (solicsFiltradas.length === 0) return null
+          return (
+            <div className="bg-[#D6F4F8] border border-[#1ABBD6] rounded-xl p-3 mb-3">
+              <div className="text-[#0F3A42] text-xs font-bold uppercase tracking-widest mb-2">
+                📦 Solicitudes autorizadas · {solicsFiltradas.length}
+                {categoria && solicitudes.length > solicsFiltradas.length && (
+                  <span className="text-[#7A9EA5] font-normal ml-1">(de {solicitudes.length} totales)</span>
+                )}
               </div>
-            ))}
-          </div>
-        )}
+              {solicsFiltradas.map((s: any) => (
+                <div key={s.id} className="flex items-center justify-between bg-white border border-[#B2E0E8] rounded-lg px-3 py-2 mb-1">
+                  <div className="flex-1 mr-2">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${badgeColor(s.materiales?.categoria)}`}>
+                        {badgeLabel(s.materiales?.categoria)}
+                      </span>
+                    </div>
+                    <div className="text-[#0F3A42] text-xs font-bold">{s.materiales?.nombre}</div>
+                    <div className="text-[#7A9EA5] text-xs">{s.profiles?.nombre} · ×{s.cantidad} {s.materiales?.unidad}</div>
+                  </div>
+                  <button onClick={() => entregarSolicitud(s.id)}
+                    className="bg-[#3B6D11] text-white text-xs font-bold px-3 py-1.5 rounded-lg shrink-0">ENTREGAR</button>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
 
         {/* VISTA CHECKINS */}
         {vista === 'checkins' && (
