@@ -49,6 +49,11 @@ export default function DashboardPanolero() {
   const [nuevoItem, setNuevoItem] = useState({ nombre: '', codigo: '', unidad: '', stock_actual: '0', stock_minimo: '0', ubicacion_panol: '' })
   const [hora, setHora] = useState('')
   const [fechaDisplay, setFechaDisplay] = useState('')
+  const [showRebote, setShowRebote] = useState(false)
+  const [ordenRebote, setOrdenRebote] = useState<any>(null)
+  const [obsRebote, setObsRebote] = useState('')
+  const [loadingRebote, setLoadingRebote] = useState(false)
+  const [filtroEstadoOT, setFiltroEstadoOT] = useState<string>('todas')
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -95,8 +100,8 @@ export default function DashboardPanolero() {
       .eq('estado', 'autorizada').order('created_at', { ascending: false })
     setSolicitudes(sols || [])
     const { data: ords } = await supabase.from('ordenes_trabajo')
-      .select('*, orden_materiales(cantidad, materiales(nombre, unidad)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)')
-      .in('estado', ['pendiente', 'en_curso']).order('created_at', { ascending: false })
+      .select('*, orden_materiales(cantidad, materiales(nombre, unidad)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido), rebotador:rebotada_por(nombre, apellido)')
+      .not('estado', 'eq', 'cancelada').order('created_at', { ascending: false })
     setOrdenesPanol(ords || [])
   }
 
@@ -197,6 +202,28 @@ export default function DashboardPanolero() {
 
   async function abrirOrdenDetalle(orden: any) {
     setOrdenPanolDetalle(orden)
+  }
+
+  function abrirRebote(orden: any) {
+    setOrdenRebote(orden)
+    setObsRebote('')
+    setShowRebote(true)
+  }
+
+  async function confirmarRebote() {
+    if (!obsRebote.trim()) return
+    setLoadingRebote(true)
+    await supabase.from('ordenes_trabajo').update({
+      estado: 'rebotada',
+      observacion_panol: obsRebote,
+      rebotada_at: new Date().toISOString(),
+      rebotada_por: perfil.id
+    }).eq('id', ordenRebote.id)
+    setLoadingRebote(false)
+    setShowRebote(false)
+    setOrdenRebote(null)
+    setOrdenPanolDetalle(null)
+    await cargarTodo()
   }
 
   function imprimirStock() {
@@ -415,6 +442,30 @@ export default function DashboardPanolero() {
         () => setCheckinVehDetalle(null)
       )}
 
+      {/* MODAL REBOTE OT */}
+      {showRebote && ordenRebote && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: C.card, borderRadius: 16, padding: 20, width: '100%', maxWidth: 360, border: `1px solid ${C.err}` }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>🔄 Rebotar OT</div>
+            <div style={{ fontSize: 12, color: C.sub, marginBottom: 4 }}>OT-{String(ordenRebote.numero_orden).padStart(5,'0')} · {ordenRebote.titulo}</div>
+            <div style={{ fontSize: 11, color: C.warn, marginBottom: 12 }}>La orden vuelve al supervisor con estado "rebotada"</div>
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Motivo *</div>
+            <textarea
+              style={{ ...inp, resize: 'none', marginBottom: 12, border: `1px solid ${obsRebote.trim() ? C.border : C.err}` } as any}
+              rows={3} placeholder="Ej: No hay cable TPR 3x2.5 en stock..."
+              value={obsRebote} onChange={e => setObsRebote(e.target.value)} autoFocus />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={confirmarRebote} disabled={loadingRebote || !obsRebote.trim()}
+                style={{ flex: 1, background: loadingRebote || !obsRebote.trim() ? C.border : C.err, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '11px 0', cursor: 'pointer' }}>
+                {loadingRebote ? 'Rebotando...' : '🔄 REBOTAR'}
+              </button>
+              <button onClick={() => setShowRebote(false)}
+                style={{ flex: 1, background: C.border, border: 'none', borderRadius: 10, color: C.sub, fontWeight: 700, fontSize: 13, padding: '11px 0', cursor: 'pointer' }}>CANCELAR</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* BODY */}
       <div style={{ padding: '14px 16px 110px' }}>
 
@@ -455,34 +506,60 @@ export default function DashboardPanolero() {
         {/* VISTA ORDENES */}
         {vista === 'ordenes' && (
           <div>
-            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 10 }}>
-              Órdenes activas · {ordenesPanol.length}
+            {/* Filtro por estado */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12, overflowX: 'auto' as const }}>
+              {[{ k: 'todas', l: 'Todas' }, { k: 'pendiente', l: 'Pendiente' }, { k: 'en_curso', l: 'En curso' }, { k: 'rebotada', l: '🔄 Rebotadas' }, { k: 'completada', l: 'Completadas' }].map(f => (
+                <button key={f.k} onClick={() => setFiltroEstadoOT(f.k)}
+                  style={{ background: filtroEstadoOT === f.k ? C.accent : C.card, border: `1px solid ${filtroEstadoOT === f.k ? C.accent : C.border}`, borderRadius: 20, color: filtroEstadoOT === f.k ? 'white' : C.sub, fontWeight: 600, fontSize: 11, padding: '5px 12px', cursor: 'pointer', whiteSpace: 'nowrap' as const }}>
+                  {f.l}
+                </button>
+              ))}
             </div>
-            {ordenesPanol.length === 0 ? (
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, textAlign: 'center' as const, fontSize: 13, color: C.sub }}>Sin órdenes activas</div>
-            ) : ordenesPanol.map(o => (
-              <div key={o.id} onClick={() => abrirOrdenDetalle(o)}
-                style={{ background: C.card, border: `1px solid ${o.estado === 'en_curso' ? C.warn : C.border}`, borderLeft: `3px solid ${o.estado === 'en_curso' ? C.warn : C.accent}`, borderRadius: 12, padding: '12px 14px', marginBottom: 8, cursor: 'pointer' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                      <span style={{ fontSize: 11, color: C.accent, fontWeight: 700 }}>OT-{String(o.numero_orden).padStart(5, '0')}</span>
-                      <span style={{ fontSize: 10, color: C.sub }}>{o.sector?.toUpperCase()}</span>
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{o.titulo}</div>
-                    {o.km && <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
-                    {o.orden_materiales?.length > 0 && (
-                      <div style={{ fontSize: 11, color: C.accent, marginTop: 4 }}>
-                        📦 {o.orden_materiales.length} material{o.orden_materiales.length > 1 ? 'es' : ''}: {o.orden_materiales.slice(0, 2).map((om: any) => om.materiales?.nombre).join(', ')}{o.orden_materiales.length > 2 ? '...' : ''}
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 10 }}>
+              {ordenesPanol.filter(o => filtroEstadoOT === 'todas' || o.estado === filtroEstadoOT).length} órdenes
+            </div>
+            {ordenesPanol.filter(o => filtroEstadoOT === 'todas' || o.estado === filtroEstadoOT).length === 0 ? (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, textAlign: 'center' as const, fontSize: 13, color: C.sub }}>Sin órdenes</div>
+            ) : ordenesPanol.filter(o => filtroEstadoOT === 'todas' || o.estado === filtroEstadoOT).map(o => {
+              const borderColor = o.estado === 'en_curso' ? C.warn : o.estado === 'rebotada' ? C.err : o.estado === 'completada' ? C.ok : C.accent
+              const badgeBg = o.estado === 'en_curso' ? '#3A2A00' : o.estado === 'rebotada' ? '#2A0F0F' : o.estado === 'completada' ? '#0F2A35' : C.border
+              const badgeColor = o.estado === 'en_curso' ? C.warn : o.estado === 'rebotada' ? C.err : o.estado === 'completada' ? C.ok : C.sub
+              const badgeLabel = o.estado === 'en_curso' ? 'En curso' : o.estado === 'rebotada' ? '🔄 Rebotada' : o.estado === 'completada' ? '✅ Completada' : 'Pendiente'
+              return (
+                <div key={o.id}
+                  style={{ background: C.card, border: `1px solid ${borderColor}44`, borderLeft: `3px solid ${borderColor}`, borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }} onClick={() => abrirOrdenDetalle(o)}>
+                    <div style={{ flex: 1, cursor: 'pointer' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                        <span style={{ fontSize: 11, color: C.accent, fontWeight: 700 }}>OT-{String(o.numero_orden).padStart(5, '0')}</span>
+                        <span style={{ fontSize: 10, color: C.sub }}>{o.sector?.toUpperCase()}</span>
                       </div>
-                    )}
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{o.titulo}</div>
+                      {o.km && <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
+                      {o.orden_materiales?.length > 0 && (
+                        <div style={{ fontSize: 11, color: C.accent, marginTop: 4 }}>
+                          📦 {o.orden_materiales.slice(0, 2).map((om: any) => om.materiales?.nombre).join(', ')}{o.orden_materiales.length > 2 ? '...' : ''}
+                        </div>
+                      )}
+                      {o.estado === 'rebotada' && o.observacion_panol && (
+                        <div style={{ fontSize: 11, color: C.err, marginTop: 4, background: '#2A0F0F', padding: '4px 8px', borderRadius: 6 }}>
+                          ⚠️ {o.observacion_panol}
+                        </div>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap' as const, background: badgeBg, color: badgeColor, marginLeft: 8 }}>
+                      {badgeLabel}
+                    </span>
                   </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap' as const, background: o.estado === 'en_curso' ? '#FAEEDA' : C.bg, color: o.estado === 'en_curso' ? '#854F0B' : C.sub, marginLeft: 8 }}>
-                    {o.estado === 'en_curso' ? 'En curso' : 'Pendiente'}
-                  </span>
+                  {(o.estado === 'pendiente' || o.estado === 'en_curso') && (
+                    <button onClick={() => abrirRebote(o)}
+                      style={{ width: '100%', background: '#2A0F0F', border: `1px solid ${C.err}44`, borderRadius: 8, color: C.err, fontWeight: 700, fontSize: 11, padding: '7px 0', cursor: 'pointer', marginTop: 2 }}>
+                      🔄 Rebotar — falta insumo
+                    </button>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 

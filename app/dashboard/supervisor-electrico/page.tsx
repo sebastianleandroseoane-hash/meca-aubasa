@@ -67,6 +67,7 @@ export default function DashboardSupervisorElectrico() {
   const [hora, setHora] = useState('')
   const [fechaDisplay, setFechaDisplay] = useState('')
   const [checkinsVehiculos, setCheckinsVehiculos] = useState<any[]>([])
+  const [ordenesRebotadas, setOrdenesRebotadas] = useState<any[]>([])
   const [filtroFecha, setFiltroFecha] = useState(new Date().toISOString().split('T')[0])
   const [filtroTurno, setFiltroTurno] = useState('todos')
 
@@ -76,7 +77,7 @@ export default function DashboardSupervisorElectrico() {
       if (p.rol !== 'supervisor_electrico' && p.rol !== 'superadmin' && p.rol !== 'jefe') { router.push('/'); return }
       const turnoEfectivo = (p.rol === 'superadmin' || p.rol === 'jefe') ? '1' : p.turno
       setPerfil(p)
-      await Promise.all([cargarDatos(turnoEfectivo), cargarSolicitudes(), cargarCheckinsVehiculos()])
+      await Promise.all([cargarDatos(turnoEfectivo), cargarSolicitudes(), cargarCheckinsVehiculos(), cargarOrdenesRebotadas()])
     })
     const tick = () => {
       const now = new Date()
@@ -109,6 +110,15 @@ export default function DashboardSupervisorElectrico() {
       .select('*, materiales!solicitudes_insumos_material_id_fkey(nombre, unidad), profiles!solicitudes_insumos_tallerista_id_fkey(nombre, sector_trabajo), ordenes_trabajo!solicitudes_insumos_orden_trabajo_id_fkey(titulo, numero_orden)')
       .eq('estado', 'pendiente').order('created_at', { ascending: false })
     setSolicitudes((data || []).filter((s: any) => s.profiles?.sector_trabajo === 'electrico'))
+  }
+
+  async function cargarOrdenesRebotadas() {
+    const { data } = await supabase.from('ordenes_trabajo')
+      .select('id, numero_orden, titulo, observacion_panol, rebotada_at, rebotada_por, sector')
+      .eq('estado', 'rebotada')
+      .eq('sector', 'electrico')
+      .order('rebotada_at', { ascending: false })
+    setOrdenesRebotadas(data || [])
   }
 
   async function cargarCheckinsVehiculos() {
@@ -719,6 +729,26 @@ export default function DashboardSupervisorElectrico() {
 
       {/* BODY */}
       <div style={{ padding: '14px 16px 110px' }}>
+
+        {/* ALERTA OTs REBOTADAS */}
+        {ordenesRebotadas.length > 0 && (
+          <div style={{ background: '#2A0F0F', border: `1px solid ${C.err}`, borderRadius: 12, padding: '12px 14px', marginBottom: 12 }}>
+            <div style={{ fontSize: 9, color: C.err, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8 }}>
+              🔄 {ordenesRebotadas.length} orden{ordenesRebotadas.length > 1 ? 'es' : ''} rebotada{ordenesRebotadas.length > 1 ? 's' : ''} por pañolero
+            </div>
+            {ordenesRebotadas.map(o => (
+              <div key={o.id} style={{ background: C.bg, border: `1px solid ${C.err}44`, borderRadius: 10, padding: '8px 12px', marginBottom: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <span style={{ fontSize: 11, color: C.accent, fontWeight: 700 }}>OT-{String(o.numero_orden).padStart(5, '0')}</span>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{o.titulo}</div>
+                    {o.observacion_panol && <div style={{ fontSize: 11, color: C.err, marginTop: 3 }}>⚠️ {o.observacion_panol}</div>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* STATS */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
