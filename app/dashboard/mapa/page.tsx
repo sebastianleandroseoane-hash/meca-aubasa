@@ -284,7 +284,7 @@ export default function PageMapa() {
           ))}
 
          {/* SET EL CARMEN — a la izquierda arriba de la Rotonda — PROVISORIO */}
-          <SetProvisorio x={rotondaGutierrez.x - 115} y={rotondaGutierrez.y - 10} label="SET EL CARMEN" color="#1D9E75" anchor="middle" />
+          <SetProvisorio x={rotondaGutierrez.x - 130} y={rotondaGutierrez.y + 2} label="SET EL CARMEN" color="#1D9E75" anchor="middle" />
 
           {/* ─── GRUPO C: TG01–TG09 Ruta 36 — PROVISORIO ─── */}
           {Array.from({ length: 9 }, (_, i) => {
