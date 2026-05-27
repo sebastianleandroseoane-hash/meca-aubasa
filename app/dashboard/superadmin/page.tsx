@@ -84,6 +84,10 @@ export default function DashboardSuperAdmin() {
           <div><div className="text-white font-bold text-sm">Usuarios registrados</div><div className="text-[#7ADCE8] text-xs mt-0.5">Gestión de accesos</div></div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
+                <div onClick={() => router.push('/dashboard/mapa')} className="bg-[#0F3A42] border border-[#1A4A54] rounded-xl p-3 mb-3 flex justify-between items-center cursor-pointer active:opacity-70">
+          <div><div className="text-white font-bold text-sm">Mapa traza</div><div className="text-[#7ADCE8] text-xs mt-0.5">BA–LP · TS y CT</div></div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+        </div>
         <div className="bg-[#0F3A42] border border-[#1A4A54] rounded-xl p-3 mb-24 flex justify-between items-center">
           <div><div className="text-white font-bold text-sm">Base de datos</div><div className="text-[#7ADCE8] text-xs mt-0.5">Supabase · meca-aubasa</div></div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>

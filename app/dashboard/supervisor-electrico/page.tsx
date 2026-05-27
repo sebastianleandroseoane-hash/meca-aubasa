@@ -277,6 +277,7 @@ export default function DashboardSupervisorElectrico() {
     { key: 'insumos', label: 'Insumos', sub: `${solicitudes.length} pendientes`, icon: iconos.insumos, action: () => setShowInsumos(true), badge: solicitudes.length > 0 ? solicitudes.length : null },
     { key: 'historial', label: 'Historial', sub: 'Órdenes cerradas', icon: iconos.historial, action: () => router.push('/historial'), badge: null },
     { key: 'cronograma', label: 'Cronograma', sub: `Turno ${perfil.turno}`, icon: iconos.cronograma, action: () => router.push('/dashboard/cronograma'), badge: null },
+    { key: 'mapa', label: 'Mapa traza', sub: 'BA–LP · TS y CT', icon: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>, action: () => router.push('/dashboard/mapa'), badge: null },
   ]
 
   const modal = (content: React.ReactNode, onClose: () => void) => (
