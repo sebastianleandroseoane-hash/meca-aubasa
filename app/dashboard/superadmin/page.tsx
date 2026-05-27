@@ -80,7 +80,7 @@ export default function DashboardSuperAdmin() {
         </div>
 
         <div className="text-[#7ADCE8] text-xs font-bold tracking-widest uppercase mb-2">Sistema</div>
-        <div className="bg-[#0F3A42] border border-[#1A4A54] rounded-xl p-3 mb-2 flex justify-between items-center">
+        <div onClick={() => router.push('/dashboard/superadmin/usuarios')} className="bg-[#0F3A42] border border-[#1A4A54] rounded-xl p-3 mb-2 flex justify-between items-center cursor-pointer active:opacity-70">
           <div><div className="text-white font-bold text-sm">Usuarios registrados</div><div className="text-[#7ADCE8] text-xs mt-0.5">Gestión de accesos</div></div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
