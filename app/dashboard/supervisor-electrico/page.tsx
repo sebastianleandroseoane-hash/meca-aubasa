@@ -70,6 +70,9 @@ export default function DashboardSupervisorElectrico() {
   const [ordenesRebotadas, setOrdenesRebotadas] = useState<any[]>([])
   const [filtroFecha, setFiltroFecha] = useState(new Date().toISOString().split('T')[0])
   const [filtroTurno, setFiltroTurno] = useState('todos')
+  const [obsDevolucion, setObsDevolucion] = useState('')
+  const [showDevolucion, setShowDevolucion] = useState(false)
+  const [loadingDecision, setLoadingDecision] = useState(false)
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -144,7 +147,50 @@ export default function DashboardSupervisorElectrico() {
     const { data: peds } = await supabase.from('pedidos_material').select('*').eq('orden_trabajo_id', orden.id)
     setOrdenDetalle({ ...orden, tecnicos: tecs || [], materiales: mats || [], pedidos: peds || [] })
   }
+async function aprobarCierre(id: string) {
+    setLoadingDecision(true)
+    await supabase.from('ordenes_trabajo').update({
+      estado: 'cerrada',
+      fecha_cierre: new Date().toISOString(),
+      aprobado_por: perfil.id,
+      aprobado_at: new Date().toISOString(),
+    }).eq('id', id).eq('estado', 'cierre_propuesto')
+    setLoadingDecision(false)
+    setOrdenDetalle(null)
+    await cargarDatos(perfil.turno)
+  }
 
+  async function derivarOT(id: string) {
+    setLoadingDecision(true)
+    await supabase.from('ordenes_trabajo').update({
+      estado: 'derivada',
+      fecha_cierre: new Date().toISOString(),
+      aprobado_por: perfil.id,
+      aprobado_at: new Date().toISOString(),
+    }).eq('id', id).eq('estado', 'cierre_propuesto')
+    setLoadingDecision(false)
+    setOrdenDetalle(null)
+    await cargarDatos(perfil.turno)
+  }
+
+  async function devolverAlTecnico(id: string) {
+    if (!obsDevolucion.trim()) return
+    setLoadingDecision(true)
+    await supabase.from('ordenes_trabajo').update({
+      estado: 'devuelta_supervisor',
+      observacion_supervisor: obsDevolucion,
+      devuelto_por: perfil.id,
+      devuelto_at: new Date().toISOString(),
+      fecha_cierre: null,
+      aprobado_por: null,
+      aprobado_at: null,
+    }).eq('id', id).eq('estado', 'cierre_propuesto')
+    setLoadingDecision(false)
+    setShowDevolucion(false)
+    setObsDevolucion('')
+    setOrdenDetalle(null)
+    await cargarDatos(perfil.turno)
+  }
   async function abrirCheckinDetalle(ch: any) {
     const { data: items } = await supabase.from('checkins_vehiculos_items')
       .select('*').eq('checkin_id', ch.id).order('orden', { ascending: true })
@@ -233,6 +279,7 @@ export default function DashboardSupervisorElectrico() {
     if (estado === 'cierre_propuesto') return '⏳ En revisión'
     if (estado === 'cerrada') return '✅ Cerrada'
     if (estado === 'derivada') return '🔀 Derivada'
+    if (estado === 'devuelta_supervisor') return '↩️ Devuelta'
     if (estado === 'cancelada') return 'Cancelada'
     return 'Pendiente'
   }
@@ -599,9 +646,47 @@ export default function DashboardSupervisorElectrico() {
                 )}
               </div>
             )}
+          {ordenDetalle.estado === 'cierre_propuesto' && (
+              <div style={{ marginTop: 16, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 10 }}>Decisión del supervisor</div>
+                {!showDevolucion ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button onClick={() => aprobarCierre(ordenDetalle.id)} disabled={loadingDecision}
+                      style={{ background: loadingDecision ? '#1a3040' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                      ✅ APROBAR CIERRE
+                    </button>
+                    <button onClick={() => derivarOT(ordenDetalle.id)} disabled={loadingDecision}
+                      style={{ background: loadingDecision ? '#1a3040' : '#1A4A6B', border: `1px solid ${C.accent}`, borderRadius: 10, color: C.accent, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                      🔀 APROBAR CON DERIVACIÓN
+                    </button>
+                    <button onClick={() => setShowDevolucion(true)} disabled={loadingDecision}
+                      style={{ background: 'none', border: `1px solid ${C.warn}`, borderRadius: 10, color: C.warn, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                      ↩️ DEVOLVER AL TÉCNICO
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 11, color: C.warn, marginBottom: 6 }}>Observación para el técnico *</div>
+                    <textarea
+                      style={{ width: '100%', background: C.bg, border: `1px solid ${C.warn}`, borderRadius: 8, padding: '8px 10px', fontSize: 13, color: C.text, outline: 'none', resize: 'none', boxSizing: 'border-box' as const, marginBottom: 8 }}
+                      rows={3} placeholder="Explicá qué falta o qué debe corregir..." value={obsDevolucion} onChange={e => setObsDevolucion(e.target.value)} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => { setShowDevolucion(false); setObsDevolucion('') }}
+                        style={{ flex: 1, background: 'none', border: `1px solid ${C.border}`, borderRadius: 10, color: C.sub, fontWeight: 700, fontSize: 13, padding: '10px 0', cursor: 'pointer' }}>
+                        CANCELAR
+                      </button>
+                      <button onClick={() => devolverAlTecnico(ordenDetalle.id)} disabled={loadingDecision || !obsDevolucion.trim()}
+                        style={{ flex: 1, background: loadingDecision || !obsDevolucion.trim() ? '#1a3040' : C.warn, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '10px 0', cursor: 'pointer' }}>
+                        {loadingDecision ? 'Enviando...' : 'CONFIRMAR'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </>,
-        () => setOrdenDetalle(null)
+        () => { setOrdenDetalle(null); setShowDevolucion(false); setObsDevolucion('') }
       )}
 
       {/* MODAL LISTA ORDENES */}
