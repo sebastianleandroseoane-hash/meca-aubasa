@@ -10,7 +10,9 @@ export default function DashboardTecnicoElectrico() {
   const [ordenes, setOrdenes] = useState<any[]>([])
   const [ordenActiva, setOrdenActiva] = useState<any>(null)
   const [ordenDetalle, setOrdenDetalle] = useState<any>(null)
-  const [informe, setInforme] = useState('')
+  const [trabajosRealizados, setTrabajosRealizados] = useState('')
+  const [mediciones, setMediciones] = useState('')
+  const [pendientes, setPendientes] = useState('')
   const [showCierre, setShowCierre] = useState(false)
   const [loading, setLoading] = useState(false)
   const [supervisor, setSupervisor] = useState<any>(null)
@@ -57,13 +59,13 @@ export default function DashboardTecnicoElectrico() {
 
   async function cargarOrdenes(userId: string) {
     const { data: ords1 } = await supabase.from('ordenes_trabajo').select('*')
-      .eq('asignado_a', userId).in('estado', ['pendiente', 'en_curso'])
+      .eq('asignado_a', userId).in('estado', ['pendiente', 'en_curso', 'cierre_propuesto'])
     const { data: ots } = await supabase.from('orden_tecnicos').select('orden_id').eq('tecnico_id', userId)
     const ids = (ots || []).map((o: any) => o.orden_id)
     let ords2: any[] = []
     if (ids.length > 0) {
       const { data } = await supabase.from('ordenes_trabajo').select('*')
-        .in('id', ids).in('estado', ['pendiente', 'en_curso'])
+        .in('id', ids).in('estado', ['pendiente', 'en_curso', 'cierre_propuesto'])
       ords2 = data || []
     }
     const todas = [...(ords1 || []), ...ords2]
@@ -88,14 +90,36 @@ export default function DashboardTecnicoElectrico() {
     setOrdenDetalle(null)
   }
 
-  async function cerrarOrden(id: string) {
-    if (!informe) return
+  async function proponerCierre(id: string) {
+    if (!trabajosRealizados) return
     setLoading(true)
-    await supabase.from('ordenes_trabajo').update({ estado: 'completada', fecha_cierre: new Date().toISOString(), observaciones: informe }).eq('id', id)
+    const { data: updateData, error: updateError } = await supabase
+      .from('ordenes_trabajo')
+      .update({
+        estado: 'cierre_propuesto',
+        trabajos_realizados: trabajosRealizados,
+        mediciones: mediciones || null,
+        pendientes_descripcion: pendientes || null,
+        cierre_propuesto_at: new Date().toISOString(),
+        cierre_propuesto_por: perfil.id,
+      })
+      .eq('id', id)
+      .eq('estado', 'en_curso')
+      .select()
+
+    console.log('UPDATE DATA', updateData)
+console.log('UPDATE ERROR', updateError)
+console.log('UPDATE ERROR MESSAGE', updateError?.message)
+console.log('UPDATE ERROR DETAILS', updateError?.details)
+console.log('UPDATE ERROR CODE', updateError?.code)
+console.log('PERFIL', perfil)
+    // DEUDA: cerro=true significa "intervención finalizada", no "OT cerrada". Revisar al implementar supervisor.
     await supabase.from('orden_tecnicos').update({ cerro: true }).eq('orden_id', id).eq('tecnico_id', perfil.id)
     setLoading(false)
     setShowCierre(false)
-    setInforme('')
+    setTrabajosRealizados('')
+    setMediciones('')
+    setPendientes('')
     setOrdenDetalle(null)
     await cargarOrdenes(perfil.id)
   }
@@ -103,6 +127,7 @@ export default function DashboardTecnicoElectrico() {
   function badgeLabel(estado: string) {
     if (estado === 'en_curso') return 'En curso'
     if (estado === 'completada') return 'Completada'
+    if (estado === 'cierre_propuesto') return '⏳ En revisión'
     if (estado === 'cancelada') return 'Cancelada'
     return 'Pendiente'
   }
@@ -170,15 +195,15 @@ export default function DashboardTecnicoElectrico() {
                 <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>OT-{String(ordenDetalle.numero_orden).padStart(5, '0')}</div>
                 <div style={{ fontSize: 15, fontWeight: 600, color: '#e8f4f8' }}>{ordenDetalle.titulo}</div>
               </div>
-              <button onClick={() => { setOrdenDetalle(null); setShowCierre(false); setInforme('') }}
+              <button onClick={() => { setOrdenDetalle(null); setShowCierre(false); setTrabajosRealizados(''); setMediciones(''); setPendientes('') }}
                 style={{ background: 'none', border: 'none', color: '#4a8fa0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-                {[['Estado', ordenDetalle.estado], ['Prioridad', ordenDetalle.prioridad]].map(([k, v]) => (
+                {[['Estado', badgeLabel(ordenDetalle.estado)], ['Prioridad', ordenDetalle.prioridad]].map(([k, v]) => (
                   <div key={k} style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px' }}>
                     <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5 }}>{k}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8', marginTop: 2, textTransform: 'capitalize' }}>{v}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8', marginTop: 2 }}>{v}</div>
                   </div>
                 ))}
               </div>
@@ -222,10 +247,21 @@ export default function DashboardTecnicoElectrico() {
               )}
               {showCierre && (
                 <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Informe de cierre *</div>
+                  <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>¿Qué trabajos realizaste? *</div>
                   <textarea
-                    style={{ width: '100%', background: '#07131a', border: '1px solid #1ABBD6', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#e8f4f8', outline: 'none', resize: 'none', boxSizing: 'border-box' }}
-                    rows={4} placeholder="Describí qué hiciste..." value={informe} onChange={e => setInforme(e.target.value)} />
+                    style={{ width: '100%', background: '#07131a', border: '1px solid #1ABBD6', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#e8f4f8', outline: 'none', resize: 'none', boxSizing: 'border-box', marginBottom: 8 }}
+                    rows={3} placeholder="Describí qué hiciste..." value={trabajosRealizados} onChange={e => setTrabajosRealizados(e.target.value)} />
+                  <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Mediciones (opcional)</div>
+                  <textarea
+                    style={{ width: '100%', background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#e8f4f8', outline: 'none', resize: 'none', boxSizing: 'border-box', marginBottom: 8 }}
+                    rows={2} placeholder="Tensiones, corrientes, aislación..." value={mediciones} onChange={e => setMediciones(e.target.value)} />
+                  <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>¿Quedó algo pendiente?</div>
+                  <textarea
+                    style={{ width: '100%', background: '#07131a', border: `1px solid ${pendientes ? '#EF9F27' : '#1a3040'}`, borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#e8f4f8', outline: 'none', resize: 'none', boxSizing: 'border-box' }}
+                    rows={2} placeholder="Describí qué quedó sin resolver..." value={pendientes} onChange={e => setPendientes(e.target.value)} />
+                  {pendientes.length > 0 && (
+                    <div style={{ fontSize: 11, color: '#EF9F27', marginTop: 4 }}>⚠️ El supervisor revisará los trabajos pendientes informados</div>
+                  )}
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -238,13 +274,13 @@ export default function DashboardTecnicoElectrico() {
                 {ordenDetalle.estado === 'en_curso' && !showCierre && (
                   <button onClick={() => setShowCierre(true)}
                     style={{ flex: 1, background: '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
-                    CERRAR ORDEN
+                    PROPONER CIERRE
                   </button>
                 )}
                 {ordenDetalle.estado === 'en_curso' && showCierre && (
-                  <button onClick={() => cerrarOrden(ordenDetalle.id)} disabled={loading || !informe}
-                    style={{ flex: 1, background: loading || !informe ? '#1a3040' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
-                    {loading ? 'Cerrando...' : 'CONFIRMAR CIERRE'}
+                  <button onClick={() => proponerCierre(ordenDetalle.id)} disabled={loading || !trabajosRealizados}
+                    style={{ flex: 1, background: loading || !trabajosRealizados ? '#1a3040' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    {loading ? 'Enviando...' : 'ENVIAR AL SUPERVISOR'}
                   </button>
                 )}
               </div>
@@ -286,7 +322,7 @@ export default function DashboardTecnicoElectrico() {
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{ordenActiva.titulo}</div>
                 <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 2 }}>OT-{String(ordenActiva.numero_orden).padStart(5, '0')}{ordenActiva.km ? ` · Km ${ordenActiva.km}` : ''}</div>
               </div>
-              <div style={{ background: ordenActiva.estado === 'en_curso' ? '#FAEEDA' : '#1a3040', color: ordenActiva.estado === 'en_curso' ? '#854F0B' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, marginLeft: 8, whiteSpace: 'nowrap' }}>
+              <div style={{ background: ordenActiva.estado === 'en_curso' ? '#FAEEDA' : ordenActiva.estado === 'cierre_propuesto' ? '#FFF3CD' : '#1a3040', color: ordenActiva.estado === 'en_curso' ? '#854F0B' : ordenActiva.estado === 'cierre_propuesto' ? '#856404' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, marginLeft: 8, whiteSpace: 'nowrap' }}>
                 {badgeLabel(ordenActiva.estado)}
               </div>
             </div>
@@ -320,7 +356,7 @@ export default function DashboardTecnicoElectrico() {
                   <div style={{ fontSize: 10, color: '#4a8fa0' }}>OT-{String(o.numero_orden).padStart(5, '0')}</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{o.titulo}</div>
                 </div>
-                <div style={{ background: o.estado === 'en_curso' ? '#FAEEDA' : '#1a3040', color: o.estado === 'en_curso' ? '#854F0B' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+                <div style={{ background: o.estado === 'en_curso' ? '#FAEEDA' : o.estado === 'cierre_propuesto' ? '#FFF3CD' : '#1a3040', color: o.estado === 'en_curso' ? '#854F0B' : o.estado === 'cierre_propuesto' ? '#856404' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>
                   {badgeLabel(o.estado)}
                 </div>
               </div>
