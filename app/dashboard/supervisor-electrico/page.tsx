@@ -576,6 +576,29 @@ export default function DashboardSupervisorElectrico() {
                 ))}
               </div>
             )}
+          {(ordenDetalle.trabajos_realizados || ordenDetalle.mediciones || ordenDetalle.pendientes_descripcion) && (
+              <div style={{ marginTop: 12, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+                <div style={{ fontSize: 9, color: C.accent, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 8 }}>Informe del técnico</div>
+                {ordenDetalle.trabajos_realizados && (
+                  <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+                    <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>Trabajos realizados</div>
+                    <div style={{ fontSize: 13, color: C.text }}>{ordenDetalle.trabajos_realizados}</div>
+                  </div>
+                )}
+                {ordenDetalle.mediciones && (
+                  <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+                    <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>Mediciones</div>
+                    <div style={{ fontSize: 13, color: C.text }}>{ordenDetalle.mediciones}</div>
+                  </div>
+                )}
+                {ordenDetalle.pendientes_descripcion && (
+                  <div style={{ background: '#1A1000', border: `1px solid ${C.warn}44`, borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+                    <div style={{ fontSize: 9, color: C.warn, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>⚠️ Trabajos pendientes</div>
+                    <div style={{ fontSize: 13, color: C.text }}>{ordenDetalle.pendientes_descripcion}</div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </>,
         () => setOrdenDetalle(null)
