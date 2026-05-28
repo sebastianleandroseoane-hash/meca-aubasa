@@ -136,6 +136,7 @@ export default function DashboardSupervisorElectrico() {
   }
 
   async function abrirDetalle(orden: any) {
+    setShowOrdenes(false)
     const { data: tecs } = await supabase.from('orden_tecnicos')
       .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, rol)').eq('orden_id', orden.id)
     const { data: mats } = await supabase.from('orden_materiales')
@@ -229,6 +230,9 @@ export default function DashboardSupervisorElectrico() {
   function badgeLabel(estado: string) {
     if (estado === 'en_curso') return 'En curso'
     if (estado === 'completada') return 'Completada'
+    if (estado === 'cierre_propuesto') return '⏳ En revisión'
+    if (estado === 'cerrada') return '✅ Cerrada'
+    if (estado === 'derivada') return '🔀 Derivada'
     if (estado === 'cancelada') return 'Cancelada'
     return 'Pendiente'
   }
@@ -520,10 +524,10 @@ export default function DashboardSupervisorElectrico() {
           </div>
           <div style={{ overflowY: 'auto', flex: 1 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-              {[['Estado', ordenDetalle.estado], ['Prioridad', ordenDetalle.prioridad], ['Tipo', tipoLabel(ordenDetalle.tipo)], ['Origen', ordenDetalle.origen]].map(([k, v]) => (
+              {[['Estado', badgeLabel(ordenDetalle.estado)], ['Prioridad', ordenDetalle.prioridad], ['Tipo', tipoLabel(ordenDetalle.tipo)], ['Origen', ordenDetalle.origen]].map(([k, v]) => (
                 <div key={k} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px' }}>
                   <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>{k}</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, marginTop: 2, textTransform: 'capitalize' as const }}>{v}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, marginTop: 2 }}>{v}</div>
                 </div>
               ))}
             </div>
@@ -601,7 +605,7 @@ export default function DashboardSupervisorElectrico() {
                     {o.km && <div style={{ fontSize: 11, color: C.sub }}>Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end', marginLeft: 8 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: o.estado === 'en_curso' ? '#FAEEDA' : o.estado === 'completada' ? '#0F2A35' : C.bg, color: o.estado === 'en_curso' ? '#854F0B' : o.estado === 'completada' ? C.accent : C.sub, whiteSpace: 'nowrap' as const }}>{badgeLabel(o.estado)}</span>
+                   <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: o.estado === 'en_curso' ? '#FAEEDA' : o.estado === 'cierre_propuesto' ? '#FFF3CD' : o.estado === 'completada' ? '#0F2A35' : C.bg, color: o.estado === 'en_curso' ? '#854F0B' : o.estado === 'cierre_propuesto' ? '#856404' : o.estado === 'completada' ? C.accent : C.sub, whiteSpace: 'nowrap' as const }}>{badgeLabel(o.estado)}</span>
                     <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: '#1a3040', color: C.sub, whiteSpace: 'nowrap' as const }}>{tipoLabel(o.tipo)}</span>
                   </div>
                 </div>
