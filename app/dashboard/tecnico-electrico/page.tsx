@@ -59,13 +59,13 @@ export default function DashboardTecnicoElectrico() {
 
   async function cargarOrdenes(userId: string) {
     const { data: ords1 } = await supabase.from('ordenes_trabajo').select('*')
-      .eq('asignado_a', userId).in('estado', ['pendiente', 'en_curso', 'cierre_propuesto'])
+      .eq('asignado_a', userId).in('estado', ['pendiente', 'en_curso', 'cierre_propuesto', 'devuelta_supervisor'])
     const { data: ots } = await supabase.from('orden_tecnicos').select('orden_id').eq('tecnico_id', userId)
     const ids = (ots || []).map((o: any) => o.orden_id)
     let ords2: any[] = []
     if (ids.length > 0) {
       const { data } = await supabase.from('ordenes_trabajo').select('*')
-        .in('id', ids).in('estado', ['pendiente', 'en_curso', 'cierre_propuesto'])
+      .in('id', ids).in('estado', ['pendiente', 'en_curso', 'cierre_propuesto', 'devuelta_supervisor'])  
       ords2 = data || []
     }
     const todas = [...(ords1 || []), ...ords2]
@@ -93,7 +93,7 @@ export default function DashboardTecnicoElectrico() {
   async function proponerCierre(id: string) {
     if (!trabajosRealizados) return
     setLoading(true)
-    const { data: updateData, error: updateError } = await supabase
+    await supabase
       .from('ordenes_trabajo')
       .update({
         estado: 'cierre_propuesto',
@@ -102,17 +102,13 @@ export default function DashboardTecnicoElectrico() {
         pendientes_descripcion: pendientes || null,
         cierre_propuesto_at: new Date().toISOString(),
         cierre_propuesto_por: perfil.id,
+        observacion_supervisor: null,
+        devuelto_por: null,
+        devuelto_at: null,
       })
       .eq('id', id)
-      .eq('estado', 'en_curso')
+      .in('estado', ['en_curso', 'devuelta_supervisor'])
       .select()
-
-    console.log('UPDATE DATA', updateData)
-console.log('UPDATE ERROR', updateError)
-console.log('UPDATE ERROR MESSAGE', updateError?.message)
-console.log('UPDATE ERROR DETAILS', updateError?.details)
-console.log('UPDATE ERROR CODE', updateError?.code)
-console.log('PERFIL', perfil)
     // DEUDA: cerro=true significa "intervención finalizada", no "OT cerrada". Revisar al implementar supervisor.
     await supabase.from('orden_tecnicos').update({ cerro: true }).eq('orden_id', id).eq('tecnico_id', perfil.id)
     setLoading(false)
@@ -124,10 +120,11 @@ console.log('PERFIL', perfil)
     await cargarOrdenes(perfil.id)
   }
 
-  function badgeLabel(estado: string) {
+ function badgeLabel(estado: string) {
     if (estado === 'en_curso') return 'En curso'
     if (estado === 'completada') return 'Completada'
     if (estado === 'cierre_propuesto') return '⏳ En revisión'
+    if (estado === 'devuelta_supervisor') return '↩️ Devuelta'
     if (estado === 'cancelada') return 'Cancelada'
     return 'Pendiente'
   }
@@ -245,6 +242,12 @@ console.log('PERFIL', perfil)
                   ))}
                 </div>
               )}
+              {ordenDetalle.estado === 'devuelta_supervisor' && ordenDetalle.observacion_supervisor && (
+                <div style={{ background: '#2A1A00', border: '1px solid #EF9F2744', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#EF9F27', textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>↩️ Observación del supervisor</div>
+                  <div style={{ fontSize: 13, color: '#e8f4f8' }}>{ordenDetalle.observacion_supervisor}</div>
+                </div>
+              )}
               {showCierre && (
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>¿Qué trabajos realizaste? *</div>
@@ -271,13 +274,13 @@ console.log('PERFIL', perfil)
                     INICIAR
                   </button>
                 )}
-                {ordenDetalle.estado === 'en_curso' && !showCierre && (
+                {(ordenDetalle.estado === 'en_curso' || ordenDetalle.estado === 'devuelta_supervisor') && !showCierre && (
                   <button onClick={() => setShowCierre(true)}
-                    style={{ flex: 1, background: '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
-                    PROPONER CIERRE
+                    style={{ flex: 1, background: ordenDetalle.estado === 'devuelta_supervisor' ? '#EF9F27' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    {ordenDetalle.estado === 'devuelta_supervisor' ? 'CORREGIR Y REPROPONER' : 'PROPONER CIERRE'}
                   </button>
                 )}
-                {ordenDetalle.estado === 'en_curso' && showCierre && (
+                {(ordenDetalle.estado === 'en_curso' || ordenDetalle.estado === 'devuelta_supervisor') && showCierre && (
                   <button onClick={() => proponerCierre(ordenDetalle.id)} disabled={loading || !trabajosRealizados}
                     style={{ flex: 1, background: loading || !trabajosRealizados ? '#1a3040' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
                     {loading ? 'Enviando...' : 'ENVIAR AL SUPERVISOR'}
@@ -322,8 +325,8 @@ console.log('PERFIL', perfil)
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{ordenActiva.titulo}</div>
                 <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 2 }}>OT-{String(ordenActiva.numero_orden).padStart(5, '0')}{ordenActiva.km ? ` · Km ${ordenActiva.km}` : ''}</div>
               </div>
-              <div style={{ background: ordenActiva.estado === 'en_curso' ? '#FAEEDA' : ordenActiva.estado === 'cierre_propuesto' ? '#FFF3CD' : '#1a3040', color: ordenActiva.estado === 'en_curso' ? '#854F0B' : ordenActiva.estado === 'cierre_propuesto' ? '#856404' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, marginLeft: 8, whiteSpace: 'nowrap' }}>
-                {badgeLabel(ordenActiva.estado)}
+              <div style={{ background: ordenActiva.estado === 'en_curso' ? '#FAEEDA' : ordenActiva.estado === 'cierre_propuesto' ? '#FFF3CD' : ordenActiva.estado === 'devuelta_supervisor' ? '#2A1A00' : '#1a3040', color: ordenActiva.estado === 'en_curso' ? '#854F0B' : ordenActiva.estado === 'cierre_propuesto' ? '#856404' : ordenActiva.estado === 'devuelta_supervisor' ? '#EF9F27' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, marginLeft: 8, whiteSpace: 'nowrap' }}>
+                              {badgeLabel(ordenActiva.estado)}
               </div>
             </div>
           </div>
@@ -356,7 +359,7 @@ console.log('PERFIL', perfil)
                   <div style={{ fontSize: 10, color: '#4a8fa0' }}>OT-{String(o.numero_orden).padStart(5, '0')}</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{o.titulo}</div>
                 </div>
-                <div style={{ background: o.estado === 'en_curso' ? '#FAEEDA' : o.estado === 'cierre_propuesto' ? '#FFF3CD' : '#1a3040', color: o.estado === 'en_curso' ? '#854F0B' : o.estado === 'cierre_propuesto' ? '#856404' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+               <div style={{ background: o.estado === 'en_curso' ? '#FAEEDA' : o.estado === 'cierre_propuesto' ? '#FFF3CD' : o.estado === 'devuelta_supervisor' ? '#2A1A00' : '#1a3040', color: o.estado === 'en_curso' ? '#854F0B' : o.estado === 'cierre_propuesto' ? '#856404' : o.estado === 'devuelta_supervisor' ? '#EF9F27' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}> 
                   {badgeLabel(o.estado)}
                 </div>
               </div>
