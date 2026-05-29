@@ -21,7 +21,7 @@ const COLOR_ESTADO: Record<string, string> = {
   V: 'bg-[#854F0B] text-[#FAEEDA]',
   FC: 'bg-[#5A3A8A] text-[#DDD0FF]',
   LM: 'bg-[#0F5A0F] text-[#B2F0B2]',
-  S: 'bg-[#8A3A0F] text-[#FFD0B2]',
+  S: 'bg-[#1D4A6E] text-[#7ADCE8]',
 }
 
 function colorEstado(e: string) {
@@ -202,7 +202,7 @@ export default function CronogramaPage() {
       <div className="px-4 mt-4 mb-2">
         <div className="text-[#7A9EA5] text-xs font-bold uppercase tracking-widest mb-2">Referencias</div>
         <div className="flex flex-wrap gap-2">
-          {[['T','Trabajo'],['F','Franco'],['V','Vacaciones'],['FC','Franco comp.'],['LM','Lic. médica'],['S','Suspensión']].map(([k,v]) => (
+          {[['T','Trabajo'],['F','Franco'],['V','Vacaciones'],['FC','Franco comp.'],['LM','Lic. médica'],['S','Supervisor']].map(([k,v]) => (
             <div key={k} className="flex items-center gap-1">
               <span className={`inline-block w-6 h-5 rounded text-center leading-5 font-bold text-xs ${colorEstado(k)}`}>{k}</span>
               <span className="text-[#7A9EA5] text-xs">{v}</span>

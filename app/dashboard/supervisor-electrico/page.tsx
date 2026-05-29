@@ -13,7 +13,7 @@ function SolicitudItem({ s, onResolver }: { s: any, onResolver: (id: string, dec
     <div style={{ background: C2.bg, border: `1px solid ${C2.warn}33`, borderRadius: 10, padding: '10px 12px', marginBottom: 6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
         <div>
-          <div style={{ fontSize: 11, color: C2.sub }}>{s.profiles?.nombre} · OT-{String(s.ordenes_trabajo?.numero_orden || 0).padStart(5, '0')}</div>
+          <div style={{ fontSize: 11, color: C2.sub }}>{s.profiles?.apellido}, {s.profiles?.nombre} · OT-{String(s.ordenes_trabajo?.numero_orden || 0).padStart(5, '0')}</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: C2.text }}>{s.materiales?.nombre}</div>
           <div style={{ fontSize: 11, color: C2.sub }}>×{s.cantidad} {s.materiales?.unidad}</div>
         </div>
@@ -101,7 +101,7 @@ export default function DashboardSupervisorElectrico() {
 
   async function cargarDatos(turno: string) {
     const { data: ords } = await supabase.from('ordenes_trabajo')
-      .select('*, profiles!ordenes_trabajo_asignado_a_fkey(nombre)')
+      .select('*, profiles!ordenes_trabajo_asignado_a_fkey(nombre, apellido)')
       .eq('sector', 'electrico').order('created_at', { ascending: false })
     setOrdenes(ords || [])
     const { data: tecs } = await supabase.rpc('get_tecnicos_activos', { p_sector: 'electrico', p_turno: turno })
@@ -110,7 +110,7 @@ export default function DashboardSupervisorElectrico() {
 
   async function cargarSolicitudes() {
     const { data } = await supabase.from('solicitudes_insumos')
-      .select('*, materiales!solicitudes_insumos_material_id_fkey(nombre, unidad), profiles!solicitudes_insumos_tallerista_id_fkey(nombre, sector_trabajo), ordenes_trabajo!solicitudes_insumos_orden_trabajo_id_fkey(titulo, numero_orden)')
+      .select('*, materiales!solicitudes_insumos_material_id_fkey(nombre, unidad), profiles!solicitudes_insumos_tallerista_id_fkey(nombre, apellido, sector_trabajo), ordenes_trabajo!solicitudes_insumos_orden_trabajo_id_fkey(titulo, numero_orden)')
       .eq('estado', 'pendiente').order('created_at', { ascending: false })
     setSolicitudes((data || []).filter((s: any) => s.profiles?.sector_trabajo === 'electrico'))
   }
@@ -141,7 +141,7 @@ export default function DashboardSupervisorElectrico() {
   async function abrirDetalle(orden: any) {
     setShowOrdenes(false)
     const { data: tecs } = await supabase.from('orden_tecnicos')
-      .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, rol)').eq('orden_id', orden.id)
+      .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, apellido, rol)').eq('orden_id', orden.id)
     const { data: mats } = await supabase.from('orden_materiales')
       .select('*, materiales!orden_materiales_material_id_fkey(nombre, unidad)').eq('orden_id', orden.id)
     const { data: peds } = await supabase.from('pedidos_material').select('*').eq('orden_trabajo_id', orden.id)
@@ -595,7 +595,7 @@ async function aprobarCierre(id: string) {
                 <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 6 }}>Técnicos</div>
                 {ordenDetalle.tecnicos.map((t: any) => (
                   <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
-                    <span style={{ fontSize: 13, color: C.text }}>{t.profiles?.nombre}</span>
+                    <span style={{ fontSize: 13, color: C.text }}>{[t.profiles?.apellido, t.profiles?.nombre].filter(Boolean).join(', ')}</span>
                     <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: t.cerro ? '#0F6E56' : C.bg, color: t.cerro ? '#9FE1CB' : C.sub }}>{t.cerro ? 'Cerró' : 'Pendiente'}</span>
                   </div>
                 ))}

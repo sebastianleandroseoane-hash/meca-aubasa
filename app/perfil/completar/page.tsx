@@ -105,12 +105,10 @@ export default function CompletarPerfil() {
         email_personal: form.email_personal,
         email_corporativo: form.email_corporativo,
         fecha_ingreso: form.fecha_ingreso || null,
-        rol: form.rol,
         turno: form.turno,
         modalidad: form.modalidad || null,
         grupo: form.grupo || null,
         sector_trabajo: form.sector_trabajo,
-        activo: true,
       })
 
     if (profileError) {
@@ -216,17 +214,10 @@ export default function CompletarPerfil() {
         <div className="bg-white rounded-2xl p-4">
           <div className="text-[#0F3A42] font-bold text-sm mb-3">Puesto y turno</div>
 
-          <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Puesto que desempeña *</div>
-          <select
-            className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] mb-3 outline-none"
-            value={form.rol}
-            onChange={e => setForm({ ...form, rol: e.target.value })}
-          >
-            <option value="">Seleccioná tu puesto</option>
-            {ROLES.map(r => (
-              <option key={r.value} value={r.value}>{r.label}</option>
-            ))}
-          </select>
+          <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Puesto que desempeña</div>
+          <div className="w-full bg-[#F0FAFB] border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#7A9EA5] mb-3">
+            Tu rol será asignado por el administrador
+          </div>
 
           <div className="text-xs text-[#7A9EA5] uppercase tracking-widest mb-1">Sector *</div>
           <select
