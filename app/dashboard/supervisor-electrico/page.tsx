@@ -203,6 +203,7 @@ async function aprobarCierre(id: string) {
       estado: conObs ? 'aprobado_con_observaciones' : 'aprobado',
       aprobado_por: perfil.id,
       aprobado_at: new Date().toISOString(),
+      aprobador_nombre_display: [perfil.apellido, perfil.nombre].filter(Boolean).join(', '),
     }).eq('id', id)
     setCheckinDetalle(null)
     await cargarCheckinsVehiculos()
