@@ -50,9 +50,9 @@ export default function DashboardSupervisorElectrico() {
   const [tecnicosSeleccionados, setTecnicosSeleccionados] = useState<string[]>([])
   const [materiales, setMateriales] = useState<any[]>([])
   const [materialesFiltrados, setMaterialesFiltrados] = useState<any[]>([])
-  const [categoriaFiltro, setCategoriaFiltro] = useState('todos')
   const [busqueda, setBusqueda] = useState('')
-  const [materialesOrden, setMaterialesOrden] = useState<{id: string, nombre: string, unidad: string, cantidad: number, stock: number}[]>([])
+  const [materialesOrden, setMaterialesOrden] = useState<{id: string, nombre: string, unidad: string, cantidad: number, stock: number, tipo: string}[]>([])
+
   const [form, setForm] = useState({
     titulo: '', descripcion: '', km: '', ubicacion: '',
     prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor',
@@ -93,11 +93,10 @@ export default function DashboardSupervisorElectrico() {
   }, [])
 
   useEffect(() => {
-    let lista = materiales
-    if (categoriaFiltro !== 'todos') lista = lista.filter((m: any) => m.categoria === categoriaFiltro)
-    if (busqueda.trim()) lista = lista.filter((m: any) => m.nombre.toLowerCase().includes(busqueda.toLowerCase()))
-    setMaterialesFiltrados(lista)
-  }, [busqueda, categoriaFiltro, materiales])
+    if (busqueda.trim().length < 2) { setMaterialesFiltrados([]); return }
+    const q = busqueda.toLowerCase()
+    setMaterialesFiltrados(materiales.filter((m: any) => m.nombre.toLowerCase().includes(q)))
+  }, [busqueda, materiales])
 
   async function cargarDatos(turno: string) {
     const { data: ords } = await supabase.from('ordenes_trabajo')
@@ -229,7 +228,7 @@ async function aprobarCierre(id: string) {
 
   function agregarMaterial(m: any) {
     if (materialesOrden.find(x => x.id === m.id)) return
-    setMaterialesOrden(prev => [...prev, { id: m.id, nombre: m.nombre, unidad: m.unidad, cantidad: 1, stock: m.stock_actual }])
+    setMaterialesOrden(prev => [...prev, { id: m.id, nombre: m.nombre, unidad: m.unidad, cantidad: 1, stock: m.stock_actual, tipo: m.tipo ?? 'material' }])
   }
   function quitarMaterial(id: string) { setMaterialesOrden(prev => prev.filter(m => m.id !== id)) }
   function cambiarCantidad(id: string, valor: number) { setMaterialesOrden(prev => prev.map(m => m.id === id ? { ...m, cantidad: Math.max(1, valor) } : m)) }
@@ -460,7 +459,12 @@ async function aprobarCierre(id: string) {
 
             {/* MATERIALES */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1 }}>Materiales {materialesOrden.length > 0 && <span style={{ color: C.accent }}>({materialesOrden.length})</span>}</div>
+              <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1 }}>
+                Ítems
+                {materialesOrden.filter(m => (m as any).tipo !== 'herramienta').length > 0 && <span style={{ color: C.accent }}> · 📦 {materialesOrden.filter(m => (m as any).tipo !== 'herramienta').length}</span>}
+                {materialesOrden.filter(m => (m as any).tipo === 'herramienta').length > 0 && <span style={{ color: C.warn }}> · 🔧 {materialesOrden.filter(m => (m as any).tipo === 'herramienta').length}</span>}
+              </div>
+
               <button onClick={abrirStock} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.sub, fontSize: 11, fontWeight: 600, padding: '3px 8px', cursor: 'pointer' }}>+ Agregar</button>
             </div>
             {materialesOrden.length > 0 && (
@@ -525,36 +529,67 @@ async function aprobarCierre(id: string) {
       {showStock && modal(
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Seleccionar material</div>
-            <button onClick={() => { setShowStock(false); setBusqueda(''); setCategoriaFiltro('todos') }} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Seleccionar ítems</div>
+            <button onClick={() => { setShowStock(false); setBusqueda('') }} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
           </div>
-          <select style={{ ...sel, marginBottom: 8 }} value={categoriaFiltro} onChange={e => setCategoriaFiltro(e.target.value)}>
-            <option value="todos">Todas las categorías</option>
-            <option value="electrico">Eléctrico</option>
-            <option value="general">General</option>
-          </select>
-          <input style={{ ...input, marginBottom: 10 }} placeholder="Buscar material..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+          <input style={{ ...input, marginBottom: 10 }} placeholder="Escribí 2 letras para buscar..." value={busqueda} onChange={e => setBusqueda(e.target.value)} autoFocus />
           {materialesOrden.length > 0 && (
             <div style={{ background: C.bg, border: `1px solid ${C.accent}`, borderRadius: 8, padding: '6px 10px', marginBottom: 8, fontSize: 11, color: C.accent }}>
               {materialesOrden.map(m => `${m.nombre} ×${m.cantidad}`).join(' · ')}
             </div>
           )}
           <div style={{ overflowY: 'auto', flex: 1 }}>
-            {materialesFiltrados.map((m: any, i: number) => (
-              <div key={m.id} onClick={() => agregarMaterial(m)}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < materialesFiltrados.length - 1 ? `1px solid ${C.border}` : 'none', cursor: 'pointer' }}>
-                <div>
-                  <div style={{ fontSize: 13, color: C.text }}>{m.nombre}</div>
-                  <div style={{ fontSize: 10, color: C.sub }}>{m.unidad}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {materialesOrden.find(x => x.id === m.id) && <span style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>✓</span>}
-                  <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 10, background: m.stock_actual > 0 ? '#0F2A35' : '#2A0F0F', color: m.stock_actual > 0 ? C.accent : C.err }}>
-                    {m.stock_actual > 0 ? `${m.stock_actual} ${m.unidad}` : 'Sin stock'}
-                  </span>
-                </div>
-              </div>
-            ))}
+            {busqueda.trim().length < 2 ? (
+              <div style={{ textAlign: 'center' as const, color: C.sub, fontSize: 12, padding: '24px 0' }}>Escribí al menos 2 letras para buscar</div>
+            ) : (
+              <>
+                {/* Sección: Materiales / Insumos / Repuestos */}
+                {materialesFiltrados.filter((m: any) => m.tipo !== 'herramienta').length > 0 && (
+                  <>
+                    <div style={{ fontSize: 9, color: C.sub, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1, padding: '8px 0 4px' }}>📦 Materiales / Insumos / Repuestos</div>
+                    {materialesFiltrados.filter((m: any) => m.tipo !== 'herramienta').map((m: any, i: number, arr: any[]) => (
+                      <div key={m.id} onClick={() => agregarMaterial(m)}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', cursor: 'pointer' }}>
+                        <div>
+                          <div style={{ fontSize: 13, color: C.text }}>{m.nombre}</div>
+                          <div style={{ fontSize: 10, color: C.sub }}>{m.unidad} · {m.tipo}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {materialesOrden.find(x => x.id === m.id) && <span style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>✓</span>}
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 10, background: m.stock_actual > 0 ? '#0F2A35' : '#2A0F0F', color: m.stock_actual > 0 ? C.accent : C.err }}>
+                            {m.stock_actual > 0 ? `${m.stock_actual} ${m.unidad}` : 'Sin stock'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {/* Sección: Herramientas */}
+                {materialesFiltrados.filter((m: any) => m.tipo === 'herramienta').length > 0 && (
+                  <>
+                    <div style={{ fontSize: 9, color: C.warn, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1, padding: '12px 0 4px' }}>🔧 Herramientas</div>
+                    {materialesFiltrados.filter((m: any) => m.tipo === 'herramienta').map((m: any, i: number, arr: any[]) => (
+                      <div key={m.id} onClick={() => agregarMaterial(m)}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', cursor: 'pointer' }}>
+                        <div>
+                          <div style={{ fontSize: 13, color: C.text }}>{m.nombre}</div>
+                          <div style={{ fontSize: 10, color: C.sub }}>{m.unidad}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {materialesOrden.find(x => x.id === m.id) && <span style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>✓</span>}
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 10, background: m.stock_actual > 0 ? '#0F2A35' : '#2A0F0F', color: m.stock_actual > 0 ? C.accent : C.err }}>
+                            {m.stock_actual > 0 ? `${m.stock_actual} ${m.unidad}` : 'Sin stock'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {materialesFiltrados.length === 0 && (
+                  <div style={{ textAlign: 'center' as const, color: C.sub, fontSize: 12, padding: '24px 0' }}>Sin resultados</div>
+                )}
+              </>
+            )}
           </div>
         </>,
         () => setShowStock(false)
