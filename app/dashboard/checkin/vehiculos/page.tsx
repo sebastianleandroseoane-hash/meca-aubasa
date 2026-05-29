@@ -49,6 +49,7 @@ export default function CheckinVehiculos() {
 
   const [loading, setLoading] = useState(false)
   const [errKm, setErrKm] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -56,15 +57,20 @@ export default function CheckinVehiculos() {
       setPerfil(p)
       const sector = p.sector_trabajo === 'ac' ? 'ac' : 'electrico'
 
-      // Verificar si tiene checkin abierto hoy
+      // FIX 1: Se eliminó .eq('fecha', hoy) para no abandonar checkins de días anteriores.
+      // Si hay múltiples abiertos, se toma el más antiguo primero (ascending: true)
+      // para drenar inconsistencias de lo más viejo a lo más nuevo.
+      // La variable hoy se mantiene porque la usa el insert de apertura más abajo.
       const hoy = new Date().toISOString().split('T')[0]
-      const { data: abierto } = await supabase
+      const { data: abiertos } = await supabase
         .from('checkins_vehiculos')
         .select('*, moviles(marca, modelo, patente)')
         .eq('conductor_id', p.id)
         .eq('estado', 'abierto')
-        .eq('fecha', hoy)
-        .maybeSingle()
+        .order('fecha', { ascending: true })
+        .limit(1)
+
+      const abierto = abiertos?.[0] ?? null
 
       if (abierto) {
         setCheckinAbierto(abierto)
@@ -99,6 +105,8 @@ export default function CheckinVehiculos() {
     if (!movilId) return
     if (!kmInicial) { setErrKm(true); return }
     setLoading(true)
+    setErrorMsg(null)
+
     const { data: checkin, error } = await supabase
       .from('checkins_vehiculos')
       .insert({
@@ -115,8 +123,18 @@ export default function CheckinVehiculos() {
       .select()
       .single()
 
-    if (!error && checkin) {
-      await supabase.from('checkins_vehiculos_items').insert(
+    // FIX 2: Se captura el error del insert principal y se detiene si falla.
+    // Antes, si fallaba, setModo('enviado') no se ejecutaba pero tampoco
+    // se mostraba ningún mensaje — el conductor quedaba en pantalla sin saber qué pasó.
+    if (error || !checkin) {
+      setErrorMsg('Error al abrir el checkin. Revisá tu conexión e intentá de nuevo.')
+      setLoading(false)
+      return
+    }
+
+    const { error: errorItems } = await supabase
+      .from('checkins_vehiculos_items')
+      .insert(
         ITEMS_INSPECCION.map((nombre, i) => ({
           checkin_id: checkin.id,
           item: nombre,
@@ -125,20 +143,45 @@ export default function CheckinVehiculos() {
           observacion: items[nombre].observacion || null,
         }))
       )
-      setModo('enviado')
+
+    // FIX 2 (cont): Se captura también el error del insert de ítems.
+    // Antes se ignoraba completamente — el checkin quedaba en la base sin ítems
+    // y sin que nadie lo supiera.
+    if (errorItems) {
+      setErrorMsg('El checkin se abrió pero hubo un error al guardar los ítems. Avisá al supervisor.')
+      setLoading(false)
+      return
     }
+
     setLoading(false)
+    setModo('enviado')
   }
 
   async function enviarCierre() {
     if (!kmFinal) { setErrKm(true); return }
     setLoading(true)
-    await supabase.from('checkins_vehiculos').update({
-      km_final: parseInt(kmFinal),
-      observaciones_cierre: obsCierre || null,
-      cerrado_at: new Date().toISOString(),
-      estado: 'pendiente_aprobacion',
-    }).eq('id', checkinAbierto.id)
+    setErrorMsg(null)
+
+    // FIX 3: Se captura el error del update de cierre.
+    // Antes, si el update fallaba (RLS, red, etc.), el código ejecutaba
+    // setModo('enviado') igual — el conductor veía "✅ cerrado" pero el
+    // registro seguía en 'abierto' en la base. Error silencioso clásico.
+    const { error: errorCierre } = await supabase
+      .from('checkins_vehiculos')
+      .update({
+        km_final: parseInt(kmFinal),
+        observaciones_cierre: obsCierre || null,
+        cerrado_at: new Date().toISOString(),
+        estado: 'pendiente_aprobacion',
+      })
+      .eq('id', checkinAbierto.id)
+
+    if (errorCierre) {
+      setErrorMsg('Error al cerrar el checkin. Revisá tu conexión e intentá de nuevo.')
+      setLoading(false)
+      return
+    }
+
     setLoading(false)
     setModo('enviado')
   }
@@ -188,6 +231,13 @@ export default function CheckinVehiculos() {
           <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>Km inicial: {checkinAbierto?.km_inicial ?? '—'} · Abierto el {checkinAbierto?.fecha}</div>
         </div>
 
+        {/* Error message */}
+        {errorMsg && (
+          <div style={{ background: '#2A0F0F', border: `1px solid ${C.err}`, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: C.err }}>
+            ⚠️ {errorMsg}
+          </div>
+        )}
+
         {/* Km final */}
         <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>
           Km / Horómetro Final *
@@ -201,7 +251,7 @@ export default function CheckinVehiculos() {
           autoFocus
         />
         {errKm && !kmFinal && <div style={{ fontSize: 11, color: C.err, marginBottom: 8 }}>El km final es obligatorio</div>}
-        {kmFinal && kmInicial && parseInt(kmFinal) > 0 && (
+        {kmFinal && parseInt(kmFinal) > 0 && (
           <div style={{ fontSize: 11, color: C.accent, marginBottom: 12 }}>
             Recorrido: {parseInt(kmFinal) - (checkinAbierto?.km_inicial || 0)} km
           </div>
@@ -242,6 +292,13 @@ export default function CheckinVehiculos() {
       </div>
 
       <div style={{ padding: '16px 16px 110px' }}>
+
+        {/* Error message */}
+        {errorMsg && (
+          <div style={{ background: '#2A0F0F', border: `1px solid ${C.err}`, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: C.err }}>
+            ⚠️ {errorMsg}
+          </div>
+        )}
 
         {/* VEHÍCULO */}
         <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Vehículo *</div>
