@@ -70,7 +70,14 @@ export default function DashboardTecnicoElectrico() {
     }
     const todas = [...(ords1 || []), ...ords2]
     const unicas = todas.filter((o, i, arr) => arr.findIndex(x => x.id === o.id) === i)
-    const ordenadas = unicas.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    const ordenadas = unicas.sort((a, b) => {
+  if (a.estado === 'en_curso' && b.estado !== 'en_curso') return -1
+  if (b.estado === 'en_curso' && a.estado !== 'en_curso') return 1
+  const fa = new Date(a.fecha_programada || a.created_at).getTime()
+  const fb = new Date(b.fecha_programada || b.created_at).getTime()
+  if (fa !== fb) return fa - fb
+  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+})
     setOrdenes(ordenadas)
     setOrdenActiva(ordenadas.find((o: any) => o.estado === 'en_curso') || ordenadas[0] || null)
   }
@@ -349,23 +356,57 @@ export default function DashboardTecnicoElectrico() {
         </div>
 
         {/* LISTA ÓRDENES */}
-        {ordenes.length > 1 && (
-          <>
-            <div style={{ fontSize: 9, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Todas mis órdenes</div>
-            {ordenes.map(o => (
-              <div key={o.id} onClick={() => abrirDetalle(o)}
-                style={{ background: '#0c1c24', border: '1px solid #1a3040', borderRadius: 10, padding: '10px 12px', marginBottom: 6, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: 10, color: '#4a8fa0' }}>OT-{String(o.numero_orden).padStart(5, '0')}</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{o.titulo}</div>
-                </div>
-               <div style={{ background: o.estado === 'en_curso' ? '#FAEEDA' : o.estado === 'cierre_propuesto' ? '#FFF3CD' : o.estado === 'devuelta_supervisor' ? '#2A1A00' : '#1a3040', color: o.estado === 'en_curso' ? '#854F0B' : o.estado === 'cierre_propuesto' ? '#856404' : o.estado === 'devuelta_supervisor' ? '#EF9F27' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}> 
-                  {badgeLabel(o.estado)}
-                </div>
-              </div>
-            ))}
-          </>
-        )}
+        {ordenes.length > 1 && (() => {
+          const hayEnCurso = ordenes.some(o => o.estado === 'en_curso')
+          const primeraPendiente = !hayEnCurso
+            ? ordenes.find(o => o.estado === 'pendiente')?.id
+            : null
+
+          return (
+            <>
+              <div style={{ fontSize: 9, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Todas mis órdenes</div>
+              {ordenes.map(o => {
+                const esClickeable =
+                  o.estado === 'en_curso' ||
+                  o.estado === 'cierre_propuesto' ||
+                  o.estado === 'devuelta_supervisor' ||
+                  (!hayEnCurso && o.id === primeraPendiente)
+
+                return (
+                  <div key={o.id}
+                    onClick={() => esClickeable && abrirDetalle(o)}
+                    style={{
+                      background: '#0c1c24',
+                      border: `1px solid ${esClickeable ? '#1a3040' : '#0f1e28'}`,
+                      borderRadius: 10,
+                      padding: '10px 12px',
+                      marginBottom: 6,
+                      cursor: esClickeable ? 'pointer' : 'default',
+                      opacity: esClickeable ? 1 : 0.4,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: '#4a8fa0' }}>OT-{String(o.numero_orden).padStart(5, '0')}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{o.titulo}</div>
+                      {!esClickeable && (
+                        <div style={{ fontSize: 10, color: '#2a5060', marginTop: 2 }}>En espera</div>
+                      )}
+                    </div>
+                    <div style={{
+                      background: o.estado === 'en_curso' ? '#FAEEDA' : o.estado === 'cierre_propuesto' ? '#FFF3CD' : o.estado === 'devuelta_supervisor' ? '#2A1A00' : '#1a3040',
+                      color: o.estado === 'en_curso' ? '#854F0B' : o.estado === 'cierre_propuesto' ? '#856404' : o.estado === 'devuelta_supervisor' ? '#EF9F27' : '#7ADCE8',
+                      fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap'
+                    }}>
+                      {badgeLabel(o.estado)}
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          )
+        })()}
       </div>
 
       {/* NAVBAR */}
