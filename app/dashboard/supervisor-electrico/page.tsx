@@ -68,7 +68,7 @@ export default function DashboardSupervisorElectrico() {
   const [fechaDisplay, setFechaDisplay] = useState('')
   const [checkinsVehiculos, setCheckinsVehiculos] = useState<any[]>([])
   const [ordenesRebotadas, setOrdenesRebotadas] = useState<any[]>([])
-  const [filtroFecha, setFiltroFecha] = useState(new Date().toISOString().split('T')[0])
+  const [filtroFecha, setFiltroFecha] = useState('')
   const [filtroTurno, setFiltroTurno] = useState('todos')
   const [obsDevolucion, setObsDevolucion] = useState('')
   const [showDevolucion, setShowDevolucion] = useState(false)
