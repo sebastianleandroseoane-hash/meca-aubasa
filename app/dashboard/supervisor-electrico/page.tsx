@@ -133,7 +133,7 @@ export default function DashboardSupervisorElectrico() {
 
   async function resolverSolicitud(id: string, decision: 'autorizada' | 'rechazada', obs: string) {
     await supabase.from('solicitudes_insumos')
-      .update({ estado: decision, supervisor_id: perfil.id, observaciones: obs, resuelta_at: new Date().toISOString() })
+      .update({ estado: decision, supervisor_id: perfil.id, observaciones: obs, resuelta_at: new Date().toISOString(), aprobador_nombre_display: [perfil.apellido, perfil.nombre].filter(Boolean).join(', ') })
       .eq('id', id)
     await cargarSolicitudes()
   }

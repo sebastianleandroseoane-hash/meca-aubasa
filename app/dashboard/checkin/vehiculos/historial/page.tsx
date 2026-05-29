@@ -48,6 +48,7 @@ export default function HistorialCheckinVehiculos() {
       estado: 'aprobado',
       aprobado_por: perfil.id,
       aprobado_at: new Date().toISOString(),
+      aprobador_nombre_display: [perfil.apellido, perfil.nombre].filter(Boolean).join(', '),
     }).eq('id', id)
     setDetalle(null)
     await cargar()
@@ -60,6 +61,7 @@ export default function HistorialCheckinVehiculos() {
       estado: 'aprobado_con_observaciones',
       aprobado_por: perfil.id,
       aprobado_at: new Date().toISOString(),
+      aprobador_nombre_display: [perfil.apellido, perfil.nombre].filter(Boolean).join(', '),
     }).eq('id', id)
     setDetalle(null)
     await cargar()
@@ -110,7 +112,7 @@ export default function HistorialCheckinVehiculos() {
               <div>
                 <div className="text-[#1ABBD6] font-bold text-xs">CHK-{String(detalle.numero_checkin).padStart(4, '0')}</div>
                 <div className="text-[#0F3A42] font-bold text-sm">{detalle.moviles?.marca} {detalle.moviles?.modelo} — {detalle.moviles?.patente}</div>
-                <div className="text-[#7A9EA5] text-xs">{detalle.conductor?.nombre} {detalle.conductor?.apellido} · {detalle.turno} · {detalle.fecha}</div>
+                <div className="text-[#7A9EA5] text-xs">{detalle.conductor_nombre_display || [detalle.conductor?.apellido, detalle.conductor?.nombre].filter(Boolean).join(', ') || 'Conductor no registrado'} · {detalle.turno} · {detalle.fecha}</div>
               </div>
               <button onClick={() => setDetalle(null)} className="text-[#7A9EA5] text-xs font-bold">CERRAR</button>
             </div>
@@ -173,10 +175,12 @@ export default function HistorialCheckinVehiculos() {
                 </button>
               )}
 
-              {detalle.aprobador && (
+              {(detalle.aprobador_nombre_display || detalle.aprobador) && (
                 <div className="bg-[#D6F4F8] border border-[#1ABBD6] rounded-xl px-3 py-2 mb-3">
                   <div className="text-[#0F8FAA] text-xs font-bold mb-0.5">Aprobado por</div>
-                  <div className="text-[#0F8FAA] text-xs">{detalle.aprobador?.nombre} {detalle.aprobador?.apellido} · {detalle.aprobado_at ? new Date(detalle.aprobado_at).toLocaleString('es-AR') : ''}</div>
+                  <div className="text-[#0F8FAA] text-xs">
+                    {detalle.aprobador_nombre_display || [detalle.aprobador?.apellido, detalle.aprobador?.nombre].filter(Boolean).join(', ') || 'Aprobador no registrado'} · {detalle.aprobado_at ? new Date(detalle.aprobado_at).toLocaleString('es-AR') : ''}
+                  </div>
                 </div>
               )}
 
@@ -231,7 +235,7 @@ export default function HistorialCheckinVehiculos() {
                     <span className="text-[#7A9EA5] text-xs">{c.fecha}</span>
                   </div>
                   <div className="text-[#0F3A42] font-bold text-sm">{c.moviles?.marca} {c.moviles?.modelo} — {c.moviles?.patente}</div>
-                  <div className="text-[#7A9EA5] text-xs">{c.conductor?.nombre} {c.conductor?.apellido} · {c.turno}</div>
+                  <div className="text-[#7A9EA5] text-xs">{c.conductor_nombre_display || [c.conductor?.apellido, c.conductor?.nombre].filter(Boolean).join(', ') || 'Conductor no registrado'} · {c.turno}</div>
                 </div>
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ml-2 ${estadoBadge(c.estado)}`}>
                   {estadoLabel(c.estado)}
