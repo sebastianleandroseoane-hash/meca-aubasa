@@ -816,9 +816,14 @@ async function aprobarCierre(id: string) {
             </div>
             <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 8 }}>Inspección</div>
             {(checkinDetalle.items || []).map((it: any) => (
-              <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: it.estado === 'mal' ? '#2A0F0F' : C.bg, border: `1px solid ${it.estado === 'mal' ? '#7B1E1E' : C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
-                <span style={{ fontSize: 12, color: C.text, flex: 1 }}>{it.item}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: it.estado === 'bien' ? '#0F3A42' : '#7B1E1E', color: it.estado === 'bien' ? C.accent : '#F09595', marginLeft: 8 }}>{it.estado.toUpperCase()}</span>
+              <div key={it.id} style={{ background: it.estado === 'mal' ? '#2A0F0F' : C.bg, border: `1px solid ${it.estado === 'mal' ? '#7B1E1E' : C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: C.text, flex: 1 }}>{it.item}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: it.estado === 'bien' ? '#0F3A42' : '#7B1E1E', color: it.estado === 'bien' ? C.accent : '#F09595', marginLeft: 8 }}>{it.estado.toUpperCase()}</span>
+                </div>
+                {it.observacion && (
+                  <div style={{ fontSize: 11, color: '#F09595', marginTop: 3 }}>↳ {it.observacion}</div>
+                )}
               </div>
             ))}
             {checkinDetalle.observaciones_generales && (
