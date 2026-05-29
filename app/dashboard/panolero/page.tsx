@@ -100,7 +100,7 @@ export default function DashboardPanolero() {
       .eq('estado', 'autorizada').order('created_at', { ascending: false })
     setSolicitudes(sols || [])
     const { data: ords } = await supabase.from('ordenes_trabajo')
-      .select('*, orden_materiales(cantidad, materiales(nombre, unidad)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido), rebotador:rebotada_por(nombre, apellido)')
+      .select('*, orden_materiales(id, cantidad, materiales(nombre, unidad, tipo)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido), rebotador:rebotada_por(nombre, apellido)')
       .not('estado', 'eq', 'cancelada').order('created_at', { ascending: false })
     setOrdenesPanol(ords || [])
   }
@@ -352,17 +352,37 @@ export default function DashboardPanolero() {
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 2 }}>{ordenPanolDetalle.km ? `Km ${ordenPanolDetalle.km}` : ''}{ordenPanolDetalle.ubicacion ? ` · ${ordenPanolDetalle.ubicacion}` : ''}</div>
               </div>
             )}
-            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 8 }}>
-              Materiales asignados {ordenPanolDetalle.orden_materiales?.length > 0 ? `(${ordenPanolDetalle.orden_materiales.length})` : ''}
-            </div>
             {!ordenPanolDetalle.orden_materiales?.length ? (
               <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 12, color: C.sub, textAlign: 'center' as const }}>Sin materiales cargados en esta orden</div>
-            ) : ordenPanolDetalle.orden_materiales.map((om: any) => (
-              <div key={om.id || om.materiales?.nombre} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
-                <span style={{ fontSize: 13, color: C.text }}>{om.materiales?.nombre}</span>
-                <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>×{om.cantidad} {om.materiales?.unidad}</span>
-              </div>
-            ))}
+            ) : (
+              <>
+                {ordenPanolDetalle.orden_materiales.filter((om: any) => om.materiales?.tipo !== 'herramienta').length > 0 && (
+                  <>
+                    <div style={{ fontSize: 9, color: C.sub, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 6 }}>📦 Materiales / Insumos / Repuestos</div>
+                    {ordenPanolDetalle.orden_materiales.filter((om: any) => om.materiales?.tipo !== 'herramienta').map((om: any) => (
+                      <div key={om.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
+                        <div>
+                          <span style={{ fontSize: 13, color: C.text }}>{om.materiales?.nombre}</span>
+                          <span style={{ fontSize: 10, color: C.sub, marginLeft: 6 }}>{om.materiales?.tipo}</span>
+                        </div>
+                        <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>×{om.cantidad} {om.materiales?.unidad}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {ordenPanolDetalle.orden_materiales.filter((om: any) => om.materiales?.tipo === 'herramienta').length > 0 && (
+                  <>
+                    <div style={{ fontSize: 9, color: C.warn, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 6, marginTop: 10 }}>🔧 Herramientas</div>
+                    {ordenPanolDetalle.orden_materiales.filter((om: any) => om.materiales?.tipo === 'herramienta').map((om: any) => (
+                      <div key={om.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.bg, border: `1px solid ${C.warn}44`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, color: C.text }}>{om.materiales?.nombre}</span>
+                        <span style={{ fontSize: 11, color: C.warn, fontWeight: 600 }}>×{om.cantidad} {om.materiales?.unidad}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
           </div>
         </>,
         () => setOrdenPanolDetalle(null)
