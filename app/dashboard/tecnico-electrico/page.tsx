@@ -321,23 +321,35 @@ export default function DashboardTecnicoElectrico() {
         </div>
 
         {/* ORDEN ACTIVA */}
-        {ordenActiva && (
-          <div onClick={() => abrirDetalle(ordenActiva)}
-            style={{ background: '#0c1c24', border: `1px solid ${ordenActiva.estado === 'en_curso' ? '#BA7517' : '#1a3040'}`, borderLeft: `3px solid ${ordenActiva.estado === 'en_curso' ? '#EF9F27' : '#1ABBD6'}`, borderRadius: 10, padding: '10px 12px', marginBottom: 10, cursor: 'pointer' }}>
-            <div style={{ fontSize: 9, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
-              {ordenActiva.estado === 'en_curso' ? '⚡ Orden en curso' : '📋 Orden pendiente'}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{ordenActiva.titulo}</div>
-                <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 2 }}>OT-{String(ordenActiva.numero_orden).padStart(5, '0')}{ordenActiva.km ? ` · Km ${ordenActiva.km}` : ''}</div>
+        {ordenActiva && (() => {
+          const hayEnCurso = ordenes.some(o => o.estado === 'en_curso')
+          const primeraPendienteId = !hayEnCurso
+            ? ordenes.find(o => o.estado === 'pendiente')?.id
+            : null
+          const esClickeable =
+            ordenActiva.estado === 'en_curso' ||
+            ordenActiva.estado === 'cierre_propuesto' ||
+            ordenActiva.estado === 'devuelta_supervisor' ||
+            (!hayEnCurso && ordenActiva.id === primeraPendienteId)
+
+          return (
+            <div onClick={() => esClickeable && abrirDetalle(ordenActiva)}
+              style={{ background: '#0c1c24', border: `1px solid ${ordenActiva.estado === 'en_curso' ? '#BA7517' : '#1a3040'}`, borderLeft: `3px solid ${ordenActiva.estado === 'en_curso' ? '#EF9F27' : '#1ABBD6'}`, borderRadius: 10, padding: '10px 12px', marginBottom: 10, cursor: esClickeable ? 'pointer' : 'default' }}>
+              <div style={{ fontSize: 9, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+                {ordenActiva.estado === 'en_curso' ? '⚡ Orden en curso' : '📋 Orden pendiente'}
               </div>
-              <div style={{ background: ordenActiva.estado === 'en_curso' ? '#FAEEDA' : ordenActiva.estado === 'cierre_propuesto' ? '#FFF3CD' : ordenActiva.estado === 'devuelta_supervisor' ? '#2A1A00' : '#1a3040', color: ordenActiva.estado === 'en_curso' ? '#854F0B' : ordenActiva.estado === 'cierre_propuesto' ? '#856404' : ordenActiva.estado === 'devuelta_supervisor' ? '#EF9F27' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, marginLeft: 8, whiteSpace: 'nowrap' }}>
-                              {badgeLabel(ordenActiva.estado)}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{ordenActiva.titulo}</div>
+                  <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 2 }}>OT-{String(ordenActiva.numero_orden).padStart(5, '0')}{ordenActiva.km ? ` · Km ${ordenActiva.km}` : ''}</div>
+                </div>
+                <div style={{ background: ordenActiva.estado === 'en_curso' ? '#FAEEDA' : ordenActiva.estado === 'cierre_propuesto' ? '#FFF3CD' : ordenActiva.estado === 'devuelta_supervisor' ? '#2A1A00' : '#1a3040', color: ordenActiva.estado === 'en_curso' ? '#854F0B' : ordenActiva.estado === 'cierre_propuesto' ? '#856404' : ordenActiva.estado === 'devuelta_supervisor' ? '#EF9F27' : '#7ADCE8', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, marginLeft: 8, whiteSpace: 'nowrap' }}>
+                  {badgeLabel(ordenActiva.estado)}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* GRID ACCESOS */}
         <div style={{ fontSize: 9, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Accesos rápidos</div>
