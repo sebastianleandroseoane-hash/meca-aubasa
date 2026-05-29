@@ -107,6 +107,7 @@ export default function CheckinVehiculos() {
         turno: perfil.turno || 'mañana',
         fecha: new Date().toISOString().split('T')[0],
         conductor_id: perfil.id,
+        conductor_nombre_display: `${perfil.apellido || ''}, ${perfil.nombre || ''}`.trim().replace(/^,\s*/, ''),
         km_inicial: parseInt(kmInicial),
         observaciones_generales: obsApertura || null,
         estado: 'abierto',
