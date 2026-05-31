@@ -54,6 +54,10 @@ export default function DashboardPanolero() {
   const [obsRebote, setObsRebote] = useState('')
   const [loadingRebote, setLoadingRebote] = useState(false)
   const [filtroEstadoOT, setFiltroEstadoOT] = useState<string>('todas')
+  const [showEntregarItem, setShowEntregarItem] = useState(false)
+  const [itemEntregando, setItemEntregando] = useState<any>(null)
+  const [cantidadEntrega, setCantidadEntrega] = useState<number>(1)
+  const [loadingEntrega, setLoadingEntrega] = useState(false)
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -90,6 +94,7 @@ export default function DashboardPanolero() {
     const { data: historial } = await supabase.from('checkins_herramientas')
       .select('*, profiles!checkins_herramientas_tecnico_id_fkey(nombre, apellido)')
       .order('created_at', { ascending: false }).limit(50)
+      
     setCheckinsHistorial(historial || [])
     const { data: chkVeh } = await supabase.from('checkins_vehiculos')
       .select('*, moviles(marca, modelo, patente, sector), conductor:conductor_id(nombre, apellido)')
@@ -100,7 +105,7 @@ export default function DashboardPanolero() {
       .eq('estado', 'autorizada').order('created_at', { ascending: false })
     setSolicitudes(sols || [])
     const { data: ords } = await supabase.from('ordenes_trabajo')
-      .select('*, orden_materiales(id, cantidad, materiales(nombre, unidad, tipo)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido), rebotador:rebotada_por(nombre, apellido)')
+      .select('*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, materiales(id, nombre, unidad, tipo, stock_actual)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)')
       .not('estado', 'eq', 'cancelada').order('created_at', { ascending: false })
     setOrdenesPanol(ords || [])
   }
@@ -199,7 +204,46 @@ export default function DashboardPanolero() {
     await supabase.from('solicitudes_insumos').update({ estado: 'entregada' }).eq('id', id)
     await cargarTodo()
   }
+async function entregarItem(item: any) {
+    if (item.estado === 'entregado') return
+    if (cantidadEntrega <= 0 || cantidadEntrega > item.cantidad) return
+    setLoadingEntrega(true)
 
+    const { error: errorUpdate } = await supabase
+      .from('orden_materiales')
+      .update({
+        estado: 'entregado',
+        cantidad_preparada: cantidadEntrega,
+        entregado_por: perfil.id,
+        entregado_at: new Date().toISOString(),
+      })
+      .eq('id', item.id)
+      .eq('estado', 'solicitado')
+
+    if (errorUpdate) {
+      setLoadingEntrega(false)
+      alert('Error al registrar entrega. Intentá de nuevo.')
+      return
+    }
+
+    const { error: errorStock } = await supabase
+      .from('materiales')
+      .update({ stock_actual: item.materiales.stock_actual - cantidadEntrega })
+      .eq('id', item.material_id)
+
+    if (errorStock) {
+      setLoadingEntrega(false)
+      alert('Entrega registrada pero falló el descuento de stock. Avisá al supervisor.')
+      return
+    }
+
+    setLoadingEntrega(false)
+    setShowEntregarItem(false)
+    setItemEntregando(null)
+    await cargarTodo()
+    const ordenActualizada = ordenesPanol.find((o: any) => o.id === ordenPanolDetalle?.id)
+    if (ordenActualizada) await abrirOrdenDetalle(ordenActualizada)
+  }
   async function abrirOrdenDetalle(orden: any) {
     setOrdenPanolDetalle(orden)
   }
@@ -365,7 +409,16 @@ export default function DashboardPanolero() {
                           <span style={{ fontSize: 13, color: C.text }}>{om.materiales?.nombre}</span>
                           <span style={{ fontSize: 10, color: C.sub, marginLeft: 6 }}>{om.materiales?.tipo}</span>
                         </div>
-                        <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>×{om.cantidad} {om.materiales?.unidad}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>×{om.cantidad} {om.materiales?.unidad}</span>
+                          {om.estado === 'entregado'
+                            ? <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F2A35', color: C.ok }}>✅ Entregado</span>
+                            : <button onClick={() => { setItemEntregando({ ...om, material_id: om.material_id }); setCantidadEntrega(om.cantidad); setShowEntregarItem(true) }}
+                                style={{ background: C.ok, border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>
+                                ENTREGAR
+                              </button>
+                          }
+                        </div>
                       </div>
                     ))}
                   </>
@@ -461,7 +514,38 @@ export default function DashboardPanolero() {
         </>,
         () => setCheckinVehDetalle(null)
       )}
-
+{showEntregarItem && itemEntregando && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: C.card, borderRadius: 16, padding: 20, width: '100%', maxWidth: 360, border: `1px solid ${C.accent}` }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>📦 Confirmar entrega</div>
+            <div style={{ fontSize: 13, color: C.accent, fontWeight: 600, marginBottom: 2 }}>{itemEntregando.materiales?.nombre}</div>
+            <div style={{ fontSize: 11, color: C.sub, marginBottom: 16 }}>Solicitado: {itemEntregando.cantidad} {itemEntregando.materiales?.unidad}</div>
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Cantidad a entregar *</div>
+            <input
+              type="number"
+              min={1}
+              max={itemEntregando.cantidad}
+              value={cantidadEntrega}
+              onChange={e => {
+                const v = parseInt(e.target.value) || 1
+                setCantidadEntrega(Math.min(Math.max(1, v), itemEntregando.cantidad))
+              }}
+              style={{ ...inp, marginBottom: 16 }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { setShowEntregarItem(false); setItemEntregando(null) }}
+                style={{ flex: 1, background: 'none', border: `1px solid ${C.border}`, borderRadius: 10, color: C.sub, fontWeight: 700, fontSize: 13, padding: '11px 0', cursor: 'pointer' }}>
+                CANCELAR
+              </button>
+              <button onClick={() => entregarItem(itemEntregando)}
+                disabled={loadingEntrega}
+                style={{ flex: 1, background: loadingEntrega ? C.border : C.ok, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '11px 0', cursor: loadingEntrega ? 'default' : 'pointer' }}>
+                {loadingEntrega ? 'Entregando...' : 'CONFIRMAR ENTREGA'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* MODAL REBOTE OT */}
       {showRebote && ordenRebote && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -571,12 +655,7 @@ export default function DashboardPanolero() {
                       {badgeLabel}
                     </span>
                   </div>
-                  {(o.estado === 'pendiente' || o.estado === 'en_curso') && (
-                    <button onClick={() => abrirRebote(o)}
-                      style={{ width: '100%', background: '#2A0F0F', border: `1px solid ${C.err}44`, borderRadius: 8, color: C.err, fontWeight: 700, fontSize: 11, padding: '7px 0', cursor: 'pointer', marginTop: 2 }}>
-                      🔄 Rebotar — falta insumo
-                    </button>
-                  )}
+                  
                 </div>
               )
             })}
