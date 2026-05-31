@@ -72,8 +72,10 @@ export default function DashboardSupervisorElectrico() {
   const [filtroTurno, setFiltroTurno] = useState('todos')
   const [obsDevolucion, setObsDevolucion] = useState('')
   const [showDevolucion, setShowDevolucion] = useState(false)
-  const [loadingDecision, setLoadingDecision] = useState(false)
-
+  const [showCancelar, setShowCancelar] = useState(false)
+  const [motivoCancelacion, setMotivoCancelacion] = useState('')
+  const [loadingAccion, setLoadingAccion] = useState(false)
+const [loadingDecision, setLoadingDecision] = useState(false)
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
@@ -187,6 +189,24 @@ async function aprobarCierre(id: string) {
     setLoadingDecision(false)
     setShowDevolucion(false)
     setObsDevolucion('')
+    setOrdenDetalle(null)
+    await cargarDatos(perfil.turno)
+  }
+  async function cancelarOrden(id: string) {
+    if (!motivoCancelacion.trim()) return
+    setLoadingAccion(true)
+    const { error } = await supabase
+      .from('ordenes_trabajo')
+      .update({ estado: 'cancelada' })
+      .eq('id', id)
+      .eq('estado', 'pendiente')
+    setLoadingAccion(false)
+    if (error) {
+      alert('Error al cancelar la orden. Intentá de nuevo.')
+      return
+    }
+    setShowCancelar(false)
+    setMotivoCancelacion('')
     setOrdenDetalle(null)
     await cargarDatos(perfil.turno)
   }
@@ -682,6 +702,18 @@ async function aprobarCierre(id: string) {
                 )}
               </div>
             )}
+            {ordenDetalle.estado === 'pendiente' && (
+              <div style={{ marginTop: 16, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 10 }}>Acciones</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button
+                    onClick={() => setShowCancelar(true)}
+                    style={{ background: 'none', border: `1px solid ${C.err}`, borderRadius: 10, color: C.err, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    🚫 CANCELAR ORDEN
+                  </button>
+                </div>
+              </div>
+            )}
           {ordenDetalle.estado === 'cierre_propuesto' && (
               <div style={{ marginTop: 16, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
                 <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 10 }}>Decisión del supervisor</div>
@@ -723,8 +755,45 @@ async function aprobarCierre(id: string) {
           </div>
         </>,
         () => { setOrdenDetalle(null); setShowDevolucion(false); setObsDevolucion('') }
+        
       )}
-
+{showCancelar && modal(
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.err }}>🚫 Cancelar orden</div>
+            <button onClick={() => { setShowCancelar(false); setMotivoCancelacion('') }}
+              style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ background: '#2A0F0F', border: `1px solid ${C.err}44`, borderRadius: 10, padding: '10px 12px', marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: '#F09595' }}>
+                Esta acción cancela la OT <strong>OT-{ordenDetalle ? String(ordenDetalle.numero_orden).padStart(5, '0') : ''}</strong> y no puede revertirse desde el sistema.
+              </div>
+            </div>
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 6 }}>Motivo *</div>
+            <textarea
+              style={{ width: '100%', background: C.bg, border: `1px solid ${motivoCancelacion.trim() ? C.err : C.border}`, borderRadius: 8, padding: '8px 10px', fontSize: 13, color: C.text, outline: 'none', resize: 'none', boxSizing: 'border-box' as const, marginBottom: 14 }}
+              rows={3}
+              placeholder="Explicá por qué se cancela esta orden..."
+              value={motivoCancelacion}
+              onChange={e => setMotivoCancelacion(e.target.value)}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { setShowCancelar(false); setMotivoCancelacion('') }}
+                style={{ flex: 1, background: 'none', border: `1px solid ${C.border}`, borderRadius: 10, color: C.sub, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                VOLVER
+              </button>
+              <button
+                onClick={() => ordenDetalle && cancelarOrden(ordenDetalle.id)}
+                disabled={loadingAccion || !motivoCancelacion.trim()}
+                style={{ flex: 1, background: loadingAccion || !motivoCancelacion.trim() ? '#1a3040' : '#7B1E1E', border: 'none', borderRadius: 10, color: loadingAccion || !motivoCancelacion.trim() ? C.sub : '#F09595', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: loadingAccion || !motivoCancelacion.trim() ? 'default' : 'pointer' }}>
+                {loadingAccion ? 'Cancelando...' : 'CONFIRMAR CANCELACIÓN'}
+              </button>
+            </div>
+          </div>
+        </>,
+        () => { setShowCancelar(false); setMotivoCancelacion('') }
+      )}
       {/* MODAL LISTA ORDENES */}
       {showOrdenes && modal(
         <>
