@@ -386,7 +386,7 @@ async function reasignarTecnicos(id: string) {
       await supabase.from('orden_tecnicos').insert(tecnicosSeleccionados.map(tid => ({ orden_id: nuevaOrden.id, tecnico_id: tid, cerro: false })))
       for (const m of materialesOrden) {
         if (m.stock >= m.cantidad) {
-          await supabase.from('orden_materiales').insert({ orden_id: nuevaOrden.id, material_id: m.id, cantidad_solicitada: m.cantidad })
+          await supabase.from('orden_materiales').insert({ orden_id: nuevaOrden.id, material_id: m.id, cantidad: m.cantidad, estado: 'solicitado' })
         } else {
           await supabase.from('pedidos_material').insert({ orden_trabajo_id: nuevaOrden.id, solicitado_por: perfil.id, material_nombre: m.nombre, cantidad: m.cantidad, estado: 'pendiente' })
         }
