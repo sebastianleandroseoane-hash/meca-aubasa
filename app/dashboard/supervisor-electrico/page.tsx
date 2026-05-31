@@ -77,6 +77,8 @@ export default function DashboardSupervisorElectrico() {
   const [loadingAccion, setLoadingAccion] = useState(false)
   const [showReprogramar, setShowReprogramar] = useState(false)
 const [nuevaFecha, setNuevaFecha] = useState('')
+const [showReasignar, setShowReasignar] = useState(false)
+const [tecnicosReasignados, setTecnicosReasignados] = useState<string[]>([])
 const [loadingDecision, setLoadingDecision] = useState(false)
   useEffect(() => {
     getPerfil().then(async p => {
@@ -195,7 +197,55 @@ async function aprobarCierre(id: string) {
     await cargarDatos(perfil.turno)
     await cargarDatos(perfil.turno)
   }
-
+async function reasignarTecnicos(id: string) {
+    console.log('reasignar llamado', id, tecnicosReasignados)
+    if (tecnicosReasignados.length === 0) return
+    setLoadingAccion(true)
+    const { data: actuales, error: errorLectura } = await supabase
+      .from('orden_tecnicos')
+      .select('tecnico_id')
+      .eq('orden_id', id)
+    if (errorLectura) {
+      setLoadingAccion(false)
+      alert('Error al leer técnicos actuales. Intentá de nuevo.')
+      return
+    }
+    const idsActuales = (actuales || []).map((t: any) => t.tecnico_id)
+    const idsNuevos = tecnicosReasignados
+    const aInsertar = idsNuevos.filter(tid => !idsActuales.includes(tid))
+    const aBorrar = idsActuales.filter(tid => !idsNuevos.includes(tid))
+    if (aInsertar.length > 0) {
+      const { error } = await supabase.from('orden_tecnicos')
+        .insert(aInsertar.map(tid => ({ orden_id: id, tecnico_id: tid, cerro: false })))
+      if (error) {
+        setLoadingAccion(false)
+        alert('Error al agregar técnicos. No se modificó nada.')
+        return
+      }
+    }
+    if (aBorrar.length > 0) {
+      const { error } = await supabase.from('orden_tecnicos')
+        .delete().eq('orden_id', id).in('tecnico_id', aBorrar)
+      if (error) {
+        setLoadingAccion(false)
+        alert('Error al quitar técnicos. Revisá manualmente la OT.')
+        return
+      }
+    }
+    const { error } = await supabase.from('ordenes_trabajo')
+      .update({ asignado_a: idsNuevos[0] })
+      .eq('id', id).eq('estado', 'pendiente')
+    if (error) {
+      setLoadingAccion(false)
+      alert('Técnicos actualizados pero falló el asignado_a. Revisá la OT.')
+      return
+    }
+    setLoadingAccion(false)
+    setShowReasignar(false)
+    setTecnicosReasignados([])
+    await abrirDetalle({ id, ...ordenDetalle })
+    await cargarDatos(perfil.turno)
+  }
   async function reprogramarOrden(id: string) {
     if (!nuevaFecha) return
     setLoadingAccion(true)
@@ -735,6 +785,14 @@ async function aprobarCierre(id: string) {
                     📅 REPROGRAMAR
                   </button>
                   <button
+                    onClick={() => {
+                      setTecnicosReasignados(ordenDetalle.tecnicos?.map((t: any) => t.tecnico_id) || [])
+                      setShowReasignar(true)
+                    }}
+                    style={{ background: 'none', border: `1px solid ${C.accent}`, borderRadius: 10, color: C.accent, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    👷 REASIGNAR TÉCNICOS
+                  </button>
+                  <button
                     onClick={() => setShowCancelar(true)}
                     style={{ background: 'none', border: `1px solid ${C.err}`, borderRadius: 10, color: C.err, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
                     🚫 CANCELAR ORDEN
@@ -784,6 +842,60 @@ async function aprobarCierre(id: string) {
         </>,
         () => { setOrdenDetalle(null); setShowDevolucion(false); setObsDevolucion('') }
         
+      )}
+      {showReasignar && modal(
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>👷 Reasignar técnicos</div>
+            <button onClick={() => { setShowReasignar(false); setTecnicosReasignados([]) }}
+              style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ fontSize: 11, color: C.sub, marginBottom: 14 }}>
+              OT-{ordenDetalle ? String(ordenDetalle.numero_orden).padStart(5, '0') : ''} · {ordenDetalle?.titulo}
+            </div>
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 6 }}>
+              Técnicos {tecnicosReasignados.length > 0 && <span style={{ color: C.accent }}>({tecnicosReasignados.length})</span>}
+            </div>
+            <div style={{ background: C.bg, border: `1px solid ${tecnicosReasignados.length === 0 ? C.err : C.border}`, borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
+              {tecnicos.length === 0
+                ? <div style={{ padding: '10px 12px', fontSize: 12, color: C.sub }}>No hay técnicos disponibles</div>
+                : tecnicos.map((t: any, i: number) => (
+                  <div key={t.id} onClick={() => setTecnicosReasignados(prev => prev.includes(t.id) ? prev.filter(id => id !== t.id) : [...prev, t.id])}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer', borderBottom: i < tecnicos.length - 1 ? `1px solid ${C.border}` : 'none', background: tecnicosReasignados.includes(t.id) ? '#0F2A35' : 'transparent' }}>
+                    <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${tecnicosReasignados.includes(t.id) ? C.accent : '#2a4050'}`, background: tecnicosReasignados.includes(t.id) ? C.accent : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {tecnicosReasignados.includes(t.id) && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </div>
+                    <span style={{ fontSize: 13, color: C.text, fontWeight: 500 }}>{t.apellido}, {t.nombre}</span>
+                  </div>
+                ))
+              }
+            </div>
+            {tecnicosReasignados.length > 0 && (
+              <div style={{ fontSize: 11, color: C.sub, marginBottom: 14 }}>
+                Asignado principal: <span style={{ color: C.accent, fontWeight: 600 }}>
+                  {(() => {
+                    const t = tecnicos.find((t: any) => t.id === tecnicosReasignados[0])
+                    return t ? `${t.apellido}, ${t.nombre}` : '—'
+                  })()}
+                </span>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { setShowReasignar(false); setTecnicosReasignados([]) }}
+                style={{ flex: 1, background: 'none', border: `1px solid ${C.border}`, borderRadius: 10, color: C.sub, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                VOLVER
+              </button>
+              <button
+                onClick={() => ordenDetalle && reasignarTecnicos(ordenDetalle.id)}
+                disabled={loadingAccion || tecnicosReasignados.length === 0}
+                style={{ flex: 1, background: loadingAccion || tecnicosReasignados.length === 0 ? '#1a3040' : C.accent, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: loadingAccion || tecnicosReasignados.length === 0 ? 'default' : 'pointer' }}>
+                {loadingAccion ? 'Guardando...' : 'CONFIRMAR'}
+              </button>
+            </div>
+          </div>
+        </>,
+        () => { setShowReasignar(false); setTecnicosReasignados([]) }
       )}
       {showReprogramar && modal(
         <>
