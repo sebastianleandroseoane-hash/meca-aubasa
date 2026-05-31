@@ -75,6 +75,8 @@ export default function DashboardSupervisorElectrico() {
   const [showCancelar, setShowCancelar] = useState(false)
   const [motivoCancelacion, setMotivoCancelacion] = useState('')
   const [loadingAccion, setLoadingAccion] = useState(false)
+  const [showReprogramar, setShowReprogramar] = useState(false)
+const [nuevaFecha, setNuevaFecha] = useState('')
 const [loadingDecision, setLoadingDecision] = useState(false)
   useEffect(() => {
     getPerfil().then(async p => {
@@ -191,7 +193,28 @@ async function aprobarCierre(id: string) {
     setObsDevolucion('')
     setOrdenDetalle(null)
     await cargarDatos(perfil.turno)
+    await cargarDatos(perfil.turno)
   }
+
+  async function reprogramarOrden(id: string) {
+    if (!nuevaFecha) return
+    setLoadingAccion(true)
+    const { error } = await supabase
+      .from('ordenes_trabajo')
+      .update({ fecha_programada: nuevaFecha })
+      .eq('id', id)
+      .eq('estado', 'pendiente')
+    setLoadingAccion(false)
+    if (error) {
+      alert('Error al reprogramar la orden. Intentá de nuevo.')
+      return
+    }
+    setShowReprogramar(false)
+    setNuevaFecha('')
+    setOrdenDetalle((prev: any) => prev ? { ...prev, fecha_programada: nuevaFecha } : prev)
+    await cargarDatos(perfil.turno)
+  }
+
   async function cancelarOrden(id: string) {
     if (!motivoCancelacion.trim()) return
     setLoadingAccion(true)
@@ -707,6 +730,11 @@ async function aprobarCierre(id: string) {
                 <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 10 }}>Acciones</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <button
+                    onClick={() => setShowReprogramar(true)}
+                    style={{ background: 'none', border: `1px solid ${C.accent}`, borderRadius: 10, color: C.accent, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    📅 REPROGRAMAR
+                  </button>
+                  <button
                     onClick={() => setShowCancelar(true)}
                     style={{ background: 'none', border: `1px solid ${C.err}`, borderRadius: 10, color: C.err, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
                     🚫 CANCELAR ORDEN
@@ -756,6 +784,48 @@ async function aprobarCierre(id: string) {
         </>,
         () => { setOrdenDetalle(null); setShowDevolucion(false); setObsDevolucion('') }
         
+      )}
+      {showReprogramar && modal(
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>📅 Reprogramar orden</div>
+            <button onClick={() => { setShowReprogramar(false); setNuevaFecha('') }}
+              style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ fontSize: 11, color: C.sub, marginBottom: 14 }}>
+              OT-{ordenDetalle ? String(ordenDetalle.numero_orden).padStart(5, '0') : ''} · {ordenDetalle?.titulo}
+            </div>
+            {ordenDetalle?.fecha_programada && (
+              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 14 }}>
+                <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 2 }}>Fecha actual</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.warn }}>
+                  {ordenDetalle.fecha_programada.slice(0, 10).split('-').reverse().join('/')}
+                </div>
+              </div>
+            )}
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 6 }}>Nueva fecha *</div>
+            <input
+              type="date"
+              style={{ width: '100%', background: C.bg, border: `1px solid ${nuevaFecha ? C.accent : C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const, marginBottom: 14 }}
+              value={nuevaFecha}
+              onChange={e => setNuevaFecha(e.target.value)}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { setShowReprogramar(false); setNuevaFecha('') }}
+                style={{ flex: 1, background: 'none', border: `1px solid ${C.border}`, borderRadius: 10, color: C.sub, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                VOLVER
+              </button>
+              <button
+                onClick={() => ordenDetalle && reprogramarOrden(ordenDetalle.id)}
+                disabled={loadingAccion || !nuevaFecha}
+                style={{ flex: 1, background: loadingAccion || !nuevaFecha ? '#1a3040' : C.accent, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: loadingAccion || !nuevaFecha ? 'default' : 'pointer' }}>
+                {loadingAccion ? 'Guardando...' : 'CONFIRMAR'}
+              </button>
+            </div>
+          </div>
+        </>,
+        () => { setShowReprogramar(false); setNuevaFecha('') }
       )}
 {showCancelar && modal(
         <>
