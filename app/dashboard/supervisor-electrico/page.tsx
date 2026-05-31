@@ -79,6 +79,8 @@ export default function DashboardSupervisorElectrico() {
 const [nuevaFecha, setNuevaFecha] = useState('')
 const [showReasignar, setShowReasignar] = useState(false)
 const [tecnicosReasignados, setTecnicosReasignados] = useState<string[]>([])
+const [showEditarOT, setShowEditarOT] = useState(false)
+const [formEditar, setFormEditar] = useState<any>(null)
 const [loadingDecision, setLoadingDecision] = useState(false)
   useEffect(() => {
     getPerfil().then(async p => {
@@ -197,8 +199,40 @@ async function aprobarCierre(id: string) {
     await cargarDatos(perfil.turno)
     await cargarDatos(perfil.turno)
   }
+  async function editarOrden(id: string) {
+    if (!formEditar) return
+    setLoadingAccion(true)
+    const { error } = await supabase
+      .from('ordenes_trabajo')
+      .update({
+        titulo: formEditar.titulo,
+        descripcion: formEditar.descripcion,
+        km: formEditar.km ? parseFloat(formEditar.km) : null,
+        ubicacion: formEditar.ubicacion,
+        prioridad: formEditar.prioridad,
+        tipo: formEditar.tipo,
+        origen: formEditar.origen,
+        nomenclatura: formEditar.nomenclatura || null,
+        balizamiento_desde: formEditar.balizamiento_desde ? parseFloat(formEditar.balizamiento_desde) : null,
+        balizamiento_hasta: formEditar.balizamiento_hasta ? parseFloat(formEditar.balizamiento_hasta) : null,
+        balizamiento_hora_ingreso: formEditar.balizamiento_hora_ingreso || null,
+        balizamiento_hora_egreso: formEditar.balizamiento_hora_egreso || null,
+        campo_libre: formEditar.campo_libre || null,
+        fecha_programada: formEditar.fecha_programada,
+      })
+      .eq('id', id)
+      .eq('estado', 'pendiente')
+    setLoadingAccion(false)
+    if (error) {
+      alert('Error al guardar los cambios. Intentá de nuevo.')
+      return
+    }
+    setShowEditarOT(false)
+    setFormEditar(null)
+    await abrirDetalle({ id })
+    await cargarDatos(perfil.turno)
+  }
 async function reasignarTecnicos(id: string) {
-    console.log('reasignar llamado', id, tecnicosReasignados)
     if (tecnicosReasignados.length === 0) return
     setLoadingAccion(true)
     const { data: actuales, error: errorLectura } = await supabase
@@ -713,6 +747,19 @@ async function reasignarTecnicos(id: string) {
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 2 }}>{ordenDetalle.km ? `Km ${ordenDetalle.km}` : ''}{ordenDetalle.ubicacion ? ` · ${ordenDetalle.ubicacion}` : ''}</div>
               </div>
             )}
+            {(ordenDetalle.balizamiento_desde || ordenDetalle.balizamiento_hasta) && (
+                <div style={{ background: '#3A2A00', border: '1px solid #EF9F2744', borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#EF9F27', textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>⚠️ Balizamiento</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>
+                    Km {ordenDetalle.balizamiento_desde} → {ordenDetalle.balizamiento_hasta}
+                    {(ordenDetalle.balizamiento_hora_ingreso || ordenDetalle.balizamiento_hora_egreso) && (
+                      <span style={{ fontSize: 11, color: '#EF9F27', marginLeft: 8 }}>
+                        {ordenDetalle.balizamiento_hora_ingreso} – {ordenDetalle.balizamiento_hora_egreso}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             {ordenDetalle.descripcion && (
               <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
                 <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const }}>Descripción</div>
@@ -793,6 +840,41 @@ async function reasignarTecnicos(id: string) {
                     👷 REASIGNAR TÉCNICOS
                   </button>
                   <button
+                    onClick={async () => {
+                      if (nomenclaturas.length === 0) {
+                        const { data, error } = await supabase
+                          .from('nomenclaturas')
+                          .select('*')
+                          .eq('sector', 'electrico')
+                          .order('codigo', { ascending: true })
+                        if (error || !data) {
+                          alert('Error al cargar nomenclaturas. Intentá de nuevo.')
+                          return
+                        }
+                        setNomenclaturas(data)
+                      }
+                      setFormEditar({
+                        titulo: ordenDetalle.titulo,
+                        descripcion: ordenDetalle.descripcion || '',
+                        km: ordenDetalle.km ? String(ordenDetalle.km) : '',
+                        ubicacion: ordenDetalle.ubicacion || '',
+                        prioridad: ordenDetalle.prioridad,
+                        tipo: ordenDetalle.tipo,
+                        origen: ordenDetalle.origen,
+                        nomenclatura: ordenDetalle.nomenclatura || '',
+                        fecha_programada: ordenDetalle.fecha_programada || '',
+                        balizamiento_desde: ordenDetalle.balizamiento_desde ? String(ordenDetalle.balizamiento_desde) : '',
+                        balizamiento_hasta: ordenDetalle.balizamiento_hasta ? String(ordenDetalle.balizamiento_hasta) : '',
+                        balizamiento_hora_ingreso: ordenDetalle.balizamiento_hora_ingreso || '',
+                        balizamiento_hora_egreso: ordenDetalle.balizamiento_hora_egreso || '',
+                        campo_libre: ordenDetalle.campo_libre || '',
+                      })
+                      setShowEditarOT(true)
+                    }}
+                    style={{ background: 'none', border: `1px solid ${C.accent}`, borderRadius: 10, color: C.accent, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    ✏️ EDITAR ORDEN
+                  </button>
+                  <button
                     onClick={() => setShowCancelar(true)}
                     style={{ background: 'none', border: `1px solid ${C.err}`, borderRadius: 10, color: C.err, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
                     🚫 CANCELAR ORDEN
@@ -842,6 +924,129 @@ async function reasignarTecnicos(id: string) {
         </>,
         () => { setOrdenDetalle(null); setShowDevolucion(false); setObsDevolucion('') }
         
+      )}
+      {showEditarOT && formEditar && modal(
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>✏️ Editar orden</div>
+            <button onClick={() => { setShowEditarOT(false); setFormEditar(null) }}
+              style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ fontSize: 11, color: C.sub, marginBottom: 14 }}>
+              OT-{ordenDetalle ? String(ordenDetalle.numero_orden).padStart(5, '0') : ''}
+            </div>
+
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>Título *</div>
+            <input style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const, marginBottom: 12 }}
+              value={formEditar.titulo} onChange={e => setFormEditar({ ...formEditar, titulo: e.target.value })} />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Tipo *</div>
+                <select style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const }}
+                  value={formEditar.tipo} onChange={e => setFormEditar({ ...formEditar, tipo: e.target.value })}>
+                  <option value="preventivo_programado">Prev. Programado</option>
+                  <option value="correctivo_programado">Corr. Programado</option>
+                  <option value="correctivo_critico">Corr. Crítico</option>
+                  <option value="emergencia">🔴 Emergencia</option>
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Origen *</div>
+                <select style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const }}
+                  value={formEditar.origen} onChange={e => setFormEditar({ ...formEditar, origen: e.target.value })}>
+                  <option value="gerencia">Gerencia</option>
+                  <option value="jefe">Jefe</option>
+                  <option value="patrimonial">Patrimonial</option>
+                  <option value="monitoreo">Monitoreo</option>
+                  <option value="cae">CAE</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="tecnico">Técnico</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Nomenclatura *</div>
+            <select style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const, marginBottom: 12 }}
+              value={formEditar.nomenclatura} onChange={e => setFormEditar({ ...formEditar, nomenclatura: e.target.value })}>
+              <option value="">Seleccioná una categoría</option>
+              {nomenclaturas.map(n => <option key={n.id} value={n.codigo}>{n.codigo} · {n.descripcion}</option>)}
+            </select>
+
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>Descripción</div>
+            <textarea style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', resize: 'none', boxSizing: 'border-box' as const, marginBottom: 12 } as any}
+              rows={3} value={formEditar.descripcion} onChange={e => setFormEditar({ ...formEditar, descripcion: e.target.value })} />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>Km</div>
+                <input style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const }}
+                  placeholder="38.4" value={formEditar.km} onChange={e => setFormEditar({ ...formEditar, km: e.target.value })} />
+              </div>
+              <div>
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>Prioridad</div>
+                <select style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const }}
+                  value={formEditar.prioridad} onChange={e => setFormEditar({ ...formEditar, prioridad: e.target.value })}>
+                  <option value="normal">Normal</option>
+                  <option value="urgente">Urgente</option>
+                  <option value="critica">Crítica</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>Ubicación</div>
+            <input style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const, marginBottom: 12 }}
+              placeholder="Ej: Shoulder externo" value={formEditar.ubicacion} onChange={e => setFormEditar({ ...formEditar, ubicacion: e.target.value })} />
+
+            {nomenclaturas.find((n: any) => n.codigo === formEditar.nomenclatura)?.pide_campo_libre && (
+              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 12px', marginBottom: 12 }}>
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 6 }}>📋 Detalle de inspección</div>
+                <textarea style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', resize: 'none', boxSizing: 'border-box' as const } as any}
+                  rows={3} placeholder="Describí lo relevado..." value={formEditar.campo_libre} onChange={e => setFormEditar({ ...formEditar, campo_libre: e.target.value })} />
+              </div>
+            )}
+
+            {nomenclaturas.find((n: any) => n.codigo === formEditar.nomenclatura)?.pide_balizamiento && (
+              <div style={{ background: '#3A2A00', border: `1px solid ${C.warn}`, borderRadius: 10, padding: '10px 12px', marginBottom: 12 }}>
+                <div style={{ fontSize: 9, color: C.warn, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 8 }}>⚠️ Balizamiento requerido</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[['Desde km', 'balizamiento_desde', '38.0'], ['Hasta km', 'balizamiento_hasta', '38.5']].map(([label, key, ph]) => (
+                    <div key={key}>
+                      <div style={{ fontSize: 9, color: C.sub, marginBottom: 3 }}>{label}</div>
+                      <input style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const }}
+                        placeholder={ph} value={(formEditar as any)[key]} onChange={e => setFormEditar({ ...formEditar, [key]: e.target.value })} />
+                    </div>
+                  ))}
+                  {[['Hora ingreso', 'balizamiento_hora_ingreso'], ['Hora egreso', 'balizamiento_hora_egreso']].map(([label, key]) => (
+                    <div key={key}>
+                      <div style={{ fontSize: 9, color: C.sub, marginBottom: 3 }}>{label}</div>
+                      <input type="time" style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const }}
+                        value={(formEditar as any)[key]} onChange={e => setFormEditar({ ...formEditar, [key]: e.target.value })} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>Fecha programada</div>
+            <input type="date" style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' as const, marginBottom: 16 }}
+              value={formEditar.fecha_programada} onChange={e => setFormEditar({ ...formEditar, fecha_programada: e.target.value })} />
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { setShowEditarOT(false); setFormEditar(null) }}
+                style={{ flex: 1, background: 'none', border: `1px solid ${C.border}`, borderRadius: 10, color: C.sub, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                VOLVER
+              </button>
+              <button onClick={() => ordenDetalle && editarOrden(ordenDetalle.id)}
+                disabled={loadingAccion || !formEditar.titulo.trim()}
+                style={{ flex: 1, background: loadingAccion || !formEditar.titulo.trim() ? '#1a3040' : C.accent, border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: loadingAccion || !formEditar.titulo.trim() ? 'default' : 'pointer' }}>
+                {loadingAccion ? 'Guardando...' : 'GUARDAR CAMBIOS'}
+              </button>
+            </div>
+          </div>
+        </>,
+        () => { setShowEditarOT(false); setFormEditar(null) }
       )}
       {showReasignar && modal(
         <>

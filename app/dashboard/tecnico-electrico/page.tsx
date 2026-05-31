@@ -219,6 +219,19 @@ export default function DashboardTecnicoElectrico() {
                   </div>
                 </div>
               )}
+              {(ordenDetalle.balizamiento_desde || ordenDetalle.balizamiento_hasta) && (
+                <div style={{ background: '#3A2A00', border: '1px solid #EF9F2744', borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#EF9F27', textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>⚠️ Balizamiento</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>
+                    Km {ordenDetalle.balizamiento_desde} → {ordenDetalle.balizamiento_hasta}
+                    {(ordenDetalle.balizamiento_hora_ingreso || ordenDetalle.balizamiento_hora_egreso) && (
+                      <span style={{ fontSize: 11, color: '#EF9F27', marginLeft: 8 }}>
+                        {ordenDetalle.balizamiento_hora_ingreso} – {ordenDetalle.balizamiento_hora_egreso}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
               {ordenDetalle.descripcion && (
                 <div style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
                   <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5 }}>Descripción</div>
