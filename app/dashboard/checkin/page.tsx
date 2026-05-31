@@ -49,7 +49,7 @@ export default function CheckinPage() {
     if (!cajaAsignada) return
 
     const verificarCheckin = async () => {
-      const hoy = new Date().toISOString().split('T')[0]
+      const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' })
       const { data } = await supabase
         .from('checkins_herramientas')
         .select('id, profiles!checkins_herramientas_tecnico_id_fkey(nombre)')
@@ -120,7 +120,8 @@ export default function CheckinPage() {
       .insert({
         tecnico_id: perfil.id,
         caja,
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }),
+
         hora_inicio: horaInicio.toISOString(),
         estado,
         tiene_faltantes: tieneFaltantes,

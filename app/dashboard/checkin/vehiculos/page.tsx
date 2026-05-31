@@ -61,7 +61,7 @@ export default function CheckinVehiculos() {
       // Si hay múltiples abiertos, se toma el más antiguo primero (ascending: true)
       // para drenar inconsistencias de lo más viejo a lo más nuevo.
       // La variable hoy se mantiene porque la usa el insert de apertura más abajo.
-      const hoy = new Date().toISOString().split('T')[0]
+      const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' })
       const { data: abiertos } = await supabase
         .from('checkins_vehiculos')
         .select('*, moviles(marca, modelo, patente)')
@@ -113,7 +113,7 @@ export default function CheckinVehiculos() {
         movil_id: movilId,
         sector: perfil.sector_trabajo === 'ac' ? 'ac' : 'electrico',
         turno: perfil.turno || 'mañana',
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }),
         conductor_id: perfil.id,
         conductor_nombre_display: [perfil.apellido, perfil.nombre].filter(Boolean).join(', '),
         km_inicial: parseInt(kmInicial),
