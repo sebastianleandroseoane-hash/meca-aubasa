@@ -585,15 +585,14 @@ async function reasignarTecnicos(id: string) {
             </div>
 
             {/* MATERIALES */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1 }}>
-                Ítems
-                {materialesOrden.filter(m => (m as any).tipo !== 'herramienta').length > 0 && <span style={{ color: C.accent }}> · 📦 {materialesOrden.filter(m => (m as any).tipo !== 'herramienta').length}</span>}
-                {materialesOrden.filter(m => (m as any).tipo === 'herramienta').length > 0 && <span style={{ color: C.warn }}> · 🔧 {materialesOrden.filter(m => (m as any).tipo === 'herramienta').length}</span>}
-              </div>
-
-              <button onClick={abrirStock} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.sub, fontSize: 11, fontWeight: 600, padding: '3px 8px', cursor: 'pointer' }}>+ Agregar</button>
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8 }}>
+              Materiales / Insumos / Herramientas
+              {materialesOrden.filter(m => (m as any).tipo !== 'herramienta').length > 0 && <span style={{ color: C.accent }}> · 📦 {materialesOrden.filter(m => (m as any).tipo !== 'herramienta').length}</span>}
+              {materialesOrden.filter(m => (m as any).tipo === 'herramienta').length > 0 && <span style={{ color: C.warn }}> · 🔧 {materialesOrden.filter(m => (m as any).tipo === 'herramienta').length}</span>}
             </div>
+            <button onClick={abrirStock} style={{ width: '100%', background: C.bg, border: `1px solid ${C.accent}`, borderRadius: 10, color: C.accent, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer', marginBottom: 8 }}>
+              📦 Agregar materiales / herramientas
+            </button>
             {materialesOrden.length > 0 && (
               <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 12, overflow: 'hidden' }}>
                 {materialesOrden.map((m, i) => (
