@@ -20,6 +20,8 @@ export default function DashboardTecnicoElectrico() {
   const [hora, setHora] = useState('')
   const [fecha, setFecha] = useState('')
   const [obsRecepcion, setObsRecepcion] = useState<Record<string, string>>({})
+  const [recepcionMarcada, setRecepcionMarcada] = useState<Record<string, boolean>>({})
+  const [showConfirmRecepcion, setShowConfirmRecepcion] = useState(false)
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -86,14 +88,22 @@ export default function DashboardTecnicoElectrico() {
 
   
 
-  async function confirmarRecepcionMaterial(ordenMaterialId: string, observacion: string) {
-    await supabase.from('orden_materiales').update({
-      estado: 'recibido',
-      recibido_por: perfil.id,
-      recibido_at: new Date().toISOString(),
-      observacion_tecnico: observacion || null
-    }).eq('id', ordenMaterialId).eq('estado', 'entregado')
-    if (ordenDetalle) await abrirDetalle(ordenDetalle)
+  async function confirmarRecepcionLote() {
+    if (!ordenDetalle) return
+    const entregados = ordenDetalle.materiales.filter((m: any) => m.estado === 'entregado' && recepcionMarcada[m.id])
+    const ahora = new Date().toISOString()
+    for (const m of entregados) {
+      await supabase.from('orden_materiales').update({
+        estado: 'recibido',
+        recibido_por: perfil.id,
+        recibido_at: ahora,
+        observacion_tecnico: obsRecepcion[m.id] || null
+      }).eq('id', m.id).eq('estado', 'entregado')
+    }
+    setShowConfirmRecepcion(false)
+    setRecepcionMarcada({})
+    setObsRecepcion({})
+    await abrirDetalle(ordenDetalle)
   }
 
   async function abrirDetalle(orden: any) {
@@ -205,6 +215,27 @@ export default function DashboardTecnicoElectrico() {
         </div>
       </div>
 
+      {showConfirmRecepcion && ordenDetalle && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#0c1c24', borderRadius: 16, padding: 20, width: '100%', maxWidth: 360, border: '1px solid #1D9E75' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#e8f4f8', marginBottom: 8 }}>✅ Confirmar recepción</div>
+            <div style={{ fontSize: 12, color: '#4a8fa0', marginBottom: 16 }}>
+              Vas a confirmar la recepción de {ordenDetalle.materiales.filter((m: any) => m.estado === 'entregado').length} material{ordenDetalle.materiales.filter((m: any) => m.estado === 'entregado').length > 1 ? 'es' : ''}. Esta acción no se puede deshacer.
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowConfirmRecepcion(false)}
+                style={{ flex: 1, background: 'none', border: '1px solid #1a3040', borderRadius: 10, color: '#4a8fa0', fontWeight: 700, fontSize: 13, padding: '11px 0', cursor: 'pointer' }}>
+                CANCELAR
+              </button>
+              <button onClick={confirmarRecepcionLote}
+                style={{ flex: 1, background: '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '11px 0', cursor: 'pointer' }}>
+                CONFIRMAR
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DETALLE */}
       {ordenDetalle && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
@@ -266,40 +297,55 @@ export default function DashboardTecnicoElectrico() {
                   ))}
                 </div>
               )}
-              {ordenDetalle.materiales?.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Materiales</div>
-                  {ordenDetalle.materiales.map((m: any) => (
-                    <div key={m.id} style={{ background: '#07131a', border: `1px solid ${m.estado === 'recibido' ? '#1D9E75' : m.estado === 'entregado' ? '#1ABBD6' : '#1a3040'}`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 13, color: '#e8f4f8' }}>{m.materiales?.nombre}</span>
-                        <span style={{ fontSize: 11, color: '#4a8fa0' }}>{m.cantidad} {m.materiales?.unidad}</span>
+              {ordenDetalle.materiales?.length > 0 && (() => {
+                const entregados = ordenDetalle.materiales.filter((m: any) => m.estado === 'entregado' && recepcionMarcada[m.id])
+                const todosConfirmados = entregados.length > 0 && entregados.every((m: any) => recepcionMarcada[m.id])
+                return (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Materiales</div>
+                    {ordenDetalle.materiales.map((m: any) => (
+                      <div key={m.id} style={{ background: '#07131a', border: `1px solid ${m.estado === 'recibido' ? '#1D9E75' : recepcionMarcada[m.id] ? '#1ABBD6' : m.estado === 'entregado' ? '#1a3040' : '#1a3040'}`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 13, color: '#e8f4f8' }}>{m.materiales?.nombre}</span>
+                          <span style={{ fontSize: 11, color: '#4a8fa0' }}>{m.cantidad} {m.materiales?.unidad}</span>
+                        </div>
+                        {m.estado === 'entregado' && (
+                          <div style={{ marginTop: 8 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, cursor: 'pointer' }}>
+                              <input type="checkbox" checked={recepcionMarcada[m.id] || false}
+                                onChange={e => setRecepcionMarcada(prev => ({ ...prev, [m.id]: e.target.checked }))}
+                                style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                              <span style={{ fontSize: 12, color: recepcionMarcada[m.id] ? '#1D9E75' : '#4a8fa0', fontWeight: 600 }}>
+                                {recepcionMarcada[m.id] ? '✅ Recibí este material' : 'Marcar como recibido'}
+                              </span>
+                            </label>
+                            <input
+                              placeholder="Observación (opcional)"
+                              value={obsRecepcion[m.id] || ''}
+                              onChange={e => setObsRecepcion(prev => ({ ...prev, [m.id]: e.target.value }))}
+                              style={{ width: '100%', background: '#0c1c24', border: '1px solid #1a3040', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e8f4f8', outline: 'none', boxSizing: 'border-box' as const }}
+                            />
+                          </div>
+                        )}
+                        {m.estado === 'recibido' && (
+                          <div style={{ marginTop: 4, fontSize: 11, color: '#1D9E75' }}>
+                            ✅ Recibido · {m.recibido_at ? new Date(m.recibido_at).toLocaleString('es-AR') : ''}
+                            {m.observacion_tecnico && <div style={{ color: '#4a8fa0', marginTop: 2 }}>{m.observacion_tecnico}</div>}
+                          </div>
+                        )}
                       </div>
-                      {m.estado === 'entregado' && (
-                        <div style={{ marginTop: 8 }}>
-                          <input
-                            placeholder="Observación (opcional)"
-                            value={obsRecepcion[m.id] || ''}
-                            onChange={e => setObsRecepcion(prev => ({ ...prev, [m.id]: e.target.value }))}
-                            style={{ width: '100%', background: '#0c1c24', border: '1px solid #1a3040', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e8f4f8', outline: 'none', boxSizing: 'border-box' as const, marginBottom: 6 }}
-                          />
-                          <button
-                            onClick={() => confirmarRecepcionMaterial(m.id, obsRecepcion[m.id] || '')}
-                            style={{ background: '#1ABBD6', border: 'none', borderRadius: 6, color: 'white', fontWeight: 700, fontSize: 11, padding: '6px 12px', cursor: 'pointer' }}>
-                            ✅ CONFIRMAR RECEPCIÓN
-                          </button>
-                        </div>
-                      )}
-                      {m.estado === 'recibido' && (
-                        <div style={{ marginTop: 4, fontSize: 11, color: '#1D9E75' }}>
-                          ✅ Recibido · {m.recibido_at ? new Date(m.recibido_at).toLocaleString('es-AR') : ''}
-                          {m.observacion_tecnico && <div style={{ color: '#4a8fa0', marginTop: 2 }}>{m.observacion_tecnico}</div>}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                    {entregados.length > 0 && (
+                      <button
+                        onClick={() => { if (todosConfirmados) setShowConfirmRecepcion(true) }}
+                        disabled={!todosConfirmados}
+                        style={{ width: '100%', background: todosConfirmados ? '#1D9E75' : '#1a3040', border: 'none', borderRadius: 10, color: todosConfirmados ? 'white' : '#4a8fa0', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: todosConfirmados ? 'pointer' : 'default', marginTop: 8 }}>
+                        {todosConfirmados ? `✅ CONFIRMAR RECEPCIÓN DE ${entregados.length} MATERIAL${entregados.length > 1 ? 'ES' : ''}` : `Marcá todos los materiales para confirmar (${entregados.filter((m: any) => recepcionMarcada[m.id]).length}/${entregados.length})`}
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
               {ordenDetalle.estado === 'devuelta_supervisor' && ordenDetalle.observacion_supervisor && (
                 <div style={{ background: '#2A1A00', border: '1px solid #EF9F2744', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
                   <div style={{ fontSize: 10, color: '#EF9F27', textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>↩️ Observación del supervisor</div>
