@@ -210,32 +210,15 @@ async function entregarItem(item: any) {
     if (cantidadEntrega <= 0 || cantidadEntrega > item.cantidad) return
     setLoadingEntrega(true)
 
-    const { data: updatedRows, error: errorUpdate } = await supabase
-      .from('orden_materiales')
-      .update({
-        estado: 'entregado',
-        cantidad_preparada: cantidadEntrega,
-        entregado_por: perfil.id,
-        entregado_at: new Date().toISOString(),
+    const { error: errorRpc } = await supabase
+      .rpc('entregar_material_ot', {
+        p_orden_material_id: item.id,
+        p_cantidad: cantidadEntrega
       })
-      .eq('id', item.id)
-      .eq('estado', 'solicitado')
-      .select()
 
-    if (errorUpdate || !updatedRows || updatedRows.length === 0) {
+    if (errorRpc) {
       setLoadingEntrega(false)
-      alert('Este material ya fue entregado por otro pañolero.')
-      return
-    }
-
-    const { error: errorStock } = await supabase
-      .from('materiales')
-      .update({ stock_actual: item.materiales.stock_actual - cantidadEntrega })
-      .eq('id', item.material_id)
-
-    if (errorStock) {
-      setLoadingEntrega(false)
-      alert('Entrega registrada pero falló el descuento de stock. Avisá al supervisor.')
+      alert(errorRpc.message || 'Error al registrar entrega. Intentá de nuevo.')
       return
     }
 
@@ -243,8 +226,14 @@ async function entregarItem(item: any) {
     setShowEntregarItem(false)
     setItemEntregando(null)
     await cargarTodo()
-    const ordenActualizada = ordenesPanol.find((o: any) => o.id === ordenPanolDetalle?.id)
-    if (ordenActualizada) await abrirOrdenDetalle(ordenActualizada)
+    if (ordenPanolDetalle) {
+      const { data: ordenFresca } = await supabase
+        .from('ordenes_trabajo')
+        .select('*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, materiales(id, nombre, unidad, tipo, stock_actual)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)')
+        .eq('id', ordenPanolDetalle.id)
+        .single()
+      if (ordenFresca) setOrdenPanolDetalle(ordenFresca)
+    }
   }
   async function abrirOrdenDetalle(orden: any) {
     setOrdenPanolDetalle(orden)
