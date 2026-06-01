@@ -20,6 +20,13 @@ export default function DashboardTecnicoElectrico() {
   const [hora, setHora] = useState('')
   const [fecha, setFecha] = useState('')
   const [obsRecepcion, setObsRecepcion] = useState<Record<string, string>>({})
+  const [showDevolucion, setShowDevolucion] = useState<string | null>(null)
+  const [devCantidad, setDevCantidad] = useState<number>(0)
+  const [devMotivo, setDevMotivo] = useState<string>('devolucion')
+  const [devNovedad, setDevNovedad] = useState<string>('')
+  const [loadingDevolucion, setLoadingDevolucion] = useState(false)
+ 
+
   const [recepcionMarcada, setRecepcionMarcada] = useState<Record<string, boolean>>({})
   const [showConfirmRecepcion, setShowConfirmRecepcion] = useState(false)
 
@@ -88,6 +95,38 @@ export default function DashboardTecnicoElectrico() {
 
   
 
+  async function proponerDevolucion(ordenMaterialId: string) {
+    if (loadingDevolucion) return
+    setLoadingDevolucion(true)
+    const { error } = await supabase.rpc('proponer_devolucion', {
+      p_orden_material_id: ordenMaterialId,
+      p_cantidad_devuelta: devCantidad,
+      p_motivo_cierre: devMotivo,
+      p_novedad: devNovedad || null
+    })
+    setLoadingDevolucion(false)
+    if (error) { alert(error.message || 'Error al proponer devolución'); return }
+    setShowDevolucion(null)
+    setDevCantidad(0)
+    setDevMotivo('devolucion')
+    setDevNovedad('')
+    if (ordenDetalle) await abrirDetalle(ordenDetalle)
+  }
+
+  async function cerrarComoConsumido(ordenMaterialId: string) {
+    if (loadingDevolucion) return
+    setLoadingDevolucion(true)
+    const { error } = await supabase.rpc('proponer_devolucion', {
+      p_orden_material_id: ordenMaterialId,
+      p_cantidad_devuelta: 0,
+      p_motivo_cierre: 'consumido',
+      p_novedad: null
+    })
+    setLoadingDevolucion(false)
+    if (error) { alert(error.message || 'Error al cerrar como consumido'); return }
+    if (ordenDetalle) await abrirDetalle(ordenDetalle)
+  }
+
   async function confirmarRecepcionLote() {
     if (!ordenDetalle) return
     const entregados = ordenDetalle.materiales.filter((m: any) => m.estado === 'entregado' && recepcionMarcada[m.id])
@@ -110,7 +149,7 @@ export default function DashboardTecnicoElectrico() {
     const { data: tecnicos } = await supabase.from('orden_tecnicos')
       .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, rol)').eq('orden_id', orden.id)
     const { data: materiales } = await supabase.from('orden_materiales')
-      .select('id, cantidad, estado, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales!orden_materiales_material_id_fkey(nombre, unidad)').eq('orden_id', orden.id)
+      .select('id, cantidad, cantidad_preparada, estado, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales!orden_materiales_material_id_fkey(nombre, unidad, tipo)').eq('orden_id', orden.id)
     const { data: pedidos } = await supabase.from('pedidos_material').select('*').eq('orden_trabajo_id', orden.id)
     setOrdenDetalle({ ...orden, tecnicos: tecnicos || [], materiales: materiales || [], pedidos: pedidos || [] })
   }
@@ -328,9 +367,78 @@ export default function DashboardTecnicoElectrico() {
                           </div>
                         )}
                         {m.estado === 'recibido' && (
-                          <div style={{ marginTop: 4, fontSize: 11, color: '#1D9E75' }}>
-                            ✅ Recibido · {m.recibido_at ? new Date(m.recibido_at).toLocaleString('es-AR') : ''}
-                            {m.observacion_tecnico && <div style={{ color: '#4a8fa0', marginTop: 2 }}>{m.observacion_tecnico}</div>}
+                          <div style={{ marginTop: 6 }}>
+                            <div style={{ fontSize: 11, color: '#1D9E75', marginBottom: 6 }}>
+                              ✅ Recibido · {m.recibido_at ? new Date(m.recibido_at).toLocaleString('es-AR') : ''}
+                            </div>
+                            {m.observacion_tecnico && <div style={{ fontSize: 11, color: '#4a8fa0', marginBottom: 6 }}>{m.observacion_tecnico}</div>}
+                            {showDevolucion === m.id ? (
+                              <div style={{ background: '#0c1c24', border: '1px solid #1a3040', borderRadius: 8, padding: '10px 12px' }}>
+                                <div style={{ fontSize: 9, color: '#4a8fa0', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 6 }}>Proponer devolución</div>
+                                <div style={{ marginBottom: 8 }}>
+                                  <div style={{ fontSize: 10, color: '#4a8fa0', marginBottom: 3 }}>Cantidad a devolver (máx: {m.cantidad_preparada})</div>
+                                  <input type="number" min={0} max={m.cantidad_preparada}
+                                    value={devCantidad}
+                                    onChange={e => setDevCantidad(Math.min(Math.max(0, parseInt(e.target.value) || 0), m.cantidad_preparada))}
+                                    style={{ width: '100%', background: '#07131a', border: '1px solid #1a3040', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e8f4f8', outline: 'none', boxSizing: 'border-box' as const }} />
+                                </div>
+                                <div style={{ marginBottom: 8 }}>
+                                  <div style={{ fontSize: 10, color: '#4a8fa0', marginBottom: 3 }}>Motivo</div>
+                                  <select value={devMotivo} onChange={e => setDevMotivo(e.target.value)}
+                                    style={{ width: '100%', background: '#07131a', border: '1px solid #1a3040', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e8f4f8', outline: 'none', boxSizing: 'border-box' as const }}>
+                                    <option value="devolucion">Devolución</option>
+                                    <option value="roto">Roto</option>
+                                    <option value="perdido">Perdido</option>
+                                    <option value="usado">Usado</option>
+                                  </select>
+                                </div>
+                                {m.materiales?.tipo === 'herramienta' && devCantidad < m.cantidad_preparada && (
+                                  <div style={{ marginBottom: 8 }}>
+                                    <div style={{ fontSize: 10, color: '#EF9F27', marginBottom: 3 }}>⚠️ Novedad obligatoria (herramienta con diferencia)</div>
+                                    <input placeholder="Describí qué pasó con la herramienta..."
+                                      value={devNovedad} onChange={e => setDevNovedad(e.target.value)}
+                                      style={{ width: '100%', background: '#07131a', border: '1px solid #EF9F27', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e8f4f8', outline: 'none', boxSizing: 'border-box' as const }} />
+                                  </div>
+                                )}
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <button onClick={() => { setShowDevolucion(null); setDevCantidad(0); setDevMotivo('devolucion'); setDevNovedad('') }}
+                                    style={{ flex: 1, background: 'none', border: '1px solid #1a3040', borderRadius: 8, color: '#4a8fa0', fontWeight: 700, fontSize: 11, padding: '8px 0', cursor: 'pointer' }}>
+                                    CANCELAR
+                                  </button>
+                                  <button
+                                    onClick={() => proponerDevolucion(m.id)}
+                                    disabled={
+                                      loadingDevolucion ||
+                                      devCantidad < 0 ||
+                                      devCantidad > m.cantidad_preparada ||
+                                      !devMotivo.trim() ||
+                                      (m.materiales?.tipo === 'herramienta' && devCantidad < m.cantidad_preparada && !devNovedad.trim())
+                                    }
+                                    style={{ flex: 1, background: (loadingDevolucion || devCantidad < 0 || devCantidad > m.cantidad_preparada || !devMotivo.trim()) ? '#1a3040' : '#1ABBD6', border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 11, padding: '8px 0', cursor: 'pointer' }}>
+                                    {loadingDevolucion ? '...' : 'PROPONER'}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button onClick={() => { setShowDevolucion(m.id); setDevCantidad(m.cantidad_preparada || m.cantidad); setDevMotivo('devolucion'); setDevNovedad('') }}
+                                  style={{ flex: 1, background: '#0c1c24', border: '1px solid #1ABBD6', borderRadius: 8, color: '#1ABBD6', fontWeight: 600, fontSize: 10, padding: '6px 0', cursor: 'pointer' }}>
+                                  🔄 DEVOLVER
+                                </button>
+                                {m.materiales?.tipo !== 'herramienta' && (
+                                  <button onClick={() => { if (confirm('Vas a cerrar este material como consumido. Esta acción no podrá revertirse fácilmente. ¿Continuar?')) cerrarComoConsumido(m.id) }}
+                                    disabled={loadingDevolucion}
+                                    style={{ flex: 1, background: '#0c1c24', border: '1px solid #4a8fa0', borderRadius: 8, color: '#4a8fa0', fontWeight: 600, fontSize: 10, padding: '6px 0', cursor: 'pointer' }}>
+                                    ✅ CONSUMIDO
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {(m.estado === 'devolucion_pendiente' || m.estado === 'cerrado') && (
+                          <div style={{ marginTop: 4, fontSize: 11, color: m.estado === 'cerrado' ? '#1D9E75' : '#EF9F27', fontWeight: 600 }}>
+                            {m.estado === 'cerrado' ? '✅ Cerrado' : '⏳ Devolución pendiente verificación pañolero'}
                           </div>
                         )}
                       </div>
