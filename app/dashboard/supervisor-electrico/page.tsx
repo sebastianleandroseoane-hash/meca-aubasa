@@ -355,7 +355,7 @@ async function reasignarTecnicos(id: string) {
   }
 
   function agregarMaterial(m: any) {
-    if (materialesOrden.find(x => x.id === m.id)) return
+    if (materialesOrden.find(x => x.id === m.id)) { quitarMaterial(m.id); return }
     setMaterialesOrden(prev => [...prev, { id: m.id, nombre: m.nombre, unidad: m.unidad, cantidad: 1, stock: m.stock_actual, tipo: m.tipo ?? 'material' }])
   }
   function quitarMaterial(id: string) { setMaterialesOrden(prev => prev.filter(m => m.id !== id)) }

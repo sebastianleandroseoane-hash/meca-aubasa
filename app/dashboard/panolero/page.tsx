@@ -411,12 +411,16 @@ async function entregarItem(item: any) {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>×{om.cantidad} {om.materiales?.unidad}</span>
-                          {om.estado === 'entregado'
-                            ? <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F2A35', color: C.ok }}>✅ Entregado</span>
-                            : <button onClick={() => { setItemEntregando({ ...om, material_id: om.material_id }); setCantidadEntrega(om.cantidad); setShowEntregarItem(true) }}
+                          {om.estado === 'recibido'
+                            ? <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F2A35', color: C.ok }}>✅ Recibido por técnico</span>
+                            : om.estado === 'entregado'
+                            ? <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F3A42', color: C.accent }}>📦 Entregado · pdte. recepción</span>
+                            : om.estado === 'solicitado'
+                            ? <button onClick={() => { setItemEntregando({ ...om, material_id: om.material_id }); setCantidadEntrega(om.cantidad); setShowEntregarItem(true) }}
                                 style={{ background: C.ok, border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>
                                 ENTREGAR
                               </button>
+                            : <span style={{ fontSize: 10, color: C.sub }}>Sin estado / revisar</span>
                           }
                         </div>
                       </div>
