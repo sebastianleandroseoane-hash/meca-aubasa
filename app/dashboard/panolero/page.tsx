@@ -210,7 +210,7 @@ async function entregarItem(item: any) {
     if (cantidadEntrega <= 0 || cantidadEntrega > item.cantidad) return
     setLoadingEntrega(true)
 
-    const { error: errorUpdate } = await supabase
+    const { data: updatedRows, error: errorUpdate } = await supabase
       .from('orden_materiales')
       .update({
         estado: 'entregado',
@@ -220,10 +220,11 @@ async function entregarItem(item: any) {
       })
       .eq('id', item.id)
       .eq('estado', 'solicitado')
+      .select()
 
-    if (errorUpdate) {
+    if (errorUpdate || !updatedRows || updatedRows.length === 0) {
       setLoadingEntrega(false)
-      alert('Error al registrar entrega. Intentá de nuevo.')
+      alert('Este material ya fue entregado por otro pañolero.')
       return
     }
 
