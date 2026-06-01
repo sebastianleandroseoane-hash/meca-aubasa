@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
+import AvatarUpload from '@/app/components/AvatarUpload'
 
 export default function DashboardTecnicoAC() {
   const router = useRouter()
@@ -119,9 +120,10 @@ export default function DashboardTecnicoAC() {
       <div style={{ background: '#0c1c24', borderBottom: '1px solid #1a3040', padding: '12px 16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#1a3040', border: '1.5px solid #1ABBD6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: '#1ABBD6' }}>
-              {perfil.nombre?.[0]}{perfil.apellido?.[0]}
-            </div>
+            <AvatarUpload
+              perfil={perfil}
+              onUpdatePerfil={updates => setPerfil((prev: any) => ({ ...prev, ...updates }))}
+            />
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#e8f4f8' }}>{perfil.nombre} {perfil.apellido}</div>
               <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 1 }}>Técnico AC · Turno {perfil.turno}</div>

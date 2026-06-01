@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getPerfil } from '@/lib/supabase'
+import AvatarUpload from '@/app/components/AvatarUpload'
 
 const PIN_CRITICO = '2006'
 const C = {
@@ -312,9 +313,10 @@ async function entregarItem(item: any) {
       <div style={{ background: C.card, borderBottom: `1px solid ${C.border}`, padding: '12px 16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: C.bg, border: `1.5px solid ${C.accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: C.accent }}>
-              {perfil.nombre?.[0]}{perfil.apellido?.[0]}
-            </div>
+            <AvatarUpload
+              perfil={perfil}
+              onUpdatePerfil={updates => setPerfil((prev: any) => ({ ...prev, ...updates }))}
+            />
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{perfil.apellido}, {perfil.nombre}</div>
               <div style={{ fontSize: 11, color: C.sub, marginTop: 1 }}>Pañolero
