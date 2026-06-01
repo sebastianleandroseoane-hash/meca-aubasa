@@ -79,6 +79,7 @@ export default function DashboardSupervisorElectrico() {
 const [nuevaFecha, setNuevaFecha] = useState('')
 const [showReasignar, setShowReasignar] = useState(false)
 const [tecnicosReasignados, setTecnicosReasignados] = useState<string[]>([])
+const [showTecnicos, setShowTecnicos] = useState(false)
 const [showEditarOT, setShowEditarOT] = useState(false)
 const [formEditar, setFormEditar] = useState<any>(null)
 const [loadingDecision, setLoadingDecision] = useState(false)
@@ -1359,13 +1360,40 @@ async function reasignarTecnicos(id: string) {
           </div>
         )}
 
+        {showTecnicos && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <div style={{ background: C.card, borderRadius: '16px 16px 0 0', padding: 16, maxHeight: '80vh', display: 'flex', flexDirection: 'column', border: `1px solid ${C.border}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>👷 Técnicos disponibles · {tecnicos.length}</div>
+                <button onClick={() => setShowTecnicos(false)} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+              </div>
+              <div style={{ overflowY: 'auto', flex: 1 }}>
+                {tecnicos.length === 0
+                  ? <div style={{ fontSize: 12, color: C.sub, textAlign: 'center' as const, padding: 20 }}>Sin técnicos disponibles este turno</div>
+                  : tecnicos.map((t: any, i: number) => (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: i < tecnicos.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                      <div>
+                        <div style={{ fontSize: 13, color: C.text, fontWeight: 500 }}>{t.apellido}, {t.nombre}</div>
+                        <div style={{ fontSize: 10, color: C.sub, marginTop: 2 }}>Gr.{t.grupo} · {t.turno} · {t.sector_trabajo}</div>
+                      </div>
+                      {t.grupo !== perfil?.grupo && (
+                        <span style={{ fontSize: 10, background: '#3A2A00', color: C.warn, padding: '2px 6px', borderRadius: 10 }}>Otro grupo</span>
+                      )}
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* STATS */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
           <div onClick={() => setShowOrdenes(true)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' as const, cursor: 'pointer' }}>
             <div style={{ fontSize: 22, fontWeight: 700, color: activas > 0 ? C.accent : C.sub }}>{activas}</div>
             <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginTop: 2 }}>Activas</div>
           </div>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' as const }}>
+          <div onClick={() => setShowTecnicos(true)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 14px', textAlign: 'center' as const, cursor: 'pointer' }}>
             <div style={{ fontSize: 22, fontWeight: 700, color: tecnicos.length > 0 ? C.ok : C.sub }}>{tecnicos.length}</div>
             <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginTop: 2 }}>Técnicos</div>
           </div>
