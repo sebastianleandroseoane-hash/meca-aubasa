@@ -106,7 +106,7 @@ export default function DashboardPanolero() {
       .eq('estado', 'autorizada').order('created_at', { ascending: false })
     setSolicitudes(sols || [])
     const { data: ords } = await supabase.from('ordenes_trabajo')
-      .select('*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, materiales(id, nombre, unidad, tipo, stock_actual)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)')
+      .select('*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales(id, nombre, unidad, tipo, stock_actual), entregado_por_perfil:profiles!orden_materiales_entregado_por_fkey(nombre, apellido), recibido_por_perfil:profiles!orden_materiales_recibido_por_fkey(nombre, apellido)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)')
       .not('estado', 'eq', 'cancelada').order('created_at', { ascending: false })
     setOrdenesPanol(ords || [])
   }
@@ -229,7 +229,7 @@ async function entregarItem(item: any) {
     if (ordenPanolDetalle) {
       const { data: ordenFresca } = await supabase
         .from('ordenes_trabajo')
-        .select('*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, materiales(id, nombre, unidad, tipo, stock_actual)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)')
+        .select('*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales(id, nombre, unidad, tipo, stock_actual), entregado_por_perfil:profiles!orden_materiales_entregado_por_fkey(nombre, apellido), recibido_por_perfil:profiles!orden_materiales_recibido_por_fkey(nombre, apellido)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)')
         .eq('id', ordenPanolDetalle.id)
         .single()
       if (ordenFresca) setOrdenPanolDetalle(ordenFresca)
@@ -404,9 +404,20 @@ async function entregarItem(item: any) {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>×{om.cantidad} {om.materiales?.unidad}</span>
                           {om.estado === 'recibido'
-                            ? <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F2A35', color: C.ok }}>✅ Recibido por técnico</span>
+                            ? <div style={{ textAlign: 'right' as const }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F2A35', color: C.ok, marginBottom: 4 }}>✅ Recibido</div>
+                                <div style={{ fontSize: 10, color: C.sub }}>Entregó: {om.entregado_por_perfil?.nombre} {om.entregado_por_perfil?.apellido}</div>
+                                <div style={{ fontSize: 10, color: C.sub }}>{om.entregado_at ? new Date(om.entregado_at).toLocaleString('es-AR') : ''}</div>
+                                <div style={{ fontSize: 10, color: C.ok, marginTop: 2 }}>Recibió: {om.recibido_por_perfil?.nombre} {om.recibido_por_perfil?.apellido}</div>
+                                <div style={{ fontSize: 10, color: C.sub }}>{om.recibido_at ? new Date(om.recibido_at).toLocaleString('es-AR') : ''}</div>
+                                {om.observacion_tecnico && <div style={{ fontSize: 10, color: C.warn, marginTop: 2 }}>Obs: {om.observacion_tecnico}</div>}
+                              </div>
                             : om.estado === 'entregado'
-                            ? <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F3A42', color: C.accent }}>📦 Entregado · pdte. recepción</span>
+                            ? <div style={{ textAlign: 'right' as const }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F3A42', color: C.accent, marginBottom: 4 }}>📦 Entregado</div>
+                                <div style={{ fontSize: 10, color: C.sub }}>Entregó: {om.entregado_por_perfil?.nombre} {om.entregado_por_perfil?.apellido}</div>
+                                <div style={{ fontSize: 10, color: C.sub }}>{om.entregado_at ? new Date(om.entregado_at).toLocaleString('es-AR') : ''}</div>
+                              </div>
                             : om.estado === 'solicitado'
                             ? <button onClick={() => { setItemEntregando({ ...om, material_id: om.material_id }); setCantidadEntrega(om.cantidad); setShowEntregarItem(true) }}
                                 style={{ background: C.ok, border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>
