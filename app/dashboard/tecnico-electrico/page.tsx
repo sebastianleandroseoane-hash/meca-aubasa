@@ -18,6 +18,7 @@ export default function DashboardTecnicoElectrico() {
   const [supervisor, setSupervisor] = useState<any>(null)
   const [hora, setHora] = useState('')
   const [fecha, setFecha] = useState('')
+  const [obsRecepcion, setObsRecepcion] = useState<Record<string, string>>({})
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -82,11 +83,21 @@ export default function DashboardTecnicoElectrico() {
     setOrdenActiva(ordenadas.find((o: any) => o.estado === 'en_curso') || ordenadas[0] || null)
   }
 
+  async function confirmarRecepcionMaterial(ordenMaterialId: string, observacion: string) {
+    await supabase.from('orden_materiales').update({
+      estado: 'recibido',
+      recibido_por: perfil.id,
+      recibido_at: new Date().toISOString(),
+      observacion_tecnico: observacion || null
+    }).eq('id', ordenMaterialId).eq('estado', 'entregado')
+    if (ordenDetalle) await abrirDetalle(ordenDetalle)
+  }
+
   async function abrirDetalle(orden: any) {
     const { data: tecnicos } = await supabase.from('orden_tecnicos')
       .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, rol)').eq('orden_id', orden.id)
     const { data: materiales } = await supabase.from('orden_materiales')
-      .select('*, materiales!orden_materiales_material_id_fkey(nombre, unidad)').eq('orden_id', orden.id)
+      .select('id, cantidad, estado, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales!orden_materiales_material_id_fkey(nombre, unidad)').eq('orden_id', orden.id)
     const { data: pedidos } = await supabase.from('pedidos_material').select('*').eq('orden_trabajo_id', orden.id)
     setOrdenDetalle({ ...orden, tecnicos: tecnicos || [], materiales: materiales || [], pedidos: pedidos || [] })
   }
@@ -255,9 +266,32 @@ export default function DashboardTecnicoElectrico() {
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Materiales</div>
                   {ordenDetalle.materiales.map((m: any) => (
-                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, color: '#e8f4f8' }}>{m.materiales?.nombre}</span>
-                      <span style={{ fontSize: 11, color: '#4a8fa0' }}>{m.cantidad_solicitada} {m.materiales?.unidad}</span>
+                    <div key={m.id} style={{ background: '#07131a', border: `1px solid ${m.estado === 'recibido' ? '#1D9E75' : m.estado === 'entregado' ? '#1ABBD6' : '#1a3040'}`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, color: '#e8f4f8' }}>{m.materiales?.nombre}</span>
+                        <span style={{ fontSize: 11, color: '#4a8fa0' }}>{m.cantidad} {m.materiales?.unidad}</span>
+                      </div>
+                      {m.estado === 'entregado' && (
+                        <div style={{ marginTop: 8 }}>
+                          <input
+                            placeholder="Observación (opcional)"
+                            value={obsRecepcion[m.id] || ''}
+                            onChange={e => setObsRecepcion(prev => ({ ...prev, [m.id]: e.target.value }))}
+                            style={{ width: '100%', background: '#0c1c24', border: '1px solid #1a3040', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#e8f4f8', outline: 'none', boxSizing: 'border-box' as const, marginBottom: 6 }}
+                          />
+                          <button
+                            onClick={() => confirmarRecepcionMaterial(m.id, obsRecepcion[m.id] || '')}
+                            style={{ background: '#1ABBD6', border: 'none', borderRadius: 6, color: 'white', fontWeight: 700, fontSize: 11, padding: '6px 12px', cursor: 'pointer' }}>
+                            ✅ CONFIRMAR RECEPCIÓN
+                          </button>
+                        </div>
+                      )}
+                      {m.estado === 'recibido' && (
+                        <div style={{ marginTop: 4, fontSize: 11, color: '#1D9E75' }}>
+                          ✅ Recibido · {m.recibido_at ? new Date(m.recibido_at).toLocaleString('es-AR') : ''}
+                          {m.observacion_tecnico && <div style={{ color: '#4a8fa0', marginTop: 2 }}>{m.observacion_tecnico}</div>}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
