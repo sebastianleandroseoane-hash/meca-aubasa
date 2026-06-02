@@ -20,7 +20,11 @@ export default function DashboardPanolero() {
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState<string | null>(null)
   const [subcategoria, setSubcategoria] = useState<string | null>(null)
-  const [vista, setVista] = useState<'stock' | 'herramientas' | 'ordenes' | 'pedidos' | 'checkins'>('stock')
+  const [vista, setVista] = useState<'stock' | 'herramientas' | 'ordenes' | 'pedidos' | 'checkins' | 'devoluciones'>('stock')
+  const [devoluciones, setDevoluciones] = useState<any[]>([])
+  const [motivoRechazo, setMotivoRechazo] = useState<string>('')
+  const [rechazandoId, setRechazandoId] = useState<string | null>(null)
+  const [loadingDevolucionId, setLoadingDevolucionId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [checkinsFaltantes, setCheckinsFaltantes] = useState<any[]>([])
   const [checkinsHistorial, setCheckinsHistorial] = useState<any[]>([])
@@ -78,6 +82,8 @@ export default function DashboardPanolero() {
     return () => clearInterval(iv)
   }, [])
 
+  const ORDEN_PANOL_SELECT = '*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales(id, nombre, unidad, tipo, stock_actual), entregado_por_perfil:profiles!orden_materiales_entregado_por_fkey(nombre, apellido), recibido_por_perfil:profiles!orden_materiales_recibido_por_fkey(nombre, apellido)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)'
+
   async function cargarTodo() {
     const { data: mats } = await supabase.from('materiales').select('*').order('nombre', { ascending: true })
     setMateriales(mats || [])
@@ -106,9 +112,13 @@ export default function DashboardPanolero() {
       .eq('estado', 'autorizada').order('created_at', { ascending: false })
     setSolicitudes(sols || [])
     const { data: ords } = await supabase.from('ordenes_trabajo')
-      .select('*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales(id, nombre, unidad, tipo, stock_actual), entregado_por_perfil:profiles!orden_materiales_entregado_por_fkey(nombre, apellido), recibido_por_perfil:profiles!orden_materiales_recibido_por_fkey(nombre, apellido)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)')
+      .select(ORDEN_PANOL_SELECT)
       .not('estado', 'eq', 'cancelada').order('created_at', { ascending: false })
     setOrdenesPanol(ords || [])
+    const { data: devs } = await supabase.from('devoluciones_materiales')
+      .select('*, materiales!devoluciones_materiales_material_id_fkey(nombre, unidad), propuesta_por_perfil:profiles!devoluciones_materiales_propuesta_por_fkey(nombre, apellido), ordenes_trabajo!devoluciones_materiales_orden_id_fkey(titulo, numero_orden)')
+      .eq('estado', 'propuesta').order('created_at', { ascending: false })
+    setDevoluciones(devs || [])
   }
 
   function pedirPin(accion: 'editar' | 'borrar' | 'nuevo', id?: string) {
@@ -201,6 +211,35 @@ export default function DashboardPanolero() {
     setCheckinVehDetalle({ ...ch, items: data || [] })
   }
 
+  async function confirmarDevolucion(devolucionId: string) {
+    setLoadingDevolucionId(devolucionId)
+    const { error } = await supabase.rpc('confirmar_devolucion', { p_devolucion_id: devolucionId })
+    setLoadingDevolucionId(null)
+    if (error) { alert(error.message || 'Error al confirmar devolución'); return }
+    await cargarTodo()
+    if (ordenPanolDetalle) {
+      const { data: ordenFresca } = await supabase.from('ordenes_trabajo')
+        .select(ORDEN_PANOL_SELECT).eq('id', ordenPanolDetalle.id).single()
+      if (ordenFresca) setOrdenPanolDetalle(ordenFresca)
+    }
+  }
+
+  async function rechazarDevolucion(devolucionId: string) {
+    if (!motivoRechazo.trim()) return
+    setLoadingDevolucionId(devolucionId)
+    const { error } = await supabase.rpc('rechazar_devolucion', { p_devolucion_id: devolucionId, p_motivo_rechazo: motivoRechazo })
+    setLoadingDevolucionId(null)
+    if (error) { alert(error.message || 'Error al rechazar devolución'); return }
+    setRechazandoId(null)
+    setMotivoRechazo('')
+    await cargarTodo()
+    if (ordenPanolDetalle) {
+      const { data: ordenFresca } = await supabase.from('ordenes_trabajo')
+        .select(ORDEN_PANOL_SELECT).eq('id', ordenPanolDetalle.id).single()
+      if (ordenFresca) setOrdenPanolDetalle(ordenFresca)
+    }
+  }
+
   async function entregarSolicitud(id: string) {
     await supabase.from('solicitudes_insumos').update({ estado: 'entregada' }).eq('id', id)
     await cargarTodo()
@@ -229,7 +268,7 @@ async function entregarItem(item: any) {
     if (ordenPanolDetalle) {
       const { data: ordenFresca } = await supabase
         .from('ordenes_trabajo')
-        .select('*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales(id, nombre, unidad, tipo, stock_actual), entregado_por_perfil:profiles!orden_materiales_entregado_por_fkey(nombre, apellido), recibido_por_perfil:profiles!orden_materiales_recibido_por_fkey(nombre, apellido)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)')
+        .select(ORDEN_PANOL_SELECT)
         .eq('id', ordenPanolDetalle.id)
         .single()
       if (ordenFresca) setOrdenPanolDetalle(ordenFresca)
@@ -294,6 +333,7 @@ async function entregarItem(item: any) {
     { key: 'ordenes', label: 'OT', badge: ordenesPanol.length, svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'ordenes' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> },
     { key: 'pedidos', label: 'Pedidos', badge: alertasStock.length, svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'pedidos' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
     { key: 'checkins', label: 'Checkins', badge: checkinsFaltantes.length, svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'checkins' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> },
+    { key: 'devoluciones', label: 'Devol.', badge: devoluciones.length, svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'devoluciones' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.96"/></svg> },
   ]
 
   return (
@@ -403,7 +443,44 @@ async function entregarItem(item: any) {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>×{om.cantidad} {om.materiales?.unidad}</span>
-                          {om.estado === 'recibido'
+                          {om.estado === 'devolucion_pendiente'
+                            ? (() => {
+                                const dev = devoluciones.find((d: any) => d.orden_material_id === om.id)
+                                return (
+                                  <div style={{ textAlign: 'right' as const }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#3A2A00', color: C.warn, marginBottom: 4 }}>⏳ Dev. pendiente</div>
+                                    {dev && (
+                                      <div>
+                                        <div style={{ fontSize: 10, color: C.sub }}>Devuelve: {dev.cantidad_devuelta} · {dev.motivo_cierre}</div>
+                                        <div style={{ fontSize: 10, color: C.sub }}>Por: {dev.propuesta_por_perfil?.nombre} {dev.propuesta_por_perfil?.apellido}</div>
+                                        {rechazandoId === dev.id ? (
+                                          <div style={{ marginTop: 4 }}>
+                                            <input placeholder="Motivo *" value={motivoRechazo}
+                                              onChange={e => setMotivoRechazo(e.target.value)}
+                                              style={{ width: '100%', background: C.bg, border: `1px solid ${C.err}`, borderRadius: 6, padding: '4px 8px', fontSize: 11, color: C.text, outline: 'none', boxSizing: 'border-box' as const, marginBottom: 4 }} />
+                                            <div style={{ display: 'flex', gap: 4 }}>
+                                              <button onClick={() => rechazarDevolucion(dev.id)} disabled={loadingDevolucionId === dev.id || !motivoRechazo.trim()}
+                                                style={{ flex: 1, background: C.err, border: 'none', borderRadius: 6, color: 'white', fontWeight: 700, fontSize: 10, padding: '5px 0', cursor: 'pointer' }}>RECHAZAR</button>
+                                              <button onClick={() => { setRechazandoId(null); setMotivoRechazo('') }}
+                                                style={{ flex: 1, background: C.border, border: 'none', borderRadius: 6, color: C.sub, fontWeight: 700, fontSize: 10, padding: '5px 0', cursor: 'pointer' }}>CANCELAR</button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                                            <button onClick={() => confirmarDevolucion(dev.id)} disabled={loadingDevolucionId === dev.id}
+                                              style={{ flex: 1, background: C.ok, border: 'none', borderRadius: 6, color: 'white', fontWeight: 700, fontSize: 10, padding: '5px 0', cursor: 'pointer' }}>✅ CONFIRMAR</button>
+                                            <button onClick={() => { setRechazandoId(dev.id); setMotivoRechazo('') }}
+                                              style={{ flex: 1, background: C.border, border: 'none', borderRadius: 6, color: C.err, fontWeight: 700, fontSize: 10, padding: '5px 0', cursor: 'pointer' }}>❌ RECHAZAR</button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })()
+                            : om.estado === 'cerrado'
+                            ? <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F2A35', color: C.ok }}>✅ Cerrado</span>
+                            : om.estado === 'recibido'
                             ? <div style={{ textAlign: 'right' as const }}>
                                 <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F2A35', color: C.ok, marginBottom: 4 }}>✅ Recibido</div>
                                 <div style={{ fontSize: 10, color: C.sub }}>Entregó: {om.entregado_por_perfil?.nombre} {om.entregado_por_perfil?.apellido}</div>
@@ -666,6 +743,58 @@ async function entregarItem(item: any) {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* VISTA DEVOLUCIONES */}
+        {vista === 'devoluciones' && (
+          <div>
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 10 }}>
+              Devoluciones pendientes · {devoluciones.length}
+            </div>
+            {devoluciones.length === 0
+              ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, textAlign: 'center' as const, fontSize: 13, color: C.sub }}>✅ Sin devoluciones pendientes</div>
+              : devoluciones.map((d: any) => (
+                <div key={d.id} style={{ background: C.card, border: `1px solid ${C.warn}44`, borderLeft: `3px solid ${C.warn}`, borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+                  <div style={{ fontSize: 10, color: C.accent, fontWeight: 700, marginBottom: 2 }}>
+                    OT-{String(d.ordenes_trabajo?.numero_orden).padStart(5, '0')} · {d.ordenes_trabajo?.titulo}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4 }}>{d.materiales?.nombre}</div>
+                  <div style={{ fontSize: 11, color: C.sub, marginBottom: 2 }}>
+                    Devuelve: {d.cantidad_devuelta} de {d.cantidad_entregada} {d.materiales?.unidad} · {d.motivo_cierre}
+                    {d.cantidad_diferencia > 0 && <span style={{ color: C.warn, marginLeft: 4 }}>· Diferencia: {d.cantidad_diferencia}</span>}
+                  </div>
+                  {d.novedad && <div style={{ fontSize: 11, color: C.warn, marginBottom: 6 }}>📝 {d.novedad}</div>}
+                  <div style={{ fontSize: 11, color: C.sub, marginBottom: 8 }}>
+                    Técnico: {d.propuesta_por_perfil?.nombre} {d.propuesta_por_perfil?.apellido}
+                  </div>
+                  {rechazandoId === d.id ? (
+                    <div>
+                      <input placeholder="Motivo de rechazo *" value={motivoRechazo}
+                        onChange={e => setMotivoRechazo(e.target.value)}
+                        style={{ width: '100%', background: C.bg, border: `1px solid ${C.err}`, borderRadius: 6, padding: '6px 10px', fontSize: 12, color: C.text, outline: 'none', boxSizing: 'border-box' as const, marginBottom: 6 }} />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => rechazarDevolucion(d.id)} disabled={loadingDevolucionId === d.id || !motivoRechazo.trim()}
+                          style={{ flex: 1, background: loadingDevolucionId === d.id ? C.border : C.err, border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 12, padding: '9px 0', cursor: 'pointer' }}>
+                          {loadingDevolucionId === d.id ? '...' : '❌ RECHAZAR'}
+                        </button>
+                        <button onClick={() => { setRechazandoId(null); setMotivoRechazo('') }}
+                          style={{ flex: 1, background: C.border, border: 'none', borderRadius: 8, color: C.sub, fontWeight: 700, fontSize: 12, padding: '9px 0', cursor: 'pointer' }}>CANCELAR</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => confirmarDevolucion(d.id)} disabled={loadingDevolucionId === d.id}
+                        style={{ flex: 1, background: loadingDevolucionId === d.id ? C.border : C.ok, border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 12, padding: '9px 0', cursor: 'pointer' }}>
+                        {loadingDevolucionId === d.id ? '...' : '✅ CONFIRMAR'}
+                      </button>
+                      <button onClick={() => { setRechazandoId(d.id); setMotivoRechazo('') }}
+                        style={{ flex: 1, background: C.border, border: 'none', borderRadius: 8, color: C.err, fontWeight: 700, fontSize: 12, padding: '9px 0', cursor: 'pointer' }}>❌ RECHAZAR</button>
+                    </div>
+                  )}
+                </div>
+              ))
+            }
           </div>
         )}
 
