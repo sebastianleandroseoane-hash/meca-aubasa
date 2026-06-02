@@ -59,8 +59,13 @@ export default function DashboardSupervisorElectrico() {
     prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor',
     nomenclatura: '', fecha_programada: new Date().toISOString().split('T')[0],
     balizamiento_desde: '', balizamiento_hasta: '',
-    balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: ''
+    balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '',
+    activo_id: ''
   })
+  const [activos, setActivos] = useState<any[]>([])
+  const [tipoActivoSeleccionado, setTipoActivoSeleccionado] = useState<string>('')
+  const [activoSeleccionado, setActivoSeleccionado] = useState<any>(null)
+
   const [nomenclaturas, setNomenclaturas] = useState<any[]>([])
   const [busquedaOrden, setBusquedaOrden] = useState('')
   const [verTodosTecnicos, setVerTodosTecnicos] = useState(false)
@@ -114,6 +119,11 @@ const [loadingDecision, setLoadingDecision] = useState(false)
       .eq('sector', 'electrico').order('created_at', { ascending: false })
     setOrdenes(ords || [])
     const { data: tecs } = await supabase.rpc('get_tecnicos_activos', { p_sector: 'electrico', p_turno: turno })
+    const { data: acts } = await supabase.from('activos')
+      .select('id, codigo, nombre, tipo, ramal, sentido_operativo, subtipo, estado, observaciones, reemplazado_por_id')
+      .is('deleted_at', null)
+      .order('nombre', { ascending: true })
+    setActivos(acts || [])
     setTecnicos(tecs || [])
   }
 
@@ -381,6 +391,7 @@ async function reasignarTecnicos(id: string) {
       balizamiento_hora_ingreso: form.balizamiento_hora_ingreso || null,
       balizamiento_hora_egreso: form.balizamiento_hora_egreso || null,
       km: form.km ? parseFloat(form.km) : null, ubicacion: form.ubicacion,
+      activo_id: form.activo_id || null,
       asignado_a: tecnicosSeleccionados[0], creado_por: perfil.id,
       turno: perfil.turno, fecha_programada: form.fecha_programada, campo_libre: form.campo_libre || null
     }).select().single()
@@ -397,7 +408,9 @@ async function reasignarTecnicos(id: string) {
       setShowForm(false)
       setTecnicosSeleccionados([])
       setMaterialesOrden([])
-      setForm({ titulo: '', descripcion: '', km: '', ubicacion: '', prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor', nomenclatura: '', fecha_programada: new Date().toISOString().split('T')[0], balizamiento_desde: '', balizamiento_hasta: '', balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '' })
+      setForm({ titulo: '', descripcion: '', km: '', ubicacion: '', prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor', nomenclatura: '', fecha_programada: new Date().toISOString().split('T')[0], balizamiento_desde: '', balizamiento_hasta: '', balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '', activo_id: '' })
+      setActivoSeleccionado(null)
+      setTipoActivoSeleccionado('')
       await cargarDatos(perfil.turno)
     } else { setLoading(false) }
   }
@@ -528,12 +541,47 @@ async function reasignarTecnicos(id: string) {
               </div>
             </div>
 
-            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Nomenclatura *</div>
-            <select style={errores.includes('nomenclatura') ? { ...selErr, marginBottom: 12 } : { ...sel, marginBottom: 12 }}
-              value={form.nomenclatura} onChange={e => setForm({ ...form, nomenclatura: e.target.value })}>
-              <option value="">Seleccioná una categoría</option>
-              {nomenclaturas.map(n => <option key={n.id} value={n.codigo}>{n.codigo} · {n.descripcion}</option>)}
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Activo / Nomenclatura *</div>
+            <select style={{ ...sel, marginBottom: 8 }}
+              value={tipoActivoSeleccionado}
+              onChange={e => { setTipoActivoSeleccionado(e.target.value); setActivoSeleccionado(null); setForm(prev => ({ ...prev, activo_id: '', nomenclatura: '' })) }}>
+              <option value="">Tipo de activo</option>
+              <option value="TS">TS — Tablero Seccional</option>
+              <option value="TG">TG — Tablero General Ruta 36</option>
+              <option value="TRG">TRG — Tablero Ramal Gutiérrez</option>
+              <option value="SET">SET — Subestación</option>
+              <option value="PLAZA_PEAJE">Plaza de Peaje</option>
+              <option value="BAJO_PUENTE">Bajo Puente</option>
             </select>
+            {tipoActivoSeleccionado && (
+              <select style={errores.includes('nomenclatura') ? { ...selErr, marginBottom: 12 } : { ...sel, marginBottom: 12 }}
+                value={form.activo_id}
+                onChange={e => {
+                  const a = activos.find(x => x.id === e.target.value)
+                  if (!a || a.estado === 'fuera_servicio') return
+                  setActivoSeleccionado(a)
+                  setForm(prev => ({ ...prev, activo_id: a.id, nomenclatura: `${a.codigo} - ${a.nombre}` }))
+                }}>
+                <option value="">Seleccioná activo</option>
+                {activos
+                  .filter(a => a.tipo === tipoActivoSeleccionado)
+                  .sort((a, b) => a.nombre.localeCompare(b.nombre, undefined, { numeric: true }))
+                  .map(a => {
+                    const fueraServicio = a.estado === 'fuera_servicio'
+                    const reemplazadoPor = fueraServicio && a.reemplazado_por_id ? activos.find(x => x.id === a.reemplazado_por_id) : null
+                    return (
+                      <option key={a.id} value={a.id} disabled={fueraServicio}>
+                        {a.nombre}{fueraServicio ? ` — fuera de servicio${reemplazadoPor ? ` — usar ${reemplazadoPor.codigo}` : ''}` : ''}
+                      </option>
+                    )
+                  })}
+              </select>
+            )}
+            {activoSeleccionado && (
+              <div style={{ fontSize: 10, color: C.accent, marginBottom: 8, marginTop: -8 }}>
+                ✓ {activoSeleccionado.tipo} · {activoSeleccionado.ramal}{activoSeleccionado.sentido_operativo ? ` · ${activoSeleccionado.sentido_operativo}` : ''}
+              </div>
+            )}
 
             <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Descripción</div>
             <textarea style={{ ...input, marginBottom: 12, resize: 'none' } as any} rows={2}
@@ -554,7 +602,50 @@ async function reasignarTecnicos(id: string) {
               </div>
             </div>
 
-            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Ubicación</div>
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Activo / Nomenclatura *</div>
+            <select style={{ ...sel, marginBottom: 8 }}
+              value={tipoActivoSeleccionado}
+              onChange={e => { setTipoActivoSeleccionado(e.target.value); setActivoSeleccionado(null); setForm(prev => ({ ...prev, activo_id: '', nomenclatura: '' })) }}>
+              <option value="">Tipo de activo</option>
+              <option value="TS">TS — Tablero Seccional</option>
+              <option value="TG">TG — Tablero General Ruta 36</option>
+              <option value="TRG">TRG — Tablero Ramal Gutiérrez</option>
+              <option value="SET">SET — Subestación</option>
+              <option value="PLAZA_PEAJE">Plaza de Peaje</option>
+              <option value="BAJO_PUENTE">Bajo Puente</option>
+            </select>
+            {tipoActivoSeleccionado && (
+              <select style={errores.includes('nomenclatura') ? { ...selErr, marginBottom: 12 } : { ...sel, marginBottom: 12 }}
+                value={form.activo_id}
+                onChange={e => {
+                  const a = activos.find(x => x.id === e.target.value)
+                  if (!a || a.estado === 'fuera_servicio') return
+                  setActivoSeleccionado(a)
+                  setForm(prev => ({ ...prev, activo_id: a.id, nomenclatura: `${a.codigo} - ${a.nombre}` }))
+                }}>
+                <option value="">Seleccioná activo</option>
+                {activos
+                  .filter(a => a.tipo === tipoActivoSeleccionado)
+                  .sort((a, b) => a.nombre.localeCompare(b.nombre, undefined, { numeric: true }))
+                  .map(a => {
+                    const fueraServicio = a.estado === 'fuera_servicio'
+                    const reemplazadoPor = fueraServicio && a.reemplazado_por_id ? activos.find(x => x.id === a.reemplazado_por_id) : null
+                    return (
+                      <option key={a.id} value={a.id} disabled={fueraServicio}>
+                        {a.codigo} - {a.nombre}{fueraServicio ? ` — fuera de servicio${reemplazadoPor ? ` — usar ${reemplazadoPor.codigo}` : ''}` : ''}
+                      </option>
+                    )
+                  })}
+              </select>
+            )}
+            {activoSeleccionado && (
+              <div style={{ fontSize: 10, color: C.accent, marginBottom: 8, marginTop: -8 }}>
+                ✓ {activoSeleccionado.tipo} · {activoSeleccionado.ramal}{activoSeleccionado.sentido_operativo ? ` · ${activoSeleccionado.sentido_operativo}` : ''}
+              </div>
+            )}
+
+
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Ubicación (referencia libre)</div>
             <input style={{ ...input, marginBottom: 12 }} placeholder="Ej: Shoulder externo" value={form.ubicacion} onChange={e => setForm({ ...form, ubicacion: e.target.value })} />
 
             {/* TÉCNICOS */}
@@ -723,6 +814,8 @@ async function reasignarTecnicos(id: string) {
         </>,
         () => setShowStock(false)
       )}
+
+     
 
       {/* MODAL DETALLE ORDEN */}
       {ordenDetalle && modal(
