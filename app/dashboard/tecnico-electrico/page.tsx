@@ -55,6 +55,10 @@ export default function DashboardTecnicoElectrico() {
   const [itCorriente, setItCorriente] = useState('')
   const [itMedicionesDetalle, setItMedicionesDetalle] = useState('')
 
+  // Asistente IA
+  const [iaTextoLibre, setIaTextoLibre]   = useState('')
+  const [loadingIA, setLoadingIA]         = useState(false)
+
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
@@ -197,6 +201,75 @@ export default function DashboardTecnicoElectrico() {
     await supabase.from('ordenes_trabajo').update({ estado: 'en_curso', fecha_inicio: new Date().toISOString() }).eq('id', id)
     await cargarOrdenes(perfil.id)
     setOrdenDetalle(null)
+  }
+
+ async function generarBorradorIA() {
+    if (loadingIA || iaTextoLibre.trim().length < 10) return
+    if (!ordenDetalle) { alert('No hay OT seleccionada.'); return }
+    setLoadingIA(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { alert('Sesión no válida. Recargá la página.'); return }
+
+      const res = await fetch('/api/generar-borrador-informe', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': 'Bearer ' + session.access_token,
+        },
+        body: JSON.stringify({
+          textoLibre: iaTextoLibre,
+          ot: {
+            id:           ordenDetalle.id,
+            tipo:         ordenDetalle.tipo          ?? undefined,
+            descripcion:  ordenDetalle.descripcion   ?? undefined,
+            activo_nombre: ordenDetalle.activo_nombre ?? undefined,
+            activo_tipo:  ordenDetalle.activo_tipo   ?? undefined,
+          },
+        }),
+      })
+
+      const json = await res.json()
+
+      if (!json.ok) {
+        alert('Error al generar borrador: ' + (json.error ?? 'Error desconocido'))
+        return
+      }
+
+      const b = json.borrador
+
+      // Volcar el borrador en los campos del formulario
+      if (b.estado_encontrado)     setItEstadoEncontrado(b.estado_encontrado)
+      if (b.causa_probable)        setItCausaProbable(b.causa_probable)
+      if (b.causa_detalle)         setItCausaDetalle(b.causa_detalle)
+      if (b.trabajo_realizado)     setItTrabajoRealizado(b.trabajo_realizado)
+      if (b.trabajo_detalle)       setItTrabajoDetalle(b.trabajo_detalle)
+      if (b.activo_operativo !== null) setItActivoOperativo(b.activo_operativo)
+      setItRequiereSeguimiento(!!b.requiere_seguimiento)
+      if (b.seguimiento_detalle)   setItSeguimientoDetalle(b.seguimiento_detalle)
+      if (b.riesgo_tipo)           setItRiesgoTipo(b.riesgo_tipo)
+      setItRiesgoControlado(b.riesgo_controlado ?? true)
+      if (b.observaciones_seguridad) setItObservacionesSeguridad(b.observaciones_seguridad)
+      // tension/corriente vienen como number|null — convertir a string para los inputs
+      setItTensionEntrada(b.tension_entrada != null ? String(b.tension_entrada) : '')
+      setItTensionSalida(b.tension_salida   != null ? String(b.tension_salida)  : '')
+      setItCorriente(b.corriente            != null ? String(b.corriente)        : '')
+      if (b.mediciones_detalle)    setItMedicionesDetalle(b.mediciones_detalle)
+
+      // Mostrar advertencias si las hay
+      if (json.advertencias?.length > 0) {
+        alert('Borrador generado. Revisá estos campos antes de enviar:
+
+• ' + json.advertencias.join('
+• '))
+      }
+
+    } catch (err) {
+      console.error('[generarBorradorIA]', err)
+      alert('Error de conexión al generar el borrador. Intentá de nuevo.')
+    } finally {
+      setLoadingIA(false)
+    }
   }
 
  function resetInforme() {
@@ -756,6 +829,39 @@ export default function DashboardTecnicoElectrico() {
                       <div style={{ fontSize: 11, color: '#b0c4ce', marginTop: 4 }}>El cierre se registrará sin informe técnico estructurado.</div>
                     </div>
                   )}
+
+                  {/* ── Asistente IA ─────────────────────────────────── */}
+                  <div style={{ background: '#071f2e', border: '1px solid #1ABBD655', borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, color: '#1ABBD6', fontWeight: 700, marginBottom: 4 }}>🤖 Asistente IA para informe técnico</div>
+                    <div style={{ fontSize: 11, color: '#4a8fa0', marginBottom: 10 }}>
+                      Describí en tus palabras qué encontraste y qué hiciste. La IA va a completar el formulario como borrador. Vos revisás y corregís antes de enviar.
+                    </div>
+                    <textarea
+                      value={iaTextoLibre}
+                      onChange={e => setIaTextoLibre(e.target.value)}
+                      rows={4}
+                      placeholder="Ej: Llegué al SET 12, la lámpara estaba apagada por fusible quemado. Cambié el fusible 6A y quedó funcionando. Medí 220V de entrada."
+                      style={{ width: '100%', background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#e8f4f8', outline: 'none', resize: 'none', boxSizing: 'border-box', marginBottom: 10 }}
+                    />
+                    <button
+                      onClick={generarBorradorIA}
+                      disabled={loadingIA || iaTextoLibre.trim().length < 10}
+                      style={{
+                        width: '100%',
+                        padding: '10px 0',
+                        borderRadius: 8,
+                        border: 'none',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: loadingIA || iaTextoLibre.trim().length < 10 ? 'not-allowed' : 'pointer',
+                        background: loadingIA || iaTextoLibre.trim().length < 10 ? '#1a3040' : '#1ABBD6',
+                        color: loadingIA || iaTextoLibre.trim().length < 10 ? '#4a8fa0' : '#07131a',
+                      }}
+                    >
+                      {loadingIA ? 'Generando...' : '🤖 Generar borrador'}
+                    </button>
+                  </div>
+                  {/* ── Fin Asistente IA ─────────────────────────────────── */}
 
                   <div style={{ fontSize: 10, color: '#1ABBD6', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 4, fontWeight: 700 }}>Diagnóstico</div>
 
