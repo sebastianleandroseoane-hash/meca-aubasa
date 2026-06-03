@@ -258,10 +258,8 @@ export default function DashboardTecnicoElectrico() {
 
       // Mostrar advertencias si las hay
       if (json.advertencias?.length > 0) {
-        alert('Borrador generado. Revisá estos campos antes de enviar:
-
-• ' + json.advertencias.join('
-• '))
+        const msgs = json.advertencias.join(' | ')
+        alert('Borrador generado con observaciones: ' + msgs)
       }
 
     } catch (err) {
