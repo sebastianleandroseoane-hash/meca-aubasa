@@ -582,7 +582,7 @@ export default function DashboardTecnicoElectrico() {
                   <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Técnicos</div>
                   {ordenDetalle.tecnicos.map((t: any) => (
                     <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, color: '#e8f4f8' }}>{t.profiles?.nombre}</span>
+                      <span style={{ fontSize: 13, color: '#e8f4f8' }}>{t.profiles?.nombre} {t.profiles?.apellido}</span>
                       <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: t.cerro ? '#0F6E56' : '#1a3040', color: t.cerro ? '#9FE1CB' : '#4a8fa0' }}>
                         {t.cerro ? 'Cerró' : 'Pendiente'}
                       </span>
