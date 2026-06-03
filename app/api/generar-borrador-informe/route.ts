@@ -14,10 +14,17 @@ function getServiceClient() {
 
 interface OTInput {
   id: string
+  numero_orden?: number
+  titulo?: string
   tipo?: string
   descripcion?: string
+  prioridad?: string
+  km?: string | number
+  ubicacion?: string
   activo_nombre?: string
   activo_tipo?: string
+  tecnicos?: string[]
+  materiales?: Array<{ nombre: string; cantidad: number; unidad: string }>
 }
 
 interface RequestBody {
@@ -203,13 +210,13 @@ export async function POST(req: NextRequest) {
   }
 
   // 5. Construir el prompt
-  const systemPrompt = `Sos un asistente técnico especializado en mantenimiento eléctrico de autopistas.
-Tu tarea es analizar el relato de un técnico electricista y extraer información estructurada para completar un informe técnico.
+  const systemPrompt = `Sos un asistente técnico especializado en mantenimiento eléctrico de autopistas. Redactás informes técnicos formales para supervisores y jefes de mantenimiento.
 
-IMPORTANTE:
+REGLAS ABSOLUTAS:
 - Devolvé ÚNICAMENTE un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones.
-- Usá exactamente los valores de los enums indicados. Si no podés inferir un campo con certeza, dejalo como null o string vacío según corresponda.
-- No inventes datos que no estén en el texto del técnico.
+- Usá exactamente los valores de los enums indicados. Si no podés inferir un campo, dejalo como string vacío o null.
+- JAMÁS inventes datos. Si un dato no está en el relato ni en el contexto, no lo menciones.
+- No inventes técnicos, materiales, mediciones ni ubicaciones que no figuren explícitamente.
 - Los campos de medición (tension_entrada, tension_salida, corriente) deben ser número o null.
 
 ENUMS VÁLIDOS:
@@ -218,31 +225,42 @@ ENUMS VÁLIDOS:
 - trabajo_realizado: "reemplazo" | "reparacion" | "ajuste" | "limpieza" | "revision" | "otro" | ""
 - riesgo_tipo: "ninguno" | "electrico" | "altura" | "transito" | "terceros" | "mecanico" | "ambiental" | "estructural" | "otro"
 
-ESTRUCTURA JSON A DEVOLVER:
-{
-  "estado_encontrado": string,
-  "causa_probable": string,
-  "causa_detalle": string,
-  "trabajo_realizado": string,
-  "trabajo_detalle": string,
-  "activo_operativo": boolean | null,
-  "requiere_seguimiento": boolean,
-  "seguimiento_detalle": string,
-  "riesgo_tipo": string,
-  "riesgo_controlado": boolean,
-  "observaciones_seguridad": string,
-  "tension_entrada": number | null,
-  "tension_salida": number | null,
-  "corriente": number | null,
-  "mediciones_detalle": string
-}`
+CAMPO trabajo_detalle — INSTRUCCIONES ESPECIALES:
+Este campo debe contener un informe técnico redactado en párrafos completos, formal, claro y apto para supervisor y jefe.
+NO es una frase corta. Es un informe de intervención completo.
+Estructura del informe (incluí solo los bloques para los que tenés datos reales):
+1. Origen: mencionar número de OT si existe, motivo o descripción original de la solicitud.
+2. Activo e inspección: identificación del activo, ubicación (km, sector), condición encontrada al arribo.
+3. Diagnóstico: causa detectada, descripción técnica del problema.
+4. Trabajos realizados: descripción precisa de las tareas ejecutadas.
+5. Materiales utilizados: listar solo los materiales que figuran en el contexto.
+6. Mediciones: solo si existen valores reales.
+7. Participantes: solo los técnicos que figuran en el contexto.
+8. Condición final: estado operativo del activo al cierre de la intervención.
+9. Riesgos y seguridad: solo si hubo riesgo real.
+10. Seguimiento: solo si se requiere intervención futura.
+Tono: técnico, formal, tercera persona, sin abreviaciones informales.`
+
+  const tecnicosStr = ot.tecnicos && ot.tecnicos.length > 0
+    ? ot.tecnicos.join(', ')
+    : null
+
+  const materialesStr = ot.materiales && ot.materiales.length > 0
+    ? ot.materiales.map((m: { nombre: string; cantidad: number; unidad: string }) => m.cantidad + ' ' + m.unidad + ' de ' + m.nombre).join(', ')
+    : null
 
   const contextoOT = [
-    `OT ID: ${ot.id}`,
-    ot.tipo            ? `Tipo de OT: ${ot.tipo}`                 : null,
-    ot.descripcion     ? `Descripción de la OT: ${ot.descripcion}` : null,
-    ot.activo_nombre   ? `Activo intervenido: ${ot.activo_nombre}` : null,
-    ot.activo_tipo     ? `Tipo de activo: ${ot.activo_tipo}`       : null,
+    ot.numero_orden    ? 'Número de OT: OT-' + String(ot.numero_orden).padStart(5, '0') : null,
+    ot.titulo          ? 'Título de la OT: ' + ot.titulo                                 : null,
+    ot.tipo            ? 'Tipo de OT: ' + ot.tipo                                        : null,
+    ot.prioridad       ? 'Prioridad: ' + ot.prioridad                                    : null,
+    ot.descripcion     ? 'Descripción original: ' + ot.descripcion                       : null,
+    ot.activo_nombre   ? 'Activo intervenido: ' + ot.activo_nombre                       : null,
+    ot.activo_tipo     ? 'Tipo de activo: ' + ot.activo_tipo                             : null,
+    ot.km              ? 'Kilómetro: ' + ot.km                                           : null,
+    ot.ubicacion       ? 'Ubicación: ' + ot.ubicacion                                    : null,
+    tecnicosStr        ? 'Técnicos participantes: ' + tecnicosStr                        : null,
+    materialesStr      ? 'Materiales entregados: ' + materialesStr                       : null,
   ].filter(Boolean).join('\n')
 
   const userMessage = `CONTEXTO DE LA ORDEN DE TRABAJO:
@@ -251,7 +269,7 @@ ${contextoOT}
 RELATO DEL TÉCNICO:
 ${textoLibre.trim()}
 
-Generá el JSON del informe técnico basándote en este relato.`
+Generá el JSON del informe técnico. El campo trabajo_detalle debe ser un informe técnico completo en párrafos, no una frase corta.`
 
   // 6. Llamada a la API de Anthropic
   let iaResponse: Response

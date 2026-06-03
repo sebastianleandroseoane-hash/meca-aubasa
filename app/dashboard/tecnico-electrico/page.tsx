@@ -220,11 +220,22 @@ export default function DashboardTecnicoElectrico() {
         body: JSON.stringify({
           textoLibre: iaTextoLibre,
           ot: {
-            id:           ordenDetalle.id,
-            tipo:         ordenDetalle.tipo          ?? undefined,
-            descripcion:  ordenDetalle.descripcion   ?? undefined,
+            id:            ordenDetalle.id,
+            numero_orden:  ordenDetalle.numero_orden  ?? undefined,
+            titulo:        ordenDetalle.titulo        ?? undefined,
+            tipo:          ordenDetalle.tipo          ?? undefined,
+            descripcion:   ordenDetalle.descripcion   ?? undefined,
+            prioridad:     ordenDetalle.prioridad     ?? undefined,
+            km:            ordenDetalle.km            ?? undefined,
+            ubicacion:     ordenDetalle.ubicacion     ?? undefined,
             activo_nombre: ordenDetalle.activo_nombre ?? undefined,
-            activo_tipo:  ordenDetalle.activo_tipo   ?? undefined,
+            activo_tipo:   ordenDetalle.activo_tipo   ?? undefined,
+            tecnicos: ordenDetalle.tecnicos
+              ? ordenDetalle.tecnicos.map((t: any) => (t.profiles?.apellido && t.profiles?.nombre ? t.profiles.apellido + ', ' + t.profiles.nombre : null)).filter(Boolean)
+              : [],
+            materiales: ordenDetalle.materiales
+              ? ordenDetalle.materiales.filter((m: any) => m.estado === 'entregado').map((m: any) => ({ nombre: m.materiales?.nombre ?? '', cantidad: m.cantidad ?? 0, unidad: m.materiales?.unidad ?? '' }))
+              : [],
           },
         }),
       })
