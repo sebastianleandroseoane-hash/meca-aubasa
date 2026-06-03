@@ -89,6 +89,7 @@ const [showTecnicos, setShowTecnicos] = useState(false)
 const [showEditarOT, setShowEditarOT] = useState(false)
 const [formEditar, setFormEditar] = useState<any>(null)
 const [loadingDecision, setLoadingDecision] = useState(false)
+  const [informeDetalle, setInformeDetalle] = useState<any>(null)
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
@@ -164,6 +165,13 @@ const [loadingDecision, setLoadingDecision] = useState(false)
     const { data: mats } = await supabase.from('orden_materiales')
       .select('*, materiales!orden_materiales_material_id_fkey(nombre, unidad)').eq('orden_id', orden.id)
     const { data: peds } = await supabase.from('pedidos_material').select('*').eq('orden_trabajo_id', orden.id)
+    const { data: informe } = await supabase.from('informes_tecnicos')
+      .select('id, requiere_seguimiento, activo_operativo, riesgo_tipo, riesgo_controlado, seguimiento_detalle, estado_informe, version')
+      .eq('orden_id', orden.id)
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    setInformeDetalle(informe ?? null)
     setOrdenDetalle({ ...orden, tecnicos: tecs || [], materiales: mats || [], pedidos: peds || [] })
   }
 async function aprobarCierre(id: string) {
