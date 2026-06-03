@@ -25,6 +25,10 @@ export default function DashboardTecnicoElectrico() {
   const [devMotivo, setDevMotivo] = useState<string>('devolucion')
   const [devNovedad, setDevNovedad] = useState<string>('')
   const [loadingDevolucion, setLoadingDevolucion] = useState(false)
+  const [memoriaActivo, setMemoriaActivo] = useState<any>(null)
+  const [loadingMemoria, setLoadingMemoria] = useState(false)
+  const [showMemoria, setShowMemoria] = useState(false)
+  const [errorMemoria, setErrorMemoria] = useState('')
  
 
   const [recepcionMarcada, setRecepcionMarcada] = useState<Record<string, boolean>>({})
@@ -168,11 +172,25 @@ export default function DashboardTecnicoElectrico() {
 
   async function abrirDetalle(orden: any) {
     const { data: tecnicos } = await supabase.from('orden_tecnicos')
-      .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, rol)').eq('orden_id', orden.id)
+      .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, apellido, rol)').eq('orden_id', orden.id)
     const { data: materiales } = await supabase.from('orden_materiales')
       .select('id, cantidad, cantidad_preparada, estado, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales!orden_materiales_material_id_fkey(nombre, unidad, tipo)').eq('orden_id', orden.id)
     const { data: pedidos } = await supabase.from('pedidos_material').select('*').eq('orden_trabajo_id', orden.id)
     setOrdenDetalle({ ...orden, tecnicos: tecnicos || [], materiales: materiales || [], pedidos: pedidos || [] })
+  }
+
+  async function cargarMemoriaActivo(activo_id: string) {
+    if (loadingMemoria) return
+    setErrorMemoria('')
+    setLoadingMemoria(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setErrorMemoria('Sesion no valida'); setLoadingMemoria(false); return }
+      const res = await fetch('/api/memoria-activo', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token }, body: JSON.stringify({ activo_id }) })
+      const data = await res.json()
+      if (!res.ok) { setErrorMemoria(data?.error || 'Error al cargar el historial'); setMemoriaActivo(null) } else { setMemoriaActivo(data) }
+    } catch (e) { setErrorMemoria('No se pudo cargar el historial del activo'); setMemoriaActivo(null) }
+    setLoadingMemoria(false)
   }
 
   async function iniciarOrden(id: string) {
@@ -428,7 +446,7 @@ export default function DashboardTecnicoElectrico() {
                 <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>OT-{String(ordenDetalle.numero_orden).padStart(5, '0')}</div>
                 <div style={{ fontSize: 15, fontWeight: 600, color: '#e8f4f8' }}>{ordenDetalle.titulo}</div>
               </div>
-              <button onClick={() => { setOrdenDetalle(null); setShowCierre(false); setTrabajosRealizados(''); setMediciones(''); setPendientes('') }}
+              <button onClick={() => { setOrdenDetalle(null); setShowCierre(false); setTrabajosRealizados(''); setMediciones(''); setPendientes(''); setShowMemoria(false); setMemoriaActivo(null); setErrorMemoria('') }}
                 style={{ background: 'none', border: 'none', color: '#4a8fa0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
@@ -467,6 +485,98 @@ export default function DashboardTecnicoElectrico() {
                   <div style={{ fontSize: 13, color: '#e8f4f8', marginTop: 2 }}>{ordenDetalle.descripcion}</div>
                 </div>
               )}
+              {ordenDetalle.activo_id && (
+                <div style={{ marginBottom: 10 }}>
+                  <button
+                    onClick={() => {
+                      if (!showMemoria) {
+                        setShowMemoria(true)
+                        if (!memoriaActivo) cargarMemoriaActivo(ordenDetalle.activo_id)
+                      } else {
+                        setShowMemoria(false)
+                      }
+                    }}
+                    style={{ width: '100%', background: '#07131a', border: '1px solid #1ABBD6', borderRadius: 8, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', marginBottom: showMemoria ? 8 : 0 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#1ABBD6', textTransform: 'uppercase', letterSpacing: 0.5 }}>Historial del activo</span>
+                    <span style={{ fontSize: 11, color: '#4a8fa0' }}>{showMemoria ? '▲ Cerrar' : '▼ Ver historial'}</span>
+                  </button>
+                  {showMemoria && (
+                    <div>
+                      {loadingMemoria && (
+                        <div style={{ fontSize: 12, color: '#4a8fa0', padding: '10px 0', textAlign: 'center' }}>Cargando historial...</div>
+                      )}
+                      {errorMemoria ? (
+                        <div style={{ background: '#2A1A00', border: '1px solid #EF9F2744', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
+                          <div style={{ fontSize: 12, color: '#EF9F27', fontWeight: 600 }}>Error: {errorMemoria}</div>
+                        </div>
+                      ) : memoriaActivo && (
+                        <div>
+                          <div style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
+                            <div style={{ fontSize: 10, color: '#1ABBD6', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Ficha del activo</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{memoriaActivo.ficha.activo_nombre}</div>
+                            <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 2 }}>{memoriaActivo.ficha.activo_tipo}{memoriaActivo.ficha.activo_subtipo ? ' · ' + memoriaActivo.ficha.activo_subtipo : ''} · {memoriaActivo.ficha.activo_estado}</div>
+                            {memoriaActivo.ficha.ramal && <div style={{ fontSize: 11, color: '#4a8fa0' }}>Ramal: {memoriaActivo.ficha.ramal}</div>}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 8 }}>
+                              {[
+                                ['Intervenciones', memoriaActivo.ficha.total_intervenciones],
+                                ['Riesgos activos', memoriaActivo.ficha.riesgos_activos],
+                                ['Obs. abiertas', memoriaActivo.ficha.conocimiento_abierto_count],
+                              ].map(([label, val]) => (
+                                <div key={label as string} style={{ background: '#0c1c24', borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}>
+                                  <div style={{ fontSize: 16, fontWeight: 700, color: '#1ABBD6' }}>{val}</div>
+                                  <div style={{ fontSize: 9, color: '#4a8fa0', marginTop: 2 }}>{label}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          {memoriaActivo.observaciones?.length > 0 && (
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontSize: 10, color: '#EF9F27', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Observaciones abiertas</div>
+                              {memoriaActivo.observaciones.map((obs: any) => (
+                                <div key={obs.id} style={{ background: '#07131a', border: '1px solid #EF9F2744', borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                    <span style={{ fontSize: 11, fontWeight: 600, color: '#EF9F27', textTransform: 'uppercase' }}>{obs.tipo}</span>
+                                    <span style={{ fontSize: 10, color: obs.prioridad === 'alta' ? '#E24B4A' : '#4a8fa0', fontWeight: 600 }}>{obs.prioridad}</span>
+                                  </div>
+                                  <div style={{ fontSize: 12, color: '#e8f4f8', fontWeight: 600 }}>{obs.titulo}</div>
+                                  {obs.descripcion && <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 4 }}>{obs.descripcion}</div>}
+                                  {obs.fotos?.length > 0 && (
+                                    <div style={{ fontSize: 10, color: '#4a8fa0', marginTop: 4 }}>{obs.fotos.length} foto{obs.fotos.length > 1 ? 's' : ''} adjunta{obs.fotos.length > 1 ? 's' : ''}</div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {memoriaActivo.observaciones?.length === 0 && (
+                            <div style={{ fontSize: 11, color: '#4a8fa0', marginBottom: 8, paddingLeft: 4 }}>Sin observaciones abiertas</div>
+                          )}
+                          {memoriaActivo.ultimas_ots?.length > 0 && (
+                            <div>
+                              <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Ultimas intervenciones</div>
+                              {memoriaActivo.ultimas_ots.map((ot: any) => (
+                                <div key={ot.id} style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                    <span style={{ fontSize: 10, color: '#4a8fa0' }}>OT-{String(ot.numero_orden).padStart(5, '0')}</span>
+                                    <span style={{ fontSize: 10, color: '#4a8fa0' }}>{ot.fecha_programada ? new Date(ot.fecha_programada + 'T12:00:00').toLocaleDateString('es-AR') : ''}</span>
+                                  </div>
+                                  <div style={{ fontSize: 12, fontWeight: 600, color: '#e8f4f8' }}>{ot.titulo}</div>
+                                  {ot.trabajos_realizados && (
+                                    <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ot.trabajos_realizados}</div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {memoriaActivo.ultimas_ots?.length === 0 && (
+                            <div style={{ fontSize: 11, color: '#4a8fa0', paddingLeft: 4 }}>Sin intervenciones registradas</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {ordenDetalle.tecnicos?.length > 0 && (
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Técnicos</div>
