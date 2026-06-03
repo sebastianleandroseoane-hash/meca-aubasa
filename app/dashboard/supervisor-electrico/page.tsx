@@ -90,6 +90,9 @@ const [showEditarOT, setShowEditarOT] = useState(false)
 const [formEditar, setFormEditar] = useState<any>(null)
 const [loadingDecision, setLoadingDecision] = useState(false)
   const [informeDetalle, setInformeDetalle] = useState<any>(null)
+  const [showFormOTHija, setShowFormOTHija] = useState(false)
+  const [otHijaCreada, setOtHijaCreada] = useState(false)
+  const [loadingOTHija, setLoadingOTHija] = useState(false)
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
@@ -174,7 +177,40 @@ const [loadingDecision, setLoadingDecision] = useState(false)
     setInformeDetalle(informe ?? null)
     setOrdenDetalle({ ...orden, tecnicos: tecs || [], materiales: mats || [], pedidos: peds || [] })
   }
-async function aprobarCierre(id: string) {
+function necesitaDerivada() {
+    if (!informeDetalle) return false
+    if (informeDetalle.requiere_seguimiento === true) return true
+    if (informeDetalle.activo_operativo === false) return true
+    if (informeDetalle.riesgo_tipo && informeDetalle.riesgo_tipo !== 'ninguno' && informeDetalle.riesgo_controlado === false) return true
+    return false
+  }
+
+  async function crearOTHija() {
+    if (!ordenDetalle || !informeDetalle) return
+    setLoadingOTHija(true)
+    const titulo = `Seguimiento — ${ordenDetalle.activo_id ? (ordenDetalle.titulo || 'Activo') : ordenDetalle.titulo}`
+    const { error } = await supabase.from('ordenes_trabajo').insert({
+      titulo: `Seguimiento — ${ordenDetalle.titulo}`,
+      descripcion: informeDetalle.seguimiento_detalle || `OT derivada de OT-${String(ordenDetalle.numero_orden).padStart(5, '0')}`,
+      sector: ordenDetalle.sector,
+      estado: 'pendiente',
+      prioridad: ordenDetalle.prioridad,
+      tipo: 'correctivo_programado',
+      origen: 'derivada',
+      km: ordenDetalle.km ?? null,
+      ubicacion: ordenDetalle.ubicacion ?? null,
+      activo_id: ordenDetalle.activo_id ?? null,
+      madre_id: ordenDetalle.id,
+      creado_por: perfil.id,
+      turno: perfil.turno,
+      numero_orden: Math.floor(Math.random() * 90000) + 10000,
+    })
+    setLoadingOTHija(false)
+    if (error) { alert('Error al crear OT hija: ' + error.message); return }
+    setOtHijaCreada(true)
+  }
+
+  async function aprobarCierre(id: string) {
     setLoadingDecision(true)
     await supabase.from('ordenes_trabajo').update({
       estado: 'cerrada',
@@ -990,13 +1026,28 @@ async function reasignarTecnicos(id: string) {
                 <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 10 }}>Decisión del supervisor</div>
                 {!showDevolucion ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <button onClick={() => aprobarCierre(ordenDetalle.id)} disabled={loadingDecision}
-                      style={{ background: loadingDecision ? '#1a3040' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    {necesitaDerivada() && !otHijaCreada && (
+                      <div style={{ background: '#2A1A00', border: '1px solid #EF9F2744', borderRadius: 8, padding: '10px 12px', marginBottom: 4 }}>
+                        <div style={{ fontSize: 12, color: '#EF9F27', fontWeight: 700, marginBottom: 4 }}>⚠️ Este informe requiere OT derivada</div>
+                        <div style={{ fontSize: 11, color: '#b0c4ce', marginBottom: 8 }}>
+                          {informeDetalle?.requiere_seguimiento && <div>· Requiere seguimiento: {informeDetalle.seguimiento_detalle || 'sí'}</div>}
+                          {informeDetalle?.activo_operativo === false && <div>· Activo no operativo</div>}
+                          {informeDetalle?.riesgo_tipo !== 'ninguno' && informeDetalle?.riesgo_controlado === false && <div>· Riesgo no controlado: {informeDetalle.riesgo_tipo}</div>}
+                        </div>
+                        <button onClick={crearOTHija} disabled={loadingOTHija}
+                          style={{ width: '100%', background: loadingOTHija ? '#1a3040' : '#EF9F27', border: 'none', borderRadius: 8, color: '#0D0D0D', fontWeight: 700, fontSize: 12, padding: '10px 0', cursor: 'pointer' }}>
+                          {loadingOTHija ? 'Creando...' : '➕ CREAR OT DERIVADA'}
+                        </button>
+                      </div>
+                    )}
+                    {necesitaDerivada() && otHijaCreada && (
+                      <div style={{ background: '#0F2A1F', border: '1px solid #1D9E75', borderRadius: 8, padding: '8px 12px', marginBottom: 4 }}>
+                        <div style={{ fontSize: 12, color: '#1D9E75', fontWeight: 700 }}>✅ OT derivada creada</div>
+                      </div>
+                    )}
+                    <button onClick={() => aprobarCierre(ordenDetalle.id)} disabled={loadingDecision || (necesitaDerivada() && !otHijaCreada)}
+                      style={{ background: loadingDecision || (necesitaDerivada() && !otHijaCreada) ? '#1a3040' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: loadingDecision || (necesitaDerivada() && !otHijaCreada) ? 'default' : 'pointer' }}>
                       ✅ APROBAR CIERRE
-                    </button>
-                    <button onClick={() => derivarOT(ordenDetalle.id)} disabled={loadingDecision}
-                      style={{ background: loadingDecision ? '#1a3040' : '#1A4A6B', border: `1px solid ${C.accent}`, borderRadius: 10, color: C.accent, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
-                      🔀 APROBAR CON DERIVACIÓN
                     </button>
                     <button onClick={() => setShowDevolucion(true)} disabled={loadingDecision}
                       style={{ background: 'none', border: `1px solid ${C.warn}`, borderRadius: 10, color: C.warn, fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
