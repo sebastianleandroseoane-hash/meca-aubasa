@@ -175,6 +175,12 @@ const [loadingDecision, setLoadingDecision] = useState(false)
       .limit(1)
       .maybeSingle()
     setInformeDetalle(informe ?? null)
+    const { data: otHija } = await supabase.from('ordenes_trabajo')
+      .select('id')
+      .eq('madre_id', orden.id)
+      .limit(1)
+      .maybeSingle()
+    setOtHijaCreada(!!otHija)
     setOrdenDetalle({ ...orden, tecnicos: tecs || [], materiales: mats || [], pedidos: peds || [] })
   }
 function necesitaDerivada() {
@@ -203,7 +209,6 @@ function necesitaDerivada() {
       madre_id: ordenDetalle.id,
       creado_por: perfil.id,
       turno: perfil.turno,
-      numero_orden: Math.floor(Math.random() * 90000) + 10000,
     })
     setLoadingOTHija(false)
     if (error) { alert('Error al crear OT hija: ' + error.message); return }
