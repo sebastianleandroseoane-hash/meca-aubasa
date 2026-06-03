@@ -550,26 +550,59 @@ export default function DashboardTecnicoElectrico() {
                           {memoriaActivo.observaciones?.length === 0 && (
                             <div style={{ fontSize: 11, color: '#4a8fa0', marginBottom: 8, paddingLeft: 4 }}>Sin observaciones abiertas</div>
                           )}
-                          {memoriaActivo.ultimas_ots?.length > 0 && (
-                            <div>
-                              <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Ultimas intervenciones</div>
-                              {memoriaActivo.ultimas_ots.map((ot: any) => (
-                                <div key={ot.id} style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                    <span style={{ fontSize: 10, color: '#4a8fa0' }}>OT-{String(ot.numero_orden).padStart(5, '0')}</span>
-                                    <span style={{ fontSize: 10, color: '#4a8fa0' }}>{ot.fecha_programada ? new Date(ot.fecha_programada + 'T12:00:00').toLocaleDateString('es-AR') : ''}</span>
-                                  </div>
-                                  <div style={{ fontSize: 12, fontWeight: 600, color: '#e8f4f8' }}>{ot.titulo}</div>
-                                  {ot.trabajos_realizados && (
-                                    <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ot.trabajos_realizados}</div>
-                                  )}
+                          <div>
+                            <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Intervenciones técnicas</div>
+                            {(!memoriaActivo.intervenciones || memoriaActivo.intervenciones.length === 0) && (
+                              <div style={{ fontSize: 11, color: '#4a8fa0', paddingLeft: 4 }}>Sin intervenciones técnicas registradas.</div>
+                            )}
+                            {(memoriaActivo.intervenciones ?? []).map((inv: any) => (
+                              <div key={inv.informe_id} style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                  <span style={{ fontSize: 10, color: '#4a8fa0' }}>OT-{String(inv.numero_orden).padStart(5, '0')} · {inv.fecha ? new Date(inv.fecha + 'T12:00:00').toLocaleDateString('es-AR') : 'Sin fecha'}</span>
+                                  <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20, background: inv.estado_informe === 'aprobado' ? '#0F6E56' : inv.estado_informe === 'presentado' ? '#1a3040' : inv.estado_informe === 'observado' ? '#3A2A00' : '#1a3040', color: inv.estado_informe === 'aprobado' ? '#9FE1CB' : inv.estado_informe === 'presentado' ? '#1ABBD6' : inv.estado_informe === 'observado' ? '#EF9F27' : '#4a8fa0' }}>
+                                    {inv.estado_informe === 'aprobado' ? 'Aprobado' : inv.estado_informe === 'presentado' ? 'En revisión' : inv.estado_informe === 'observado' ? 'Observado' : inv.estado_informe === 'borrador' ? 'Borrador' : inv.estado_informe}
+                                  </span>
                                 </div>
-                              ))}
-                            </div>
-                          )}
-                          {memoriaActivo.ultimas_ots?.length === 0 && (
-                            <div style={{ fontSize: 11, color: '#4a8fa0', paddingLeft: 4 }}>Sin intervenciones registradas</div>
-                          )}
+                                {inv.tecnico_firmante && (
+                                  <div style={{ fontSize: 11, color: '#4a8fa0', marginBottom: 6 }}>{inv.tecnico_firmante.nombre} {inv.tecnico_firmante.apellido}</div>
+                                )}
+                                {inv.intervencion_resumen?.encontro && (
+                                  <div style={{ marginBottom: 4 }}>
+                                    <span style={{ fontSize: 9, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5 }}>Encontró </span>
+                                    <span style={{ fontSize: 11, color: '#e8f4f8' }}>{inv.intervencion_resumen.encontro}</span>
+                                  </div>
+                                )}
+                                {inv.intervencion_resumen?.hizo && (
+                                  <div style={{ marginBottom: 4 }}>
+                                    <span style={{ fontSize: 9, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5 }}>Hizo </span>
+                                    <span style={{ fontSize: 11, color: '#e8f4f8' }}>{inv.intervencion_resumen.hizo}</span>
+                                  </div>
+                                )}
+                                {inv.intervencion_resumen?.resultado && (
+                                  <div style={{ marginBottom: 6 }}>
+                                    <span style={{ fontSize: 9, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5 }}>Resultado </span>
+                                    <span style={{ fontSize: 11, color: inv.resultado?.activo_operativo === false ? '#E24B4A' : '#1D9E75' }}>{inv.intervencion_resumen.resultado}</span>
+                                  </div>
+                                )}
+                                {inv.materiales?.length > 0 && (
+                                  <div style={{ marginBottom: 6 }}>
+                                    <div style={{ fontSize: 9, color: '#4a8fa0', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Materiales</div>
+                                    {inv.materiales.map((m: any, i: number) => (
+                                      <div key={i} style={{ fontSize: 11, color: '#4a8fa0' }}>· {m.nombre} × {m.cantidad} {m.unidad}</div>
+                                    ))}
+                                  </div>
+                                )}
+                                {inv.observaciones_generadas?.length > 0 && (
+                                  <div>
+                                    <div style={{ fontSize: 9, color: '#EF9F27', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Observaciones generadas</div>
+                                    {inv.observaciones_generadas.map((obs: any) => (
+                                      <div key={obs.id} style={{ fontSize: 11, color: '#EF9F27' }}>· {obs.titulo}</div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
