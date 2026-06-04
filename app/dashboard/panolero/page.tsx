@@ -512,8 +512,72 @@ async function entregarItem(item: any) {
                     <div style={{ fontSize: 9, color: C.warn, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 6, marginTop: 10 }}>🔧 Herramientas</div>
                     {ordenPanolDetalle.orden_materiales.filter((om: any) => om.materiales?.tipo === 'herramienta').map((om: any) => (
                       <div key={om.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.bg, border: `1px solid ${C.warn}44`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
-                        <span style={{ fontSize: 13, color: C.text }}>{om.materiales?.nombre}</span>
-                        <span style={{ fontSize: 11, color: C.warn, fontWeight: 600 }}>×{om.cantidad} {om.materiales?.unidad}</span>
+                        <div>
+                          <span style={{ fontSize: 13, color: C.text }}>{om.materiales?.nombre}</span>
+                          <span style={{ fontSize: 10, color: C.sub, marginLeft: 6 }}>{om.materiales?.tipo}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 11, color: C.warn, fontWeight: 600 }}>×{om.cantidad} {om.materiales?.unidad}</span>
+                          {om.estado === 'devolucion_pendiente'
+                            ? (() => {
+                                const dev = devoluciones.find((d: any) => d.orden_material_id === om.id)
+                                return (
+                                  <div style={{ textAlign: 'right' as const }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#3A2A00', color: C.warn, marginBottom: 4 }}>⏳ Dev. pendiente</div>
+                                    {dev && (
+                                      <div>
+                                        <div style={{ fontSize: 10, color: C.sub }}>Devuelve: {dev.cantidad_devuelta} · {dev.motivo_cierre}</div>
+                                        <div style={{ fontSize: 10, color: C.sub }}>Por: {dev.propuesta_por_perfil?.nombre} {dev.propuesta_por_perfil?.apellido}</div>
+                                        {rechazandoId === dev.id ? (
+                                          <div style={{ marginTop: 4 }}>
+                                            <input placeholder="Motivo *" value={motivoRechazo}
+                                              onChange={e => setMotivoRechazo(e.target.value)}
+                                              style={{ width: '100%', background: C.bg, border: `1px solid ${C.err}`, borderRadius: 6, padding: '4px 8px', fontSize: 11, color: C.text, outline: 'none', boxSizing: 'border-box' as const, marginBottom: 4 }} />
+                                            <div style={{ display: 'flex', gap: 4 }}>
+                                              <button onClick={() => rechazarDevolucion(dev.id)} disabled={loadingDevolucionId === dev.id || !motivoRechazo.trim()}
+                                                style={{ flex: 1, background: C.err, border: 'none', borderRadius: 6, color: 'white', fontWeight: 700, fontSize: 10, padding: '5px 0', cursor: 'pointer' }}>RECHAZAR</button>
+                                              <button onClick={() => { setRechazandoId(null); setMotivoRechazo('') }}
+                                                style={{ flex: 1, background: C.border, border: 'none', borderRadius: 6, color: C.sub, fontWeight: 700, fontSize: 10, padding: '5px 0', cursor: 'pointer' }}>CANCELAR</button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                                            <button onClick={() => confirmarDevolucion(dev.id)} disabled={loadingDevolucionId === dev.id}
+                                              style={{ flex: 1, background: C.ok, border: 'none', borderRadius: 6, color: 'white', fontWeight: 700, fontSize: 10, padding: '5px 0', cursor: 'pointer' }}>✅ CONFIRMAR</button>
+                                            <button onClick={() => { setRechazandoId(dev.id); setMotivoRechazo('') }}
+                                              style={{ flex: 1, background: C.border, border: 'none', borderRadius: 6, color: C.err, fontWeight: 700, fontSize: 10, padding: '5px 0', cursor: 'pointer' }}>❌ RECHAZAR</button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })()
+                            : om.estado === 'cerrado'
+                            ? <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F2A35', color: C.ok }}>✅ Cerrado</span>
+                            : om.estado === 'recibido'
+                            ? <div style={{ textAlign: 'right' as const }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F2A35', color: C.ok, marginBottom: 4 }}>✅ Recibido</div>
+                                <div style={{ fontSize: 10, color: C.sub }}>Entregó: {om.entregado_por_perfil?.nombre} {om.entregado_por_perfil?.apellido}</div>
+                                <div style={{ fontSize: 10, color: C.sub }}>{om.entregado_at ? new Date(om.entregado_at).toLocaleString('es-AR') : ''}</div>
+                                <div style={{ fontSize: 10, color: C.ok, marginTop: 2 }}>Recibió: {om.recibido_por_perfil?.nombre} {om.recibido_por_perfil?.apellido}</div>
+                                <div style={{ fontSize: 10, color: C.sub }}>{om.recibido_at ? new Date(om.recibido_at).toLocaleString('es-AR') : ''}</div>
+                                {om.observacion_tecnico && <div style={{ fontSize: 10, color: C.warn, marginTop: 2 }}>Obs: {om.observacion_tecnico}</div>}
+                              </div>
+                            : om.estado === 'entregado'
+                            ? <div style={{ textAlign: 'right' as const }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#0F3A42', color: C.accent, marginBottom: 4 }}>🔧 Entregado</div>
+                                <div style={{ fontSize: 10, color: C.sub }}>Entregó: {om.entregado_por_perfil?.nombre} {om.entregado_por_perfil?.apellido}</div>
+                                <div style={{ fontSize: 10, color: C.sub }}>{om.entregado_at ? new Date(om.entregado_at).toLocaleString('es-AR') : ''}</div>
+                              </div>
+                            : om.estado === 'solicitado'
+                            ? <button onClick={() => { setItemEntregando({ ...om, material_id: om.material_id }); setCantidadEntrega(om.cantidad); setShowEntregarItem(true) }}
+                                style={{ background: C.warn, border: 'none', borderRadius: 8, color: '#07131a', fontWeight: 700, fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>
+                                ENTREGAR
+                              </button>
+                            : <span style={{ fontSize: 10, color: C.sub }}>Sin estado / revisar</span>
+                          }
+                        </div>
                       </div>
                     ))}
                   </>
