@@ -450,40 +450,42 @@ async function cargarCheckins() {
   }
 
   function badgeColor(estado: string) {
-    if (estado === 'en_curso') return 'bg-[#FAEEDA] text-[#854F0B]'
-    if (estado === 'completada') return 'bg-[#D6F4F8] text-[#0F8FAA]'
-    if (estado === 'cancelada') return 'bg-[#FCEBEB] text-[#A32D2D]'
-    if (estado === 'archivada') return 'bg-[#E8E8E6] text-[#5F5E5A]'
-    return 'bg-[#E8E8E6] text-[#5F5E5A]'
+    if (estado === 'en_curso') return 'bg-[#3A2A00] text-[#EF9F27]'
+    if (estado === 'completada') return 'bg-[#0F2A35] text-[#1ABBD6]'
+    if (estado === 'cerrada') return 'bg-[#0F2A1F] text-[#1D9E75]'
+    if (estado === 'cancelada') return 'bg-[#2A0F0F] text-[#E24B4A]'
+    if (estado === 'derivada') return 'bg-[#1a3040] text-[#4a8fa0]'
+    if (estado === 'cierre_propuesto') return 'bg-[#2A1A00] text-[#EF9F27]'
+    return 'bg-[#1a3040] text-[#4a8fa0]'
   }
 
   if (!perfil) return (
-    <div className="min-h-screen bg-[#F0FAFB] flex items-center justify-center text-[#0F3A42]">
+    <div className="min-h-screen bg-[#07131a] flex items-center justify-center text-[#1ABBD6]">
       Cargando...
     </div>
   )
 
   return (
-    <main className="min-h-screen bg-[#F0FAFB]">
-      <div className="bg-[#0F3A42] px-4 py-3">
+    <main className="min-h-screen bg-[#07131a]">
+      <div className="bg-[#0c1c24] px-4 py-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-[#7ADCE8] text-sm font-bold">←</button>
+          <button onClick={() => router.back()} className="text-[#1ABBD6] text-sm font-bold">←</button>
           <div>
             <div className="text-white font-bold text-lg tracking-wide">Historial</div>
-            <div className="text-[#7ADCE8] text-xs mt-0.5">Órdenes de trabajo</div>
+            <div className="text-[#1ABBD6] text-xs mt-0.5">Órdenes de trabajo</div>
           </div>
         </div>
       </div>
 
       {ordenDetalle && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
-          <div className="bg-white rounded-t-2xl max-h-[95vh] flex flex-col">
-            <div className="flex justify-between items-center px-4 py-3 border-b border-[#D8E2EE]">
+        <div className="fixed inset-0 z-50 bg-black/70 flex flex-col justify-end">
+          <div className="bg-[#0c1c24] rounded-t-2xl max-h-[95vh] flex flex-col">
+            <div className="flex justify-between items-center px-4 py-3 border-b border-[#1a3040]">
               <div>
-                <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase">OT-{String(ordenDetalle.numero_orden).padStart(5, '0')}</div>
-                <div className="text-[#0F3A42] font-bold text-sm">{ordenDetalle.titulo}</div>
+                <div className="text-[#4a8fa0] text-xs font-bold tracking-widest uppercase">OT-{String(ordenDetalle.numero_orden).padStart(5, '0')}</div>
+                <div className="text-[#e8f4f8] font-bold text-sm">{ordenDetalle.titulo}</div>
               </div>
-              <button onClick={() => { setOrdenDetalle(null); setInformeDetalle(null); setAprobadorPerfil(null); setCreadorPerfil(null); setCierrePropuestoPerfil(null); setOtMadre(null); setOtHijas([]) }} className="text-[#7A9EA5] text-xs font-bold">CERRAR</button>
+              <button onClick={() => { setOrdenDetalle(null); setInformeDetalle(null); setAprobadorPerfil(null); setCreadorPerfil(null); setCierrePropuestoPerfil(null); setOtMadre(null); setOtHijas([]) }} className="text-[#4a8fa0] text-xs font-bold">CERRAR</button>
             </div>
             <div className="overflow-y-auto flex-1 p-4">
               <FichaTecnicaOT
@@ -506,39 +508,39 @@ async function cargarCheckins() {
 
         <div className="flex gap-2 mb-3">
           <button onClick={() => setSubvista('ordenes')}
-            className={`flex-1 text-xs font-bold py-2 rounded-lg ${subvista === 'ordenes' ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
+            className={`flex-1 text-xs font-bold py-2 rounded-lg ${subvista === 'ordenes' ? 'bg-[#1ABBD6] text-white' : 'bg-[#0c1c24] border border-[#1a3040] text-[#4a8fa0]'}`}>
             ÓRDENES
           </button>
           <button onClick={() => { setSubvista('checkins'); cargarCheckins() }}
-            className={`flex-1 text-xs font-bold py-2 rounded-lg ${subvista === 'checkins' ? 'bg-[#1ABBD6] text-white' : 'bg-white border border-[#B2E0E8] text-[#7A9EA5]'}`}>
+            className={`flex-1 text-xs font-bold py-2 rounded-lg ${subvista === 'checkins' ? 'bg-[#1ABBD6] text-white' : 'bg-[#0c1c24] border border-[#1a3040] text-[#4a8fa0]'}`}>
             CHECKINS
           </button>
         </div>
 
         {checkinDetalle && (
-          <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end">
-            <div className="bg-white rounded-t-2xl p-4 max-h-[85vh] flex flex-col">
+          <div className="fixed inset-0 z-50 bg-black/70 flex flex-col justify-end">
+            <div className="bg-[#0c1c24] rounded-t-2xl p-4 max-h-[85vh] flex flex-col">
               <div className="flex justify-between items-center mb-3">
                 <div>
-                  <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase">Checkin · Caja {checkinDetalle.caja?.toUpperCase()}</div>
-                  <div className="text-[#0F3A42] font-bold text-sm">{checkinDetalle.profiles?.nombre}</div>
-                  <div className="text-[#7A9EA5] text-xs">{new Date(checkinDetalle.created_at).toLocaleString('es-AR')}</div>
+                  <div className="text-[#4a8fa0] text-xs font-bold tracking-widest uppercase">Checkin · Caja {checkinDetalle.caja?.toUpperCase()}</div>
+                  <div className="text-[#e8f4f8] font-bold text-sm">{checkinDetalle.profiles?.nombre}</div>
+                  <div className="text-[#4a8fa0] text-xs">{new Date(checkinDetalle.created_at).toLocaleString('es-AR')}</div>
                 </div>
-                <button onClick={() => setCheckinDetalle(null)} className="text-[#7A9EA5] text-xs font-bold">CERRAR</button>
+                <button onClick={() => setCheckinDetalle(null)} className="text-[#4a8fa0] text-xs font-bold">CERRAR</button>
               </div>
               <div className="overflow-y-auto flex-1">
                 {checkinDetalle.items?.length === 0 ? (
-                  <div className="text-center text-[#7A9EA5] text-sm py-4">Sin ítems registrados</div>
+                  <div className="text-center text-[#4a8fa0] text-sm py-4">Sin ítems registrados</div>
                 ) : checkinDetalle.items?.map((item: any, idx: number) => (
-                  <div key={idx} className={`rounded-lg p-3 mb-2 border ${item.estado === 'faltante' ? 'bg-[#FFF8F8] border-[#F5C6CB]' : item.estado === 'ok' ? 'bg-[#F0FFF4] border-[#B2E0C8]' : 'bg-[#FFFBF2] border-[#FFE69C]'}`}>
+                  <div key={idx} className={`rounded-lg p-3 mb-2 border ${item.estado === 'faltante' ? 'bg-[#2A0F0F] border-[#E24B4A44]' : item.estado === 'ok' ? 'bg-[#0F2A1F] border-[#1D9E7544]' : 'bg-[#2A1A00] border-[#EF9F2744]'}`}>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.estado === 'faltante' ? 'bg-[#FCEBEB] text-[#A32D2D]' : item.estado === 'ok' ? 'bg-[#D6F4E8] text-[#1A7A4A]' : 'bg-[#FAEEDA] text-[#854F0B]'}`}>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.estado === 'faltante' ? 'bg-[#3A1A1A] text-[#E24B4A]' : item.estado === 'ok' ? 'bg-[#0F2A1F] text-[#1D9E75]' : 'bg-[#3A2A00] text-[#EF9F27]'}`}>
                         {item.estado === 'faltante' ? '❌ FALTANTE' : item.estado === 'ok' ? '✅ OK' : '🔄 REEMPLAZO'}
                       </span>
-                      <span className="text-[#7A9EA5] text-xs">×{item.cantidad}</span>
+                      <span className="text-[#4a8fa0] text-xs">×{item.cantidad}</span>
                     </div>
-                    <div className="text-[#0F3A42] text-sm font-medium">{item.detalle}</div>
-                    {item.observacion && <div className="text-[#7A9EA5] text-xs mt-1">Obs: {item.observacion}</div>}
+                    <div className="text-[#e8f4f8] text-sm font-medium">{item.detalle}</div>
+                    {item.observacion && <div className="text-[#4a8fa0] text-xs mt-1">Obs: {item.observacion}</div>}
                   </div>
                 ))}
               </div>
@@ -549,19 +551,19 @@ async function cargarCheckins() {
         {subvista === 'checkins' && (
           <div>
             {loadingCheckins ? (
-              <div className="text-center text-[#7A9EA5] text-sm py-4">Cargando...</div>
+              <div className="text-center text-[#4a8fa0] text-sm py-4">Cargando...</div>
             ) : checkins.length === 0 ? (
-              <div className="bg-white border border-[#B2E0E8] rounded-xl p-4 text-center text-[#7A9EA5] text-sm">Sin checkins registrados</div>
+              <div className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-4 text-center text-[#4a8fa0] text-sm">Sin checkins registrados</div>
             ) : checkins.map(c => (
               <div key={c.id} onClick={() => abrirCheckinDetalle(c)}
-                className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#F0FAFB]">
+                className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#0a1820]">
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className="text-[#0F3A42] font-bold text-sm">Caja {c.caja?.toUpperCase()}</div>
-                    <div className="text-[#7A9EA5] text-xs">{c.profiles?.nombre}</div>
-                    <div className="text-[#7A9EA5] text-xs">{new Date(c.created_at).toLocaleString('es-AR')}</div>
+                    <div className="text-[#e8f4f8] font-bold text-sm">Caja {c.caja?.toUpperCase()}</div>
+                    <div className="text-[#4a8fa0] text-xs">{c.profiles?.nombre}</div>
+                    <div className="text-[#4a8fa0] text-xs">{new Date(c.created_at).toLocaleString('es-AR')}</div>
                   </div>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.estado === 'con_faltantes' ? 'bg-[#FCEBEB] text-[#A32D2D]' : c.estado === 'completado' ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#E8E8E6] text-[#5F5E5A]'}`}>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.estado === 'con_faltantes' ? 'bg-[#2A0F0F] text-[#E24B4A]' : c.estado === 'completado' ? 'bg-[#0F2A1F] text-[#1D9E75]' : 'bg-[#1a3040] text-[#4a8fa0]'}`}>
                     {c.estado === 'con_faltantes' ? '⚠️ FALTANTE' : c.estado === 'completado' ? '✅ OK' : c.estado}
                   </span>
                 </div>
@@ -573,7 +575,7 @@ async function cargarCheckins() {
         {subvista === 'ordenes' && (
         <>
         <input
-          className="w-full bg-white border border-[#B2E0E8] rounded-xl px-3 py-2 text-sm text-[#0F3A42] mb-2 outline-none"
+          className="w-full bg-[#0c1c24] border border-[#1a3040] rounded-xl px-3 py-2 text-sm text-[#e8f4f8] mb-2 outline-none"
           placeholder="Buscar por título, km, ubicación, nomenclatura..."
           value={filtros.texto}
           onChange={e => setFiltros({ ...filtros, texto: e.target.value })}
@@ -581,7 +583,7 @@ async function cargarCheckins() {
 
         <div className="grid grid-cols-2 gap-2 mb-2">
           <select
-            className="w-full bg-white border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+            className="w-full bg-[#0c1c24] border border-[#1a3040] rounded-lg px-3 py-2 text-sm text-[#e8f4f8] outline-none"
             value={filtros.sector}
             onChange={e => setFiltros({ ...filtros, sector: e.target.value })}
           >
@@ -591,14 +593,17 @@ async function cargarCheckins() {
             <option value="edificio">Edificio</option>
           </select>
           <select
-            className="w-full bg-white border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+            className="w-full bg-[#0c1c24] border border-[#1a3040] rounded-lg px-3 py-2 text-sm text-[#e8f4f8] outline-none"
             value={filtros.estado}
             onChange={e => setFiltros({ ...filtros, estado: e.target.value })}
           >
             <option value="todos">Todos los estados</option>
             <option value="pendiente">Pendiente</option>
             <option value="en_curso">En curso</option>
+            <option value="cierre_propuesto">En revisión</option>
             <option value="completada">Completada</option>
+            <option value="cerrada">Cerrada</option>
+            <option value="derivada">Derivada</option>
             <option value="cancelada">Cancelada</option>
             <option value="archivada">Archivada</option>
           </select>
@@ -607,13 +612,13 @@ async function cargarCheckins() {
         <div className="grid grid-cols-2 gap-2 mb-2">
           <input
             type="date"
-            className="w-full bg-white border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+            className="w-full bg-[#0c1c24] border border-[#1a3040] rounded-lg px-3 py-2 text-sm text-[#e8f4f8] outline-none"
             value={filtros.desde}
             onChange={e => setFiltros({ ...filtros, desde: e.target.value })}
           />
           <input
             type="date"
-            className="w-full bg-white border border-[#B2E0E8] rounded-lg px-3 py-2 text-sm text-[#0F3A42] outline-none"
+            className="w-full bg-[#0c1c24] border border-[#1a3040] rounded-lg px-3 py-2 text-sm text-[#e8f4f8] outline-none"
             value={filtros.hasta}
             onChange={e => setFiltros({ ...filtros, hasta: e.target.value })}
           />
@@ -627,18 +632,18 @@ async function cargarCheckins() {
           {loading ? 'Buscando...' : 'BUSCAR'}
         </button>
 
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">
+        <div className="text-[#4a8fa0] text-xs font-bold tracking-widest uppercase mb-2">
           {ordenes.length} resultado{ordenes.length !== 1 ? 's' : ''}
         </div>
 
         {ordenes.map(o => (
-          <div key={o.id} onClick={() => abrirDetalle(o)} className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#F0FAFB]">
+          <div key={o.id} onClick={() => abrirDetalle(o)} className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 mb-2 cursor-pointer active:bg-[#0a1820]">
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <div className="text-[#7A9EA5] text-xs">OT-{String(o.numero_orden).padStart(5, '0')} · {o.nomenclatura || o.sector}</div>
-                <div className="text-[#0F3A42] font-bold text-sm">{o.titulo}</div>
-                {o.km && <div className="text-[#7A9EA5] text-xs mt-0.5">Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
-                {o.fecha_programada && <div className="text-[#7A9EA5] text-xs">{o.fecha_programada}</div>}
+                <div className="text-[#4a8fa0] text-xs">OT-{String(o.numero_orden).padStart(5, '0')} · {o.nomenclatura || o.sector}</div>
+                <div className="text-[#e8f4f8] font-bold text-sm">{o.titulo}</div>
+                {o.km && <div className="text-[#4a8fa0] text-xs mt-0.5">Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
+                {o.fecha_programada && <div className="text-[#4a8fa0] text-xs">{o.fecha_programada}</div>}
               </div>
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full ml-2 ${badgeColor(o.estado)}`}>
                 {o.estado}
