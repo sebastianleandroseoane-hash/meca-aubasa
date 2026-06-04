@@ -92,6 +92,7 @@ const [loadingDecision, setLoadingDecision] = useState(false)
   const [informeDetalle, setInformeDetalle] = useState<any>(null)
   const [showFormOTHija, setShowFormOTHija] = useState(false)
   const [otHijaCreada, setOtHijaCreada] = useState(false)
+  const [otHijaActiva, setOtHijaActiva] = useState(false)
   const [loadingOTHija, setLoadingOTHija] = useState(false)
   useEffect(() => {
     getPerfil().then(async p => {
@@ -175,12 +176,12 @@ const [loadingDecision, setLoadingDecision] = useState(false)
       .limit(1)
       .maybeSingle()
     setInformeDetalle(informe ?? null)
-    const { data: otHija } = await supabase.from('ordenes_trabajo')
-      .select('id')
+    const { data: hijas } = await supabase.from('ordenes_trabajo')
+      .select('id, estado')
       .eq('madre_id', orden.id)
-      .limit(1)
-      .maybeSingle()
-    setOtHijaCreada(!!otHija)
+    const hijasArr = hijas || []
+    setOtHijaCreada(hijasArr.length > 0)
+    setOtHijaActiva(hijasArr.some((h: any) => ['pendiente', 'en_curso', 'cierre_propuesto', 'devuelta_supervisor'].includes(h.estado)))
     setOrdenDetalle({ ...orden, tecnicos: tecs || [], materiales: mats || [], pedidos: peds || [] })
   }
 function necesitaDerivada() {
@@ -216,6 +217,14 @@ function necesitaDerivada() {
   }
 
   async function aprobarCierre(id: string) {
+    if (necesitaDerivada() && !otHijaActiva) {
+      alert('Este informe requiere una OT derivada activa antes de aprobar el cierre.')
+      return
+    }
+    if (otHijaActiva) {
+      const confirma = window.confirm('Esta OT tiene una derivada activa. ¿Confirmás cerrar la OT madre igualmente?')
+      if (!confirma) return
+    }
     setLoadingDecision(true)
     await supabase.from('ordenes_trabajo').update({
       estado: 'cerrada',
@@ -1031,7 +1040,7 @@ async function reasignarTecnicos(id: string) {
                 <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 10 }}>Decisión del supervisor</div>
                 {!showDevolucion ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {!otHijaCreada && (
+                  {!otHijaCreada && (
                       <div style={{ background: '#2A1A00', border: '1px solid #EF9F2744', borderRadius: 8, padding: '10px 12px', marginBottom: 4 }}>
                         {necesitaDerivada() && (
                           <>
@@ -1049,13 +1058,13 @@ async function reasignarTecnicos(id: string) {
                         </button>
                       </div>
                     )}
-                    {otHijaCreada && (
+                    {otHijaActiva && (
                       <div style={{ background: '#0F2A1F', border: '1px solid #1D9E75', borderRadius: 8, padding: '8px 12px', marginBottom: 4 }}>
-                        <div style={{ fontSize: 12, color: '#1D9E75', fontWeight: 700 }}>✅ OT derivada creada</div>
+                        <div style={{ fontSize: 12, color: '#1D9E75', fontWeight: 700 }}>✅ OT derivada activa</div>
                       </div>
                     )}
-                    <button onClick={() => aprobarCierre(ordenDetalle.id)} disabled={loadingDecision || (necesitaDerivada() && !otHijaCreada)}
-                      style={{ background: loadingDecision || (necesitaDerivada() && !otHijaCreada) ? '#1a3040' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: loadingDecision || (necesitaDerivada() && !otHijaCreada) ? 'default' : 'pointer' }}>
+                    <button onClick={() => aprobarCierre(ordenDetalle.id)} disabled={loadingDecision || (necesitaDerivada() && !otHijaActiva)}
+                      style={{ background: loadingDecision || (necesitaDerivada() && !otHijaActiva) ? '#1a3040' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: loadingDecision || (necesitaDerivada() && !otHijaActiva) ? 'default' : 'pointer' }}>
                       ✅ APROBAR CIERRE
                     </button>
                     <button onClick={() => setShowDevolucion(true)} disabled={loadingDecision}
@@ -1064,11 +1073,10 @@ async function reasignarTecnicos(id: string) {
                     </button>
                   </div>
                 ) : (
-                  <div>
-                    <div style={{ fontSize: 11, color: C.warn, marginBottom: 6 }}>Observación para el técnico *</div>
-                    <textarea
-                      style={{ width: '100%', background: C.bg, border: `1px solid ${C.warn}`, borderRadius: 8, padding: '8px 10px', fontSize: 13, color: C.text, outline: 'none', resize: 'none', boxSizing: 'border-box' as const, marginBottom: 8 }}
-                      rows={3} placeholder="Explicá qué falta o qué debe corregir..." value={obsDevolucion} onChange={e => setObsDevolucion(e.target.value)} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <textarea placeholder="Observación para el técnico..." rows={3}
+                      style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: C.text, outline: 'none', resize: 'none', boxSizing: 'border-box' as const } as any}
+                      value={obsDevolucion} onChange={e => setObsDevolucion(e.target.value)} />
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button onClick={() => { setShowDevolucion(false); setObsDevolucion('') }}
                         style={{ flex: 1, background: 'none', border: `1px solid ${C.border}`, borderRadius: 10, color: C.sub, fontWeight: 700, fontSize: 13, padding: '10px 0', cursor: 'pointer' }}>
