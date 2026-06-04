@@ -45,7 +45,6 @@ export default function CargasCombustible() {
     vehiculo_id: '',
     km: '',
     litros: '',
-    importe: '',
     estacion: '',
     foto: null as File | null,
   })
@@ -107,7 +106,7 @@ export default function CargasCombustible() {
   }
 
   function resetForm() {
-    setForm({ vehiculo_id: '', km: '', litros: '', importe: '', estacion: '', foto: null })
+    setForm({ vehiculo_id: '', km: '', litros: '', estacion: '', foto: null })
     setFotoPreview(null)
     setFormError('')
     setShowForm(false)
@@ -117,7 +116,7 @@ export default function CargasCombustible() {
     if (!form.vehiculo_id) { setFormError('Seleccioná un vehículo'); return }
     if (!form.km || isNaN(Number(form.km))) { setFormError('Ingresá el kilometraje'); return }
     if (!form.litros || isNaN(Number(form.litros))) { setFormError('Ingresá los litros'); return }
-    if (!form.importe || isNaN(Number(form.importe))) { setFormError('Ingresá el importe'); return }
+    
     if (!form.estacion.trim()) { setFormError('Ingresá la estación de servicio'); return }
     if (!form.foto) { setFormError('La foto del ticket es obligatoria'); return }
 
@@ -145,7 +144,6 @@ export default function CargasCombustible() {
         fecha: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }),
         km: parseInt(form.km),
         litros: parseFloat(form.litros),
-        importe: parseFloat(form.importe),
         estacion: form.estacion.trim(),
         foto_url: path,
       })
@@ -230,17 +228,10 @@ export default function CargasCombustible() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-                <div>
-                  <Label text="Importe $ *" />
-                  <input type="number" step="0.01" style={inp} placeholder="15000" value={form.importe}
-                    onChange={e => setForm(f => ({ ...f, importe: e.target.value }))} />
-                </div>
-                <div>
-                  <Label text="Estación de servicio *" />
-                  <input type="text" style={inp} placeholder="YPF Km 38" value={form.estacion}
-                    onChange={e => setForm(f => ({ ...f, estacion: e.target.value }))} />
-                </div>
+              <div style={{ marginBottom: 12 }}>
+                <Label text="Estación de servicio *" />
+                <input type="text" style={inp} placeholder="YPF Km 38" value={form.estacion}
+                  onChange={e => setForm(f => ({ ...f, estacion: e.target.value }))} />
               </div>
 
               <Label text="Foto del ticket *" />
@@ -326,7 +317,6 @@ export default function CargasCombustible() {
               {[
                 { label: 'Km', value: c.km?.toLocaleString('es-AR') },
                 { label: 'Litros', value: c.litros },
-                { label: 'Importe', value: `$${Number(c.importe).toLocaleString('es-AR')}` },
                 { label: 'Estación', value: c.estacion },
               ].map(({ label, value }) => (
                 <div key={label} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '5px 8px' }}>
