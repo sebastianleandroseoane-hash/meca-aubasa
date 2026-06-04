@@ -493,6 +493,7 @@ export default function DashboardTecnicoElectrico() {
     { label: 'Cronograma', sub: `Turno ${perfil.turno}`, key: 'cronograma', path: '/dashboard/cronograma', active: true },
     { label: 'Historial', sub: 'Mis trabajos', key: 'historial', path: '/historial', active: true },
     { label: 'Vehículos', sub: 'Checkin de flota', key: 'vehiculos', path: '/dashboard/checkin/vehiculos', active: true },
+    { label: 'Combustible', sub: 'Cargas de flota', key: 'combustible', path: '/cargas-combustible', active: true },
     { label: 'Calculadora', sub: 'Próximamente', key: 'calculadora', path: '', active: false },
   ]
 
