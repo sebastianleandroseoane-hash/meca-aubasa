@@ -58,6 +58,8 @@ export default function DashboardTecnicoElectrico() {
   // Asistente IA
   const [iaTextoLibre, setIaTextoLibre]   = useState('')
   const [loadingIA, setLoadingIA]         = useState(false)
+  const [escuchandoIA, setEscuchandoIA]   = useState(false)
+  const [soportaVoz, setSoportaVoz]       = useState(false)
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -74,6 +76,13 @@ export default function DashboardTecnicoElectrico() {
     tick()
     const interval = setInterval(tick, 60000)
     return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    setSoportaVoz(
+      typeof window !== 'undefined' &&
+      ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+    )
   }, [])
 
   async function cargarSupervisor(p: any) {
@@ -201,6 +210,24 @@ export default function DashboardTecnicoElectrico() {
     await supabase.from('ordenes_trabajo').update({ estado: 'en_curso', fecha_inicio: new Date().toISOString() }).eq('id', id)
     await cargarOrdenes(perfil.id)
     setOrdenDetalle(null)
+  }
+
+ function iniciarDictadoIA() {
+    if (escuchandoIA) return
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SR) return
+    const rec = new SR()
+    rec.lang = 'es-AR'
+    rec.interimResults = false
+    rec.maxAlternatives = 1
+    rec.onstart = () => setEscuchandoIA(true)
+    rec.onend   = () => setEscuchandoIA(false)
+    rec.onerror = () => setEscuchandoIA(false)
+    rec.onresult = (e: any) => {
+      const texto = e.results[0][0].transcript
+      setIaTextoLibre(prev => (prev.trim() ? prev.trim() + ' ' + texto : texto))
+    }
+    rec.start()
   }
 
  async function generarBorradorIA() {
@@ -852,23 +879,49 @@ export default function DashboardTecnicoElectrico() {
                       placeholder="Ej: Llegué al SET 12, la lámpara estaba apagada por fusible quemado. Cambié el fusible 6A y quedó funcionando. Medí 220V de entrada."
                       style={{ width: '100%', background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#e8f4f8', outline: 'none', resize: 'none', boxSizing: 'border-box', marginBottom: 10 }}
                     />
-                    <button
-                      onClick={generarBorradorIA}
-                      disabled={loadingIA || iaTextoLibre.trim().length < 10}
-                      style={{
-                        width: '100%',
-                        padding: '10px 0',
-                        borderRadius: 8,
-                        border: 'none',
-                        fontWeight: 700,
-                        fontSize: 13,
-                        cursor: loadingIA || iaTextoLibre.trim().length < 10 ? 'not-allowed' : 'pointer',
-                        background: loadingIA || iaTextoLibre.trim().length < 10 ? '#1a3040' : '#1ABBD6',
-                        color: loadingIA || iaTextoLibre.trim().length < 10 ? '#4a8fa0' : '#07131a',
-                      }}
-                    >
-                      {loadingIA ? 'Generando...' : '🤖 Generar borrador'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: soportaVoz ? 0 : 6 }}>
+                      {soportaVoz && (
+                        <button
+                          onClick={iniciarDictadoIA}
+                          disabled={escuchandoIA || loadingIA}
+                          style={{
+                            flex: '0 0 38%',
+                            padding: '10px 0',
+                            borderRadius: 8,
+                            border: escuchandoIA ? '1.5px solid #E24B4A' : '1.5px solid #1a3040',
+                            fontWeight: 700,
+                            fontSize: 13,
+                            cursor: escuchandoIA || loadingIA ? 'not-allowed' : 'pointer',
+                            background: escuchandoIA ? '#2a0a0a' : '#07131a',
+                            color: escuchandoIA ? '#E24B4A' : '#4a8fa0',
+                          }}
+                        >
+                          {escuchandoIA ? '🔴 Escuchando...' : '🎤 Dictar'}
+                        </button>
+                      )}
+                      <button
+                        onClick={generarBorradorIA}
+                        disabled={loadingIA || iaTextoLibre.trim().length < 10}
+                        style={{
+                          flex: 1,
+                          padding: '10px 0',
+                          borderRadius: 8,
+                          border: 'none',
+                          fontWeight: 700,
+                          fontSize: 13,
+                          cursor: loadingIA || iaTextoLibre.trim().length < 10 ? 'not-allowed' : 'pointer',
+                          background: loadingIA || iaTextoLibre.trim().length < 10 ? '#1a3040' : '#1ABBD6',
+                          color: loadingIA || iaTextoLibre.trim().length < 10 ? '#4a8fa0' : '#07131a',
+                        }}
+                      >
+                        {loadingIA ? 'Generando...' : '🤖 Generar borrador'}
+                      </button>
+                    </div>
+                    {!soportaVoz && (
+                      <div style={{ fontSize: 10, color: '#4a8fa0', marginTop: 4 }}>
+                        Dictado por voz disponible en Chrome/Edge.
+                      </div>
+                    )}
                   </div>
                   {/* ── Fin Asistente IA ─────────────────────────────────── */}
 
