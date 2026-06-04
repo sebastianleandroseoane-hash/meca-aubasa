@@ -55,6 +55,7 @@ export default function CheckinPage() {
         .select('id, profiles!checkins_herramientas_tecnico_id_fkey(nombre)')
         .eq('caja', cajaAsignada)
         .eq('fecha', hoy)
+        .eq('turno', perfil.turno)
         .single()
 
       if (data) {
@@ -120,8 +121,8 @@ export default function CheckinPage() {
       .insert({
         tecnico_id: perfil.id,
         caja,
+        turno: perfil.turno,
         fecha: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }),
-
         hora_inicio: horaInicio.toISOString(),
         estado,
         tiene_faltantes: tieneFaltantes,
