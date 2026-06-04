@@ -192,7 +192,7 @@ function necesitaDerivada() {
   }
 
   async function crearOTHija() {
-    if (!ordenDetalle || !informeDetalle) return
+    if (!ordenDetalle) return
     setLoadingOTHija(true)
     const titulo = `Seguimiento — ${ordenDetalle.activo_id ? (ordenDetalle.titulo || 'Activo') : ordenDetalle.titulo}`
     const { error } = await supabase.from('ordenes_trabajo').insert({
@@ -1031,21 +1031,25 @@ async function reasignarTecnicos(id: string) {
                 <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 10 }}>Decisión del supervisor</div>
                 {!showDevolucion ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {necesitaDerivada() && !otHijaCreada && (
+                    {!otHijaCreada && (
                       <div style={{ background: '#2A1A00', border: '1px solid #EF9F2744', borderRadius: 8, padding: '10px 12px', marginBottom: 4 }}>
-                        <div style={{ fontSize: 12, color: '#EF9F27', fontWeight: 700, marginBottom: 4 }}>⚠️ Este informe requiere OT derivada</div>
-                        <div style={{ fontSize: 11, color: '#b0c4ce', marginBottom: 8 }}>
-                          {informeDetalle?.requiere_seguimiento && <div>· Requiere seguimiento: {informeDetalle.seguimiento_detalle || 'sí'}</div>}
-                          {informeDetalle?.activo_operativo === false && <div>· Activo no operativo</div>}
-                          {informeDetalle?.riesgo_tipo !== 'ninguno' && informeDetalle?.riesgo_controlado === false && <div>· Riesgo no controlado: {informeDetalle.riesgo_tipo}</div>}
-                        </div>
+                        {necesitaDerivada() && (
+                          <>
+                            <div style={{ fontSize: 12, color: '#EF9F27', fontWeight: 700, marginBottom: 4 }}>⚠️ Este informe requiere OT derivada</div>
+                            <div style={{ fontSize: 11, color: '#b0c4ce', marginBottom: 8 }}>
+                              {informeDetalle?.requiere_seguimiento && <div>· Requiere seguimiento: {informeDetalle?.seguimiento_detalle || 'sí'}</div>}
+                              {informeDetalle?.activo_operativo === false && <div>· Activo no operativo</div>}
+                              {informeDetalle?.riesgo_tipo !== 'ninguno' && informeDetalle?.riesgo_controlado === false && <div>· Riesgo no controlado: {informeDetalle.riesgo_tipo}</div>}
+                            </div>
+                          </>
+                        )}
                         <button onClick={crearOTHija} disabled={loadingOTHija}
                           style={{ width: '100%', background: loadingOTHija ? '#1a3040' : '#EF9F27', border: 'none', borderRadius: 8, color: '#0D0D0D', fontWeight: 700, fontSize: 12, padding: '10px 0', cursor: 'pointer' }}>
                           {loadingOTHija ? 'Creando...' : '➕ CREAR OT DERIVADA'}
                         </button>
                       </div>
                     )}
-                    {necesitaDerivada() && otHijaCreada && (
+                    {otHijaCreada && (
                       <div style={{ background: '#0F2A1F', border: '1px solid #1D9E75', borderRadius: 8, padding: '8px 12px', marginBottom: 4 }}>
                         <div style={{ fontSize: 12, color: '#1D9E75', fontWeight: 700 }}>✅ OT derivada creada</div>
                       </div>
