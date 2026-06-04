@@ -203,7 +203,7 @@ function necesitaDerivada() {
       estado: 'pendiente',
       prioridad: ordenDetalle.prioridad,
       tipo: 'correctivo_programado',
-      origen: 'derivada',
+      origen: 'supervisor',
       km: ordenDetalle.km ?? null,
       ubicacion: ordenDetalle.ubicacion ?? null,
       activo_id: ordenDetalle.activo_id ?? null,
