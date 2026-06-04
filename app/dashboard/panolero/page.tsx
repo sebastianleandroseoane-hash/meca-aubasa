@@ -334,6 +334,7 @@ async function entregarItem(item: any) {
     { key: 'pedidos', label: 'Pedidos', badge: alertasStock.length, svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'pedidos' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
     { key: 'checkins', label: 'Checkins', badge: checkinsFaltantes.length, svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'checkins' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> },
     { key: 'devoluciones', label: 'Devol.', badge: devoluciones.length, svg: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={vista === 'devoluciones' ? C.accent : C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.96"/></svg> },
+    
   ]
 
   return (
@@ -1167,6 +1168,11 @@ async function entregarItem(item: any) {
             )}
           </div>
         ))}
+        <div onClick={() => router.push('/historial')}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', minWidth: 44 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4a8fa0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 400 }}>Historial</span>
+        </div>
         <div onClick={() => router.push('/dashboard/mapa')}
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', minWidth: 44 }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4a8fa0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
