@@ -305,12 +305,12 @@ export default function CargasCombustible() {
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#2A0F0F', color: C.err, whiteSpace: 'nowrap' as const }}>
                   ANULADA
                 </span>
-              ) : (
+              ) : c.conductor_id === perfil?.id ? (
                 <button onClick={() => anularCarga(c.id)} disabled={anulando === c.id}
                   style={{ background: 'none', border: `1px solid ${C.err}`, borderRadius: 8, color: C.err, fontWeight: 700, fontSize: 11, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' as const }}>
                   {anulando === c.id ? '...' : 'Anular'}
                 </button>
-              )}
+              ) : null}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 6 }}>
