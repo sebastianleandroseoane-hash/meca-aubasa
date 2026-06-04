@@ -329,28 +329,21 @@ export default function Historial() {
     setLoading(true)
     const perfActual = p || perfil
 
-    let query = supabase
-      .from('ordenes_trabajo')
-      .select('*, profiles!ordenes_trabajo_asignado_a_fkey(nombre)')
-      .order('created_at', { ascending: false })
-      .limit(50)
+    const { data, error } = await supabase.rpc('get_historial_ordenes', {
+      p_sector: f.sector !== 'todos' ? f.sector : null,
+      p_estado: f.estado !== 'todos' ? f.estado : null,
+      p_desde: f.desde || null,
+      p_hasta: f.hasta || null,
+      p_texto: f.texto || null
+    })
 
-    if (f.sector !== 'todos') query = query.eq('sector', f.sector)
-    if (f.estado !== 'todos') query = query.eq('estado', f.estado)
-    if (f.desde) query = query.gte('fecha_programada', f.desde)
-    if (f.hasta) query = query.lte('fecha_programada', f.hasta)
-    if (f.texto) query = query.or(`titulo.ilike.%${f.texto}%,ubicacion.ilike.%${f.texto}%,nomenclatura.ilike.%${f.texto}%`)
-
-    // filtro por sector del rol
-    if (perfActual?.rol === 'tecnico_electrico' || perfActual?.rol === 'supervisor_electrico') {
-      query = query.eq('sector', 'electrico')
-    } else if (perfActual?.rol === 'tecnico_ac' || perfActual?.rol === 'supervisor_ac') {
-      query = query.eq('sector', 'ac')
-    } else if (perfActual?.rol === 'tecnico_electrico_edificio') {
-      query = query.eq('sector', 'edificio')
+    if (error) {
+      console.error('Error cargando historial:', error)
+      setOrdenes([])
+      setLoading(false)
+      return
     }
 
-    const { data } = await query
     setOrdenes(data || [])
     setLoading(false)
   }
