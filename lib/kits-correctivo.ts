@@ -22,7 +22,7 @@ export const KITS_CORRECTIVO: KitCorrectivo[] = [
     label: 'Correctivo traza luminarias',
     items: [
       { material_id: '549e40f2-99c8-437f-8040-ea97ce4c0aa0', nombre: 'ARNES DE ALTURA (2 CON LINEA VIDA)', cantidad: 1, unidad: 'unidad', categoria: 'epp' },
-      { material_id: null,                                    nombre: 'CASCO CON VISOR INACTINICO',          cantidad: 1, unidad: 'unidad', categoria: 'epp' },
+      { material_id: 'd7ed0a98-b557-4690-be8e-a02d91184891', nombre: 'CASCO CON VISOR INACTINICO',          cantidad: 1, unidad: 'unidad', categoria: 'epp' },
       { material_id: 'fd15d1a4-3c56-4cb2-8161-37efa3338ead', nombre: 'KIT DE BLOQUEO',                      cantidad: 1, unidad: 'unidad', categoria: 'epp' },
       { material_id: '529173a3-a698-4030-935e-343786725985', nombre: 'DETECTOR DE TENSION A DISTANCIA (MARCA TYRCO)', cantidad: 1, unidad: 'unidad', categoria: 'epp' },
       { material_id: '52c79079-2455-447e-bd27-2f981b0279b0', nombre: 'FUSIBLE J-15',          cantidad: 2, unidad: 'unidad', categoria: 'material' },
@@ -30,7 +30,7 @@ export const KITS_CORRECTIVO: KitCorrectivo[] = [
       { material_id: '15ff8803-6b48-49f5-8973-1140e7238d22', nombre: 'CINTAS AISLADORAS',      cantidad: 2, unidad: 'unidad', categoria: 'material' },
       { material_id: 'd796aa71-1f63-449f-b95e-cd4c907dca0c', nombre: 'CINTAS AUTOSOLDABLE',    cantidad: 2, unidad: 'unidad', categoria: 'material' },
       { material_id: '4e52a81a-7efc-48a0-973f-9eabb776662a', nombre: 'RIEL DIN PARA TABLEROS', cantidad: 1, unidad: 'unidad', categoria: 'material' },
-      { material_id: null,                                    nombre: 'BORNERA',                cantidad: 4, unidad: 'unidad', categoria: 'material' },
+      { material_id: 'f37bdb8f-e935-40df-a16d-cb52b15dab94', nombre: 'BORNERA',                cantidad: 4, unidad: 'unidad', categoria: 'material' },
       { material_id: '3785b1ba-1cf1-4052-b049-2a7f47171976', nombre: 'ATORNILLADORA A BATERIA 12V GSR 120-LI (MARCA BOSCH)',           cantidad: 1, unidad: 'unidad', categoria: 'herramienta' },
       { material_id: '9603e2fd-b684-40ab-8c4e-b740d64f0344', nombre: 'PERTIGA DE MANIOBRA SM-15AB-H (MARCA LIAT) HOMOLOGADA 2022',    cantidad: 1, unidad: 'unidad', categoria: 'herramienta' },
       { material_id: '5e99430c-87fa-47a5-8f35-6e474cf9a3fa', nombre: 'PERTIGA EXTRACTOR DE RUTO FUSIBLE (MARCA LIAT) HOMOLOGADA 2022', cantidad: 1, unidad: 'unidad', categoria: 'herramienta' },
