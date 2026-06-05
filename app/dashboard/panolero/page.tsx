@@ -82,7 +82,7 @@ export default function DashboardPanolero() {
     return () => clearInterval(iv)
   }, [])
 
-  const ORDEN_PANOL_SELECT = '*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales(id, nombre, unidad, tipo, stock_actual), entregado_por_perfil:profiles!orden_materiales_entregado_por_fkey(nombre, apellido), recibido_por_perfil:profiles!orden_materiales_recibido_por_fkey(nombre, apellido)), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)'
+  const ORDEN_PANOL_SELECT = '*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales(id, nombre, unidad, tipo, stock_actual), entregado_por_perfil:profiles!orden_materiales_entregado_por_fkey(nombre, apellido), recibido_por_perfil:profiles!orden_materiales_recibido_por_fkey(nombre, apellido)), pedidos_material(id, material_nombre, cantidad, categoria_solicitada, observaciones, estado, no_catalogado), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)'
 
   async function cargarTodo() {
     const { data: mats } = await supabase.from('materiales').select('*').order('nombre', { ascending: true })
@@ -583,6 +583,25 @@ async function entregarItem(item: any) {
                     ))}
                   </>
                 )}
+              </>
+            )}
+
+            {/* No catalogados / requieren gestión */}
+            {(ordenPanolDetalle.pedidos_material || []).filter((pm: any) => pm.no_catalogado).length > 0 && (
+              <>
+                <div style={{ fontSize: 9, color: C.warn, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 6, marginTop: 14 }}>⚠️ No catalogados / requieren gestión</div>
+                {(ordenPanolDetalle.pedidos_material || []).filter((pm: any) => pm.no_catalogado).map((pm: any) => (
+                  <div key={pm.id} style={{ background: C.bg, border: `1px solid ${C.warn}55`, borderRadius: 8, padding: '8px 10px', marginBottom: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: C.warn }}>{pm.material_nombre}</span>
+                        <span style={{ fontSize: 10, color: C.sub, marginLeft: 6 }}>{pm.categoria_solicitada}</span>
+                      </div>
+                      <span style={{ fontSize: 11, color: C.warn, fontWeight: 600 }}>×{pm.cantidad}</span>
+                    </div>
+                    {pm.observaciones && <div style={{ fontSize: 10, color: C.sub, marginTop: 4 }}>{pm.observaciones}</div>}
+                  </div>
+                ))}
               </>
             )}
           </div>
