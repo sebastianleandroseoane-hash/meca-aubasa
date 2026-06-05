@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 import AvatarUpload from '@/app/components/AvatarUpload'
+import { getKitBySubtipo } from '@/lib/kits-correctivo'
 
 function SolicitudItem({ s, onResolver }: { s: any, onResolver: (id: string, decision: 'autorizada' | 'rechazada', obs: string) => void }) {
   const [obs, setObs] = useState('')
@@ -68,6 +69,7 @@ export default function DashboardSupervisorElectrico() {
   const [subtipoCorrectivo, setSubtipoCorrectivo] = useState<string>('')
   const [subtipoOtroTexto, setSubtipoOtroTexto] = useState<string>('')
   const [tipoActivoOtroTexto, setTipoActivoOtroTexto] = useState<string>('')
+  const [kitSugerido, setKitSugerido] = useState<ReturnType<typeof getKitBySubtipo>>(null)
 
   const [nomenclaturas, setNomenclaturas] = useState<any[]>([])
   const [busquedaOrden, setBusquedaOrden] = useState('')
@@ -616,6 +618,7 @@ async function reasignarTecnicos(id: string) {
                     setSubtipoCorrectivo(v)
                     setSubtipoOtroTexto('')
                     setForm(prev => ({ ...prev, subtipo_correctivo: v === 'otros' ? '' : v }))
+                    setKitSugerido(v && v !== 'otros' ? getKitBySubtipo(v) : null)
                   }}>
                   <option value="">— Seleccioná tipo de correctivo —</option>
                   <option value="traza_luminarias">Correctivo traza luminarias</option>
@@ -636,7 +639,37 @@ async function reasignarTecnicos(id: string) {
               </div>
             )}
 
+            {kitSugerido && (
+              <div style={{ background: '#071f2e', border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 12px', marginBottom: 12 }}>
+                <div style={{ fontSize: 9, color: C.accent, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8 }}>
+                  Kit sugerido · {kitSugerido.label}
+                </div>
+                {(['epp', 'material', 'herramienta'] as const).map(cat => {
+                  const items = kitSugerido.items.filter(i => i.categoria === cat)
+                  if (items.length === 0) return null
+                  const catLabel = cat === 'epp' ? '🦺 EPP' : cat === 'material' ? '📦 Materiales' : '🔧 Herramientas'
+                  return (
+                    <div key={cat} style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 9, color: C.sub, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>{catLabel}</div>
+                      {items.map((item, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < items.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: 12, color: item.material_id ? C.text : C.warn }}>{item.nombre}</span>
+                            {!item.material_id && (
+                              <span style={{ fontSize: 9, color: C.warn, fontWeight: 700, marginLeft: 6, background: '#3A2A00', padding: '1px 5px', borderRadius: 4 }}>NO CATALOGADO</span>
+                            )}
+                          </div>
+                          <span style={{ fontSize: 11, color: C.sub, marginLeft: 8 }}>{item.cantidad} {item.unidad}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
             <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Descripción</div>
+
             <textarea style={{ ...input, marginBottom: 12, resize: 'none' } as any} rows={2}
               placeholder="Detalle de la tarea" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} />
 
