@@ -460,11 +460,43 @@ async function reasignarTecnicos(id: string) {
     }).select().single()
     if (!error && nuevaOrden) {
       await supabase.from('orden_tecnicos').insert(tecnicosSeleccionados.map(tid => ({ orden_id: nuevaOrden.id, tecnico_id: tid, cerro: false })))
+
+      // Items del formulario (seleccionados manualmente por el supervisor)
       for (const m of materialesOrden) {
         if (m.stock >= m.cantidad) {
           await supabase.from('orden_materiales').insert({ orden_id: nuevaOrden.id, material_id: m.id, cantidad: m.cantidad, estado: 'solicitado' })
         } else {
-          await supabase.from('pedidos_material').insert({ orden_trabajo_id: nuevaOrden.id, solicitado_por: perfil.id, material_nombre: m.nombre, cantidad: m.cantidad, estado: 'pendiente' })
+          await supabase.from('pedidos_material').insert({ orden_trabajo_id: nuevaOrden.id, solicitado_por: perfil.id, material_nombre: m.nombre, cantidad: m.cantidad, estado: 'pendiente', no_catalogado: false })
+        }
+      }
+
+      // Items del kit sugerido — se omite cualquier item que el supervisor ya cargó manualmente
+      if (kitSugerido) {
+        const idsYaCargados = new Set(materialesOrden.map(m => m.id))
+        const nombresYaCargados = new Set(materialesOrden.map(m => m.nombre.toLowerCase().trim()))
+
+        for (const item of kitSugerido.items) {
+          if (item.material_id) {
+            if (idsYaCargados.has(item.material_id)) continue
+            await supabase.from('orden_materiales').insert({
+              orden_id: nuevaOrden.id,
+              material_id: item.material_id,
+              cantidad: item.cantidad,
+              estado: 'solicitado',
+            })
+          } else {
+            if (nombresYaCargados.has(item.nombre.toLowerCase().trim())) continue
+            await supabase.from('pedidos_material').insert({
+              orden_trabajo_id: nuevaOrden.id,
+              solicitado_por: perfil.id,
+              material_nombre: item.nombre,
+              cantidad: item.cantidad,
+              estado: 'pendiente',
+              no_catalogado: true,
+              categoria_solicitada: item.categoria,
+              observaciones: `Kit ${kitSugerido.label} — subtipo: ${form.subtipo_correctivo}`,
+            })
+          }
         }
       }
       setLoading(false)
