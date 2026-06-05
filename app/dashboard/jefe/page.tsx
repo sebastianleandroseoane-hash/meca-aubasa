@@ -7,13 +7,17 @@ import { supabase, getPerfil } from '@/lib/supabase'
 export default function DashboardJefe() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<any>(null)
-  const [stats, setStats] = useState({ operativas: 0, con_falla: 0, tecnicos: 0 })
-  const [alertas, setAlertas] = useState<any[]>([])
-  const [informes, setInformes] = useState<any[]>([])
+  const [kpis, setKpis] = useState({ activas: 0, cierres_pendientes: 0, criticas: 0, tecnicos: 0 })
   const [pedidos, setPedidos] = useState<any[]>([])
   const [obsMap, setObsMap] = useState<Record<string, string>>({})
   const [loadingResp, setLoadingResp] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [ordenes, setOrdenes] = useState<any[]>([])
+  const [filtroSector, setFiltroSector] = useState('todos')
+  const [ordenDetalle, setOrdenDetalle] = useState<any>(null)
+  const [detalleTecnicos, setDetalleTecnicos] = useState<any[]>([])
+  const [loadingDetalle, setLoadingDetalle] = useState(false)
+  const [verMasOTs, setVerMasOTs] = useState(false)
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -26,36 +30,20 @@ export default function DashboardJefe() {
   }, [])
 
   async function cargarDatos() {
-    const hoy = new Date().toISOString().split('T')[0]
-
-    const { data: ordenes } = await supabase.from('ordenes_trabajo').select('estado')
-    const operativas = (ordenes || []).filter((o: any) => o.estado === 'pendiente' || o.estado === 'en_curso').length
-    const con_falla = (ordenes || []).filter((o: any) => o.estado === 'pendiente').length
-
-    const { data: tecnicos } = await supabase
-      .from('profiles').select('id')
-      .in('rol', ['tecnico_electrico', 'tecnico_ac', 'tecnico_electrico_edificio'])
-      .eq('activo', true)
-    setStats({ operativas, con_falla, tecnicos: (tecnicos || []).length })
-
-    const { data: alertasData } = await supabase
-      .from('alertas').select('*')
-      .in('estado', ['activa', 'en_atencion'])
-      .order('created_at', { ascending: false }).limit(5)
-    setAlertas(alertasData || [])
-
-    const { data: informesData } = await supabase
-      .from('informes_turno')
-      .select('*, supervisor:supervisor_id(nombre, apellido)')
-      .eq('fecha', hoy).order('turno', { ascending: true })
-    setInformes(informesData || [])
-
-    const { data: pedsData } = await supabase
-      .from('pedidos_jefe')
-      .select('*, pedidos_jefe_items(*), profiles!pedidos_jefe_panolero_id_fkey(nombre, apellido)')
-      .eq('estado', 'pendiente')
-      .order('created_at', { ascending: true })
-    setPedidos(pedsData || [])
+    const [{ data: ords }, { data: tecs }, { data: peds }] = await Promise.all([
+      supabase.from('ordenes_trabajo').select('id, numero_orden, titulo, estado, tipo, sector, created_at').order('created_at', { ascending: false }),
+      supabase.from('profiles').select('id').in('rol', ['tecnico_electrico', 'tecnico_ac']).eq('activo', true),
+      supabase.from('pedidos_jefe').select('*, pedidos_jefe_items(*), profiles!pedidos_jefe_panolero_id_fkey(nombre, apellido)').eq('estado', 'pendiente').order('created_at', { ascending: true }),
+    ])
+    const ordenes = ords || []
+    setOrdenes(ordenes)
+    setKpis({
+      activas: ordenes.filter((o: any) => ['pendiente', 'en_curso'].includes(o.estado)).length,
+      cierres_pendientes: ordenes.filter((o: any) => o.estado === 'cierre_propuesto').length,
+      criticas: ordenes.filter((o: any) => ['Correctivo Crítico', 'Emergencia'].includes(o.tipo) && ['pendiente', 'en_curso'].includes(o.estado)).length,
+      tecnicos: (tecs || []).length,
+    })
+    setPedidos(peds || [])
   }
 
   async function responderPedido(id: string, accion: 'aprobado' | 'rechazado') {
@@ -68,23 +56,25 @@ export default function DashboardJefe() {
     setPedidos(prev => prev.filter(p => p.id !== id))
     setLoadingResp(null)
   }
-
+async function abrirDetalle(orden: any) {
+    setOrdenDetalle(orden)
+    setDetalleTecnicos([])
+    setLoadingDetalle(true)
+    const { data } = await supabase.from('orden_tecnicos')
+      .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, apellido, rol)')
+      .eq('orden_id', orden.id)
+    setDetalleTecnicos(data || [])
+    setLoadingDetalle(false)
+  }
   if (!perfil || loading) return (
-    <div className="min-h-screen bg-[#F0FAFB] flex items-center justify-center text-[#0F3A42]">Cargando...</div>
+    <div className="min-h-screen bg-[#07131a] flex items-center justify-center text-[#7ab3c8]">Cargando...</div>
   )
 
-  const turnosNombre: Record<string, string> = {
-    '1': 'Turno mañana 07–15', '2': 'Turno tarde 14–22', '3': 'Turno noche 22–06',
-  }
-  const prioridadColor: Record<string, string> = {
-    critica: 'bg-[#FCEBEB] border-[#F09595] text-[#A32D2D]',
-    urgente: 'bg-[#FAEEDA] border-[#E8C97A] text-[#854F0B]',
-    normal: 'bg-[#F0FAFB] border-[#B2E0E8] text-[#0F3A42]',
-  }
+  
 
   return (
-    <main className="min-h-screen bg-[#F0FAFB]">
-      <div className="bg-[#0F3A42] px-4 py-3">
+    <main className="min-h-screen bg-[#07131a]">
+      <div className="bg-[#0c1c24] border-b border-[#1a3040] px-4 py-3">
         <div className="flex justify-between items-center">
           <div>
             <div className="text-white font-bold text-lg tracking-wide">Jefe de Sector</div>
@@ -97,11 +87,11 @@ export default function DashboardJefe() {
       <div className="px-4 pt-3 pb-28">
 
         {/* PEDIDOS DEL PAÑOLERO */}
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">
+        <div className="text-[#7ab3c8] text-xs font-bold tracking-widest uppercase mb-2">
           Pedidos del pañolero {pedidos.length > 0 && <span className="text-[#E24B4A]">· {pedidos.length} pendiente{pedidos.length > 1 ? 's' : ''}</span>}
         </div>
         {pedidos.length === 0 ? (
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-4 text-center text-[#7A9EA5] text-xs">Sin pedidos pendientes</div>
+          <div className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 mb-4 text-center text-[#7ab3c8] text-xs">Sin pedidos pendientes</div>
         ) : (
           pedidos.map((p: any) => (
             <div key={p.id} className="bg-white border border-[#B2E0E8] rounded-xl mb-3 overflow-hidden">
@@ -162,83 +152,145 @@ export default function DashboardJefe() {
           ))
         )}
 
-        {/* ACCESO RÁPIDO */}
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Acceso rápido por rol</div>
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <button onClick={() => router.push('/dashboard/supervisor-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-            <div className="text-[#1ABBD6] font-bold text-sm">Supervisor Elec.</div>
-            <div className="text-[#7A9EA5] text-xs mt-0.5">Turno eléctrico</div>
-          </button>
-          <button onClick={() => router.push('/dashboard/supervisor-aire-acondicionado')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-            <div className="text-[#1ABBD6] font-bold text-sm">Supervisor AC</div>
-            <div className="text-[#7A9EA5] text-xs mt-0.5">Turno AC</div>
-          </button>
-          <button onClick={() => router.push('/dashboard/tecnico-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-            <div className="text-[#1ABBD6] font-bold text-sm">Técnico Elec.</div>
-            <div className="text-[#7A9EA5] text-xs mt-0.5">Campo eléctrico</div>
-          </button>
-          <button onClick={() => router.push('/dashboard/tecnico-aire-acondicionado')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-            <div className="text-[#1ABBD6] font-bold text-sm">Técnico AC</div>
-            <div className="text-[#7A9EA5] text-xs mt-0.5">Campo AC</div>
-          </button>
-          <button onClick={() => router.push('/dashboard/panolero')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-            <div className="text-[#1ABBD6] font-bold text-sm">Pañolero</div>
-            <div className="text-[#7A9EA5] text-xs mt-0.5">Stock</div>
-          </button>
-          <button onClick={() => router.push('/dashboard/tallerista-electrico')} className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-left">
-            <div className="text-[#1ABBD6] font-bold text-sm">Tallerista Elec.</div>
-            <div className="text-[#7A9EA5] text-xs mt-0.5">Taller eléctrico</div>
-          </button>
+        
+{/* OTs OPERATIVAS */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[#7ab3c8] text-xs font-bold tracking-widest uppercase">Órdenes operativas</div>
+          <div className="text-[#7ab3c8] text-xs">{ordenes.filter((o: any) => ['pendiente','en_curso','cierre_propuesto','rebotada','devuelta_supervisor'].includes(o.estado) && (filtroSector === 'todos' || o.sector === filtroSector)).length} activas</div>
+        </div>
+        <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+          {['todos','electrico','ac','edificio'].map(s => (
+            <button key={s} onClick={() => setFiltroSector(s)}
+              className={`text-xs font-bold px-3 py-1 rounded-full border whitespace-nowrap ${filtroSector === s ? 'bg-[#1ABBD6] text-white border-[#1ABBD6]' : 'bg-[#0c1c24] text-[#7ab3c8] border-[#1a3040]'}`}>
+              {s === 'todos' ? 'Todos' : s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
+        <div className="mb-4">
+          {(() => {
+            const ESTADOS_OPERATIVOS = ['pendiente','en_curso','cierre_propuesto','rebotada','devuelta_supervisor']
+            const filtradas = ordenes.filter((o: any) =>
+              ESTADOS_OPERATIVOS.includes(o.estado) &&
+              (filtroSector === 'todos' || o.sector === filtroSector)
+            )
+            const visibles = verMasOTs ? filtradas : filtradas.slice(0, 5)
+            return (<>
+              {visibles.map((o: any) => {
+              const estadoColor: Record<string,string> = {
+                pendiente: 'text-[#E8A020]',
+                en_curso: 'text-[#1ABBD6]',
+                cierre_propuesto: 'text-[#a78bfa]',
+                cerrada: 'text-[#4ade80]',
+                derivada: 'text-[#7ab3c8]',
+                rebotada: 'text-[#E24B4A]',
+              }
+              const sectorColor: Record<string,string> = {
+                electrico: 'bg-[#0B3060] text-[#7ab3c8]',
+                ac: 'bg-[#063030] text-[#4ade80]',
+                edificio: 'bg-[#2d1b00] text-[#E8A020]',
+              }
+              return (
+                <div key={o.id} onClick={() => abrirDetalle(o)}
+                  className="bg-[#0c1c24] border border-[#1a3040] rounded-xl px-4 py-3 mb-2 cursor-pointer active:opacity-70">
+                  <div className="flex justify-between items-center mb-1">
+                    <div className="text-[#e8f4f8] font-bold text-xs">OT-{String(o.numero_orden).padStart(4,'0')}</div>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${sectorColor[o.sector] || 'bg-[#1a3040] text-[#7ab3c8]'}`}>
+                      {o.sector || '—'}
+                    </span>
+                  </div>
+                  <div className="text-[#e8f4f8] text-xs mb-2 leading-snug">{o.titulo}</div>
+                  <div className="flex justify-between items-center">
+                    <div className={`text-xs font-bold ${estadoColor[o.estado] || 'text-[#7ab3c8]'}`}>
+                      {o.estado?.replace(/_/g,' ')}
+                    </div>
+                    <div className="text-[#7ab3c8] text-xs">{o.tipo || '—'}</div>
+                  </div>
+                  <div className="text-[#7ab3c8] text-xs mt-1">{new Date(o.created_at).toLocaleDateString('es-AR')}</div>
+                </div>
+              )
+            })}
+            {filtradas.length === 0 && (
+              <div className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 text-center text-[#7ab3c8] text-xs">Sin órdenes operativas</div>
+            )}
+            {filtradas.length > 5 && (
+              <button onClick={() => setVerMasOTs(v => !v)}
+                className="w-full text-xs text-[#7ab3c8] border border-[#1a3040] rounded-xl py-2 bg-[#0c1c24]">
+                {verMasOTs ? 'Ver menos' : `Ver más (${filtradas.length - 5} más)`}
+              </button>
+            )}
+          </>)
+          })()}
         </div>
 
-        {/* ESTADO GENERAL */}
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Estado general</div>
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">
-            <div className="text-[#1ABBD6] font-bold text-xl">{stats.operativas}</div>
-            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Órdenes activas</div>
-          </div>
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">
-            <div className="text-[#E24B4A] font-bold text-xl">{alertas.length}</div>
-            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Alertas</div>
-          </div>
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center">
-            <div className="text-[#3B6D11] font-bold text-xl">{stats.tecnicos}</div>
-            <div className="text-[#7A9EA5] text-xs uppercase tracking-wide mt-0.5">Técnicos</div>
-          </div>
-        </div>
 
-        {/* ALERTAS */}
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2">Alertas activas</div>
-        {alertas.length === 0 ? (
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 mb-3 text-center text-[#7A9EA5] text-xs">Sin alertas activas</div>
-        ) : alertas.map(a => (
-          <div key={a.id} className={`border rounded-xl px-3 py-2 flex gap-2 items-start mb-2 ${prioridadColor[a.prioridad] || prioridadColor.normal}`}>
-            <div className="w-2 h-2 rounded-full bg-current mt-1 shrink-0"></div>
-            <div className="text-xs leading-relaxed">
-              <span className="font-bold">{a.ubicacion || `Km ${a.km}`}</span> · {a.descripcion}
-            </div>
-          </div>
-        ))}
-
-        {/* INFORMES */}
-        <div className="text-[#7A9EA5] text-xs font-bold tracking-widest uppercase mb-2 mt-1">Informes de turno · hoy</div>
-        {informes.length === 0 ? (
-          <div className="bg-white border border-[#B2E0E8] rounded-xl p-3 text-center text-[#7A9EA5] text-xs">Sin informes cargados hoy</div>
-        ) : informes.map((inf, i) => (
-          <div key={inf.id} className={`bg-white border border-[#B2E0E8] rounded-xl p-3 ${i === informes.length - 1 ? '' : 'mb-2'} flex justify-between items-center`}>
-            <div>
-              <div className="text-[#0F3A42] font-bold text-sm">{turnosNombre[inf.turno] || `Turno ${inf.turno}`}</div>
-              <div className="text-[#7A9EA5] text-xs">
-                {inf.supervisor?.nombre} · {inf.tareas_realizadas} tareas
-                {inf.observaciones ? ' · con obs.' : ' · sin obs.'}
+        {/* MODAL DETALLE OT */}
+        {ordenDetalle && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
+            onClick={() => setOrdenDetalle(null)}>
+            <div className="bg-[#0c1c24] border border-[#1a3040] rounded-t-2xl w-full max-w-lg p-5 pb-8 max-h-[80vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <div className="text-[#e8f4f8] font-bold text-sm">OT-{String(ordenDetalle.numero_orden).padStart(4,'0')}</div>
+                <button onClick={() => setOrdenDetalle(null)} className="text-[#7ab3c8] text-xs px-3 py-1 border border-[#1a3040] rounded-lg">✕ Cerrar</button>
+              </div>
+              <div className="text-[#e8f4f8] font-bold text-base mb-4 leading-snug">{ordenDetalle.titulo}</div>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                  <div className="text-[#7ab3c8] text-xs mb-0.5">Sector</div>
+                  <div className="text-[#e8f4f8] text-xs font-bold">{ordenDetalle.sector || '—'}</div>
+                </div>
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                  <div className="text-[#7ab3c8] text-xs mb-0.5">Estado</div>
+                  <div className="text-[#e8f4f8] text-xs font-bold">{ordenDetalle.estado?.replace(/_/g,' ')}</div>
+                </div>
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                  <div className="text-[#7ab3c8] text-xs mb-0.5">Tipo</div>
+                  <div className="text-[#e8f4f8] text-xs font-bold">{ordenDetalle.tipo || '—'}</div>
+                </div>
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                  <div className="text-[#7ab3c8] text-xs mb-0.5">Fecha</div>
+                  <div className="text-[#e8f4f8] text-xs font-bold">{new Date(ordenDetalle.created_at).toLocaleDateString('es-AR')}</div>
+                </div>
+              </div>
+              <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-3">
+                <div className="text-[#7ab3c8] text-xs font-bold mb-2">Técnicos asignados</div>
+                {loadingDetalle
+                  ? <div className="text-[#7ab3c8] text-xs">Cargando...</div>
+                  : detalleTecnicos.length === 0
+                    ? <div className="text-[#7ab3c8] text-xs">Sin técnicos asignados</div>
+                    : detalleTecnicos.map((t: any, i: number) => (
+                      <div key={i} className="text-[#e8f4f8] text-xs py-1 border-b border-[#1a3040] last:border-0">
+                        {t.profiles?.apellido}, {t.profiles?.nombre}
+                        <span className="text-[#7ab3c8] ml-2">{t.profiles?.rol?.replace(/_/g,' ')}</span>
+                      </div>
+                    ))
+                }
               </div>
             </div>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${inf.leido_por_jefe ? 'bg-[#D6F4F8] text-[#0F8FAA]' : 'bg-[#FAEEDA] text-[#854F0B]'}`}>
-              {inf.leido_por_jefe ? 'Leído' : 'Sin leer'}
-            </span>
           </div>
-        ))}
+        )}
+        {/* KPIs GLOBALES */}
+        <div className="text-[#7ab3c8] text-xs font-bold tracking-widest uppercase mb-2">Estado global</div>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <div className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 text-center">
+            <div className="text-[#1ABBD6] font-bold text-2xl">{kpis.activas}</div>
+            <div className="text-[#7ab3c8] text-xs uppercase tracking-wide mt-0.5">OTs activas</div>
+          </div>
+          <div className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 text-center">
+            <div className="text-[#E8A020] font-bold text-2xl">{kpis.cierres_pendientes}</div>
+            <div className="text-[#7ab3c8] text-xs uppercase tracking-wide mt-0.5">Cierres pendientes</div>
+          </div>
+          <div className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 text-center">
+            <div className={`font-bold text-2xl ${kpis.criticas > 0 ? 'text-[#E24B4A]' : 'text-[#7ab3c8]'}`}>{kpis.criticas}</div>
+            <div className="text-[#7ab3c8] text-xs uppercase tracking-wide mt-0.5">Críticas / Emergencias</div>
+          </div>
+          <div className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 text-center">
+            <div className="text-[#4ade80] font-bold text-2xl">{kpis.tecnicos}</div>
+            <div className="text-[#7ab3c8] text-xs uppercase tracking-wide mt-0.5">Técnicos activos</div>
+          </div>
+        </div>
+
+        
       </div>
 
       {/* NAVBAR */}

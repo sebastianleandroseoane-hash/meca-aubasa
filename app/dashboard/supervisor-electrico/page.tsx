@@ -60,11 +60,14 @@ export default function DashboardSupervisorElectrico() {
     nomenclatura: '', fecha_programada: new Date().toISOString().split('T')[0],
     balizamiento_desde: '', balizamiento_hasta: '',
     balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '',
-    activo_id: ''
+    activo_id: '', subtipo_correctivo: ''
   })
   const [activos, setActivos] = useState<any[]>([])
   const [tipoActivoSeleccionado, setTipoActivoSeleccionado] = useState<string>('')
   const [activoSeleccionado, setActivoSeleccionado] = useState<any>(null)
+  const [subtipoCorrectivo, setSubtipoCorrectivo] = useState<string>('')
+  const [subtipoOtroTexto, setSubtipoOtroTexto] = useState<string>('')
+  const [tipoActivoOtroTexto, setTipoActivoOtroTexto] = useState<string>('')
 
   const [nomenclaturas, setNomenclaturas] = useState<any[]>([])
   const [busquedaOrden, setBusquedaOrden] = useState('')
@@ -442,7 +445,7 @@ async function reasignarTecnicos(id: string) {
     if (errs.length > 0) return
     setLoading(true)
     const { data: nuevaOrden, error } = await supabase.from('ordenes_trabajo').insert({
-      titulo: form.titulo, descripcion: form.descripcion, sector: 'electrico', estado: 'pendiente',
+      titulo: form.titulo, descripcion: form.descripcion, sector: 'electrico', estado: 'pendiente', subtipo_correctivo: form.subtipo_correctivo || null,
       prioridad: form.prioridad, tipo: form.tipo, origen: form.origen, nomenclatura: form.nomenclatura || null,
       balizamiento_desde: form.balizamiento_desde ? parseFloat(form.balizamiento_desde) : null,
       balizamiento_hasta: form.balizamiento_hasta ? parseFloat(form.balizamiento_hasta) : null,
@@ -466,10 +469,14 @@ async function reasignarTecnicos(id: string) {
       setShowForm(false)
       setTecnicosSeleccionados([])
       setMaterialesOrden([])
-      setForm({ titulo: '', descripcion: '', km: '', ubicacion: '', prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor', nomenclatura: '', fecha_programada: new Date().toISOString().split('T')[0], balizamiento_desde: '', balizamiento_hasta: '', balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '', activo_id: '' })
+      setForm({ titulo: '', descripcion: '', km: '', ubicacion: '', prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor', nomenclatura: '', fecha_programada: new Date().toISOString().split('T')[0], balizamiento_desde: '', balizamiento_hasta: '', balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '', activo_id: '', subtipo_correctivo: '' })
       setActivoSeleccionado(null)
       setTipoActivoSeleccionado('')
+      setSubtipoCorrectivo('')
+      setSubtipoOtroTexto('')
+      setTipoActivoOtroTexto('')
       await cargarDatos(perfil.turno)
+
     } else { setLoading(false) }
   }
 
@@ -599,45 +606,33 @@ async function reasignarTecnicos(id: string) {
               </div>
             </div>
 
-            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Activo / Nomenclatura *</div>
-            <select style={{ ...sel, marginBottom: 8 }}
-              value={tipoActivoSeleccionado}
-              onChange={e => { setTipoActivoSeleccionado(e.target.value); setActivoSeleccionado(null); setForm(prev => ({ ...prev, activo_id: '', nomenclatura: '' })) }}>
-              <option value="">Tipo de activo</option>
-              <option value="TS">TS — Tablero Seccional</option>
-              <option value="TG">TG — Tablero General Ruta 36</option>
-              <option value="TRG">TRG — Tablero Ramal Gutiérrez</option>
-              <option value="SET">SET — Subestación</option>
-              <option value="PLAZA_PEAJE">Plaza de Peaje</option>
-              <option value="BAJO_PUENTE">Bajo Puente</option>
-            </select>
-            {tipoActivoSeleccionado && (
-              <select style={errores.includes('nomenclatura') ? { ...selErr, marginBottom: 12 } : { ...sel, marginBottom: 12 }}
-                value={form.activo_id}
-                onChange={e => {
-                  const a = activos.find(x => x.id === e.target.value)
-                  if (!a || a.estado === 'fuera_servicio') return
-                  setActivoSeleccionado(a)
-                  setForm(prev => ({ ...prev, activo_id: a.id, nomenclatura: `${a.codigo} - ${a.nombre}` }))
-                }}>
-                <option value="">Seleccioná activo</option>
-                {activos
-                  .filter(a => a.tipo === tipoActivoSeleccionado)
-                  .sort((a, b) => a.nombre.localeCompare(b.nombre, undefined, { numeric: true }))
-                  .map(a => {
-                    const fueraServicio = a.estado === 'fuera_servicio'
-                    const reemplazadoPor = fueraServicio && a.reemplazado_por_id ? activos.find(x => x.id === a.reemplazado_por_id) : null
-                    return (
-                      <option key={a.id} value={a.id} disabled={fueraServicio}>
-                        {a.nombre}{fueraServicio ? ` — fuera de servicio${reemplazadoPor ? ` — usar ${reemplazadoPor.codigo}` : ''}` : ''}
-                      </option>
-                    )
-                  })}
-              </select>
-            )}
-            {activoSeleccionado && (
-              <div style={{ fontSize: 10, color: C.accent, marginBottom: 8, marginTop: -8 }}>
-                ✓ {activoSeleccionado.tipo} · {activoSeleccionado.ramal}{activoSeleccionado.sentido_operativo ? ` · ${activoSeleccionado.sentido_operativo}` : ''}
+            {['correctivo_programado', 'correctivo_critico', 'emergencia'].includes(form.tipo) && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Tipo de correctivo</div>
+                <select style={{ ...sel, marginBottom: subtipoCorrectivo === 'otros' ? 8 : 0 }}
+                  value={subtipoCorrectivo}
+                  onChange={e => {
+                    const v = e.target.value
+                    setSubtipoCorrectivo(v)
+                    setSubtipoOtroTexto('')
+                    setForm(prev => ({ ...prev, subtipo_correctivo: v === 'otros' ? '' : v }))
+                  }}>
+                  <option value="">— Seleccioná tipo de correctivo —</option>
+                  <option value="traza_luminarias">Correctivo traza luminarias</option>
+                  <option value="empalmes_380">Correctivo empalmes 380 V</option>
+                  <option value="empalmes_1kv">Correctivo empalmes 1 kV</option>
+                  <option value="otros">Otros</option>
+                </select>
+                {subtipoCorrectivo === 'otros' && (
+                  <input style={{ ...input, marginBottom: 0 }}
+                    placeholder="Describí el tipo de correctivo..."
+                    value={subtipoOtroTexto}
+                    onChange={e => {
+                      setSubtipoOtroTexto(e.target.value)
+                      setForm(prev => ({ ...prev, subtipo_correctivo: e.target.value }))
+                    }}
+                  />
+                )}
               </div>
             )}
 
@@ -671,8 +666,20 @@ async function reasignarTecnicos(id: string) {
               <option value="SET">SET — Subestación</option>
               <option value="PLAZA_PEAJE">Plaza de Peaje</option>
               <option value="BAJO_PUENTE">Bajo Puente</option>
+              <option value="OTROS">Otros</option>
             </select>
-            {tipoActivoSeleccionado && (
+            {tipoActivoSeleccionado === 'OTROS' && (
+              <input style={{ ...input, marginBottom: 8 }}
+                placeholder="Describí el activo (cámara, semáforo, barrera, etc.)"
+                value={tipoActivoOtroTexto}
+                onChange={e => {
+                  setTipoActivoOtroTexto(e.target.value)
+                  setActivoSeleccionado(null)
+                  setForm(prev => ({ ...prev, activo_id: '', nomenclatura: e.target.value }))
+                }}
+              />
+            )}
+            {tipoActivoSeleccionado && tipoActivoSeleccionado !== 'OTROS' && (
               <select style={errores.includes('nomenclatura') ? { ...selErr, marginBottom: 12 } : { ...sel, marginBottom: 12 }}
                 value={form.activo_id}
                 onChange={e => {

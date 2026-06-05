@@ -82,7 +82,7 @@ function FichaTecnicaOT({ ordenDetalle, informeDetalle, tecnicos, materiales, hi
         🖨️ Imprimir ficha técnica
       </button>
 
-      <div className="ficha-meca" style={{ background: '#FFFFFF', color: '#0F172A', maxWidth: 1100, margin: '0 auto', borderRadius: 16, overflow: 'hidden', boxShadow: '0 12px 48px rgba(2,12,27,.18)', fontFamily: 'Arial, sans-serif' }}>
+      <div className="ficha-meca" style={{ background: '#FFFFFF', color: '#0F172A', minWidth: 700, maxWidth: 1100, margin: '0 auto', borderRadius: 16, boxShadow: '0 12px 48px rgba(2,12,27,.18)', fontFamily: 'Arial, sans-serif' }}>
 
         <div style={{ padding: '24px 32px', background: 'linear-gradient(135deg, #061B33 0%, #0B2A4A 70%, #083A5A 100%)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '4px solid #26C6F9' }}>
           <div>
@@ -480,7 +480,7 @@ async function cargarCheckins() {
               </div>
               <button onClick={() => { setOrdenDetalle(null); setInformeDetalle(null); setAprobadorPerfil(null); setCreadorPerfil(null); setCierrePropuestoPerfil(null); setOtMadre(null); setOtHijas([]) }} className="text-[#4a8fa0] text-xs font-bold">CERRAR</button>
             </div>
-            <div className="overflow-y-auto flex-1 p-4">
+            <div className="overflow-y-auto overflow-x-auto flex-1 p-4">
               <FichaTecnicaOT
                 ordenDetalle={ordenDetalle}
                 informeDetalle={informeDetalle}

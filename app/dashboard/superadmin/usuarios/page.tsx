@@ -230,7 +230,7 @@ export default function PageUsuarios() {
               <div>
                 <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Rol *</div>
                 <select style={inp} value={form.rol} onChange={e => setForm({ ...form, rol: e.target.value })}>
-                  {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  {ROLES.filter(r => !(r.value === 'superadmin' && perfil?.rol === 'jefe')).map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
               </div>
               <div>
@@ -276,7 +276,7 @@ export default function PageUsuarios() {
         <input style={{ ...inp, flex: 1 }} placeholder="Buscar por nombre, email, legajo..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
         <select style={{ ...inp, width: 'auto' }} value={filtroRol} onChange={e => setFiltroRol(e.target.value)}>
           <option value="todos">Todos los roles</option>
-          {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+          {ROLES.filter(r => !(r.value === 'superadmin' && perfil?.rol === 'jefe')).map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
         </select>
       </div>
 
