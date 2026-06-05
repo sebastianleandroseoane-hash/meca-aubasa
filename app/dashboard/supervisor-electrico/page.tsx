@@ -713,13 +713,13 @@ async function reasignarTecnicos(id: string) {
               />
             )}
             {tipoActivoSeleccionado && tipoActivoSeleccionado !== 'OTROS' && (
-              <select style={errores.includes('nomenclatura') ? { ...selErr, marginBottom: 12 } : { ...sel, marginBottom: 12 }}
+              <select style={{ ...sel, marginBottom: 8 }}
                 value={form.activo_id}
                 onChange={e => {
                   const a = activos.find(x => x.id === e.target.value)
                   if (!a || a.estado === 'fuera_servicio') return
                   setActivoSeleccionado(a)
-                  setForm(prev => ({ ...prev, activo_id: a.id, nomenclatura: `${a.codigo} - ${a.nombre}` }))
+                  setForm(prev => ({ ...prev, activo_id: a.id }))
                 }}>
                 <option value="">Seleccioná activo</option>
                 {activos
@@ -742,6 +742,15 @@ async function reasignarTecnicos(id: string) {
               </div>
             )}
 
+            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Tipo de intervención *</div>
+            <select style={errores.includes('nomenclatura') ? { ...selErr, marginBottom: 12 } : { ...sel, marginBottom: 12 }}
+              value={form.nomenclatura}
+              onChange={e => setForm(prev => ({ ...prev, nomenclatura: e.target.value }))}>
+              <option value="">Seleccioná tipo de intervención</option>
+              {nomenclaturas.map(n => (
+                <option key={n.id} value={n.codigo}>{n.codigo} · {n.descripcion}</option>
+              ))}
+            </select>
 
             <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Ubicación (referencia libre)</div>
             <input style={{ ...input, marginBottom: 12 }} placeholder="Ej: Shoulder externo" value={form.ubicacion} onChange={e => setForm({ ...form, ubicacion: e.target.value })} />
