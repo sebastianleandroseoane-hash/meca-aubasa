@@ -41,6 +41,90 @@ export default function DashboardPanolero() {
   const [pedidoBusqueda, setPedidoBusqueda] = useState('')
   const [busquedaResultados, setBusquedaResultados] = useState<any[]>([])
   const [solicitudes, setSolicitudes] = useState<any[]>([])
+  const [resolviendoNoCatalogado, setResolviendoNoCatalogado] = useState<any>(null)
+  const [formNuevoMaterial, setFormNuevoMaterial] = useState({ unidad: '', tipo: 'material' })
+  const [loadingResolver, setLoadingResolver] = useState(false)
+
+  async function resolverNoCatalogado() {
+    if (!resolviendoNoCatalogado || !formNuevoMaterial.unidad.trim()) return
+    setLoadingResolver(true)
+    const pm = resolviendoNoCatalogado
+
+    // 1. Verificar si ya existe en catálogo (case-insensitive)
+    const { data: existente } = await supabase
+      .from('materiales')
+      .select('id, nombre')
+      .ilike('nombre', pm.material_nombre.trim())
+      .maybeSingle()
+
+    let materialId: string
+
+    if (existente) {
+      materialId = existente.id
+    } else {
+      // Crear material en catálogo
+    const categoriaMaterial = ['electrico', 'ac', 'general'].includes(ordenPanolDetalle?.sector)
+      ? ordenPanolDetalle.sector
+      : 'electrico'
+    const { data: nuevoMat, error: errorMat } = await supabase.from('materiales').insert({
+      nombre: pm.material_nombre,
+      unidad: formNuevoMaterial.unidad.trim(),
+      tipo: formNuevoMaterial.tipo,
+      categoria: categoriaMaterial,
+      stock_actual: 0,
+      stock_minimo: 0,
+      codigo: null,
+      ubicacion_panol: null,
+    }).select().single()
+
+    if (errorMat || !nuevoMat) {
+        alert(`Error al crear el material: ${errorMat?.message || 'sin respuesta'}`)
+        setLoadingResolver(false)
+        return
+      }
+      materialId = nuevoMat.id
+    }
+
+    // 2. Vincular a la OT
+    const { error: errorOM } = await supabase.from('orden_materiales').insert({
+      orden_id: ordenPanolDetalle.id,
+      material_id: materialId,
+      cantidad: pm.cantidad,
+      estado: 'solicitado',
+    })
+
+    if (errorOM) {
+      alert(`Error al vincular a la OT: ${errorOM.message}`)
+      setLoadingResolver(false)
+      return
+    }
+
+    // 4. Marcar pedido_material como resuelto
+    const { error: errorPM } = await supabase.from('pedidos_material').update({
+      estado: 'entregado',
+      cerrado_at: new Date().toISOString(),
+      no_catalogado: false,
+    }).eq('id', pm.id)
+
+    if (errorPM) {
+      alert(`Material vinculado pero error al marcar resuelto: ${errorPM.message}`)
+    }
+
+    // 5. Refrescar detalle de OT
+    const { data: ordenFresca } = await supabase
+      .from('ordenes_trabajo')
+      .select(ORDEN_PANOL_SELECT)
+      .eq('id', ordenPanolDetalle.id)
+      .single()
+    if (ordenFresca) setOrdenPanolDetalle(ordenFresca)
+
+    // 6. Refrescar listas generales
+    await cargarTodo()
+
+    setResolviendoNoCatalogado(null)
+    setFormNuevoMaterial({ unidad: '', tipo: 'material' })
+    setLoadingResolver(false)
+  }
   const [ordenesPanol, setOrdenesPanol] = useState<any[]>([])
   const [ordenPanolDetalle, setOrdenPanolDetalle] = useState<any>(null)
   const [editandoId, setEditandoId] = useState<string | null>(null)
@@ -600,9 +684,48 @@ async function entregarItem(item: any) {
                       <span style={{ fontSize: 11, color: C.warn, fontWeight: 600 }}>×{pm.cantidad}</span>
                     </div>
                     {pm.observaciones && <div style={{ fontSize: 10, color: C.sub, marginTop: 4 }}>{pm.observaciones}</div>}
+                    <button onClick={() => { setResolviendoNoCatalogado(pm); setFormNuevoMaterial({ unidad: '', tipo: 'material' }) }}
+                      style={{ marginTop: 8, background: C.accent, border: 'none', borderRadius: 6, color: 'white', fontWeight: 700, fontSize: 10, padding: '4px 10px', cursor: 'pointer' }}>
+                      + CREAR Y VINCULAR
+                    </button>
                   </div>
                 ))}
               </>
+            )}
+
+            {/* Modal resolver no catalogado */}
+            {resolviendoNoCatalogado && (
+              <div style={{ position: 'fixed', inset: 0, background: '#000000aa', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20, width: '100%', maxWidth: 360 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Crear y vincular a OT</div>
+                  <div style={{ fontSize: 12, color: C.warn, marginBottom: 14 }}>{resolviendoNoCatalogado.material_nombre}</div>
+
+                  <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Tipo</div>
+                  <select value={formNuevoMaterial.tipo}
+                    onChange={e => setFormNuevoMaterial(p => ({ ...p, tipo: e.target.value }))}
+                    style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', fontSize: 12, color: C.text, marginBottom: 10, outline: 'none' }}>
+                    <option value="material">Material</option>
+                    <option value="insumo">Insumo / Repuesto</option>
+                  </select>
+
+                  <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Unidad *</div>
+                  <input placeholder="unidad, kg, m..."
+                    value={formNuevoMaterial.unidad}
+                    onChange={e => setFormNuevoMaterial(p => ({ ...p, unidad: e.target.value }))}
+                    style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', fontSize: 12, color: C.text, marginBottom: 14, outline: 'none', boxSizing: 'border-box' as const }} />
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => { setResolviendoNoCatalogado(null); setFormNuevoMaterial({ unidad: '', tipo: 'material' }) }}
+                      style={{ flex: 1, background: C.border, border: 'none', borderRadius: 8, color: C.sub, fontWeight: 700, fontSize: 12, padding: '10px 0', cursor: 'pointer' }}>
+                      CANCELAR
+                    </button>
+                    <button onClick={resolverNoCatalogado} disabled={!formNuevoMaterial.unidad.trim() || loadingResolver}
+                      style={{ flex: 1, background: !formNuevoMaterial.unidad.trim() || loadingResolver ? C.border : C.accent, border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 12, padding: '10px 0', cursor: 'pointer' }}>
+                      {loadingResolver ? 'GUARDANDO...' : 'CONFIRMAR'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </>,
