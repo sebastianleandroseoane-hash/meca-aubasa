@@ -19,12 +19,22 @@ export default function DashboardJefe() {
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [verMasOTs, setVerMasOTs] = useState(false)
 
+  // OT Supra
+  const [supras, setSupras] = useState<any[]>([])
+  const [supervisoresDisponibles, setSupervisoresDisponibles] = useState<any[]>([])
+  const [showFormSupra, setShowFormSupra] = useState(false)
+  const [loadingSupra, setLoadingSupra] = useState(false)
+  const [msgSupra, setMsgSupra] = useState<{ ok: boolean; text: string } | null>(null)
+  const SECTORES_SUPRA = ['electrico', 'ac', 'edificios', 'peaje', 'general']
+  const emptyFormSupra = { titulo: '', descripcion: '', tipo: 'correctiva', prioridad: 'normal', plazo_estimado: '', sectores: [] as string[], supervisores: [] as string[] }
+  const [formSupra, setFormSupra] = useState(emptyFormSupra)
+
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
       if (p.rol !== 'jefe' && p.rol !== 'delegado' && p.rol !== 'superadmin') { router.push('/'); return }
       setPerfil(p)
-      await cargarDatos()
+      await Promise.all([cargarDatos(), cargarSupras(), cargarSupervisores()])
       setLoading(false)
     })
   }, [])
@@ -66,6 +76,60 @@ async function abrirDetalle(orden: any) {
     setDetalleTecnicos(data || [])
     setLoadingDetalle(false)
   }
+  async function cargarSupras() {
+    const { data } = await supabase
+      .from('ots_supra')
+      .select(`
+        id, numero_supra, titulo, tipo, prioridad, estado, plazo_estimado, created_at,
+        ots_supra_sectores(sector),
+        ots_supra_supervisores(supervisor_id, profiles!ots_supra_supervisores_supervisor_id_fkey(nombre, apellido))
+      `)
+      .order('created_at', { ascending: false })
+    setSupras(data || [])
+  }
+
+  async function cargarSupervisores() {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, nombre, apellido, rol')
+      .in('rol', ['supervisor_electrico', 'supervisor_ac', 'supervisor_edificios'])
+      .eq('activo', true)
+      .order('apellido', { ascending: true })
+    setSupervisoresDisponibles(data || [])
+  }
+
+  async function crearSupra() {
+    if (!['jefe','superadmin'].includes(perfil.rol)) return
+    if (!formSupra.titulo.trim()) { setMsgSupra({ ok: false, text: 'El título es obligatorio' }); return }
+    if (formSupra.sectores.length === 0) { setMsgSupra({ ok: false, text: 'Seleccioná al menos un sector' }); return }
+    if (formSupra.supervisores.length === 0) { setMsgSupra({ ok: false, text: 'Seleccioná al menos un supervisor' }); return }
+    setLoadingSupra(true)
+    setMsgSupra(null)
+    try {
+      const { error } = await supabase.rpc('crear_ot_supra', {
+        p_titulo: formSupra.titulo.trim(),
+        p_descripcion: formSupra.descripcion.trim() || null,
+        p_tipo: formSupra.tipo,
+        p_prioridad: formSupra.prioridad,
+        p_plazo_estimado: formSupra.plazo_estimado || null,
+        p_creado_por: perfil.id,
+        p_sectores: formSupra.sectores,
+        p_supervisores: formSupra.supervisores,
+      })
+      if (error) throw error
+      setMsgSupra({ ok: true, text: 'OT Supra creada correctamente' })
+      setFormSupra(emptyFormSupra)
+      await cargarSupras()
+    } catch (e: any) {
+      setMsgSupra({ ok: false, text: e.message || 'Error al crear la OT Supra' })
+    }
+    setLoadingSupra(false)
+  }
+
+  function toggleItem(lista: string[], valor: string): string[] {
+    return lista.includes(valor) ? lista.filter(x => x !== valor) : [...lista, valor]
+  }
+
   if (!perfil || loading) return (
     <div className="min-h-screen bg-[#07131a] flex items-center justify-center text-[#7ab3c8]">Cargando...</div>
   )
@@ -153,6 +217,61 @@ async function abrirDetalle(orden: any) {
         )}
 
         
+{/* OTs SUPRA */}
+        <div className="flex items-center justify-between mb-2 mt-2">
+          <div className="text-[#7ab3c8] text-xs font-bold tracking-widest uppercase">
+            OTs Supra {supras.filter(s => s.estado === 'pendiente_planificacion').length > 0 && (
+              <span className="text-[#E8A020]">· {supras.filter(s => s.estado === 'pendiente_planificacion').length} sin planificar</span>
+            )}
+          </div>
+          {['jefe','superadmin'].includes(perfil.rol) && (
+            <button onClick={() => { setShowFormSupra(true); setMsgSupra(null) }}
+              style={{ background: '#1ABBD6', border: 'none', borderRadius: 8, color: 'white', fontWeight: 700, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>
+              + NUEVA SUPRA
+            </button>
+          )}
+        </div>
+        {supras.length === 0 ? (
+          <div className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 mb-4 text-center text-[#7ab3c8] text-xs">Sin OTs Supra creadas</div>
+        ) : (
+          <div className="mb-4">
+            {supras.map((s: any) => {
+              const estadoColor: Record<string,string> = {
+                pendiente_planificacion: 'text-[#E8A020]',
+                en_ejecucion: 'text-[#1ABBD6]',
+                completada: 'text-[#4ade80]',
+                cancelada: 'text-[#7ab3c8]',
+                cierre_forzado: 'text-[#E24B4A]',
+              }
+              const prioridadColor: Record<string,string> = {
+                critica: 'bg-[#3a0f0f] text-[#E24B4A]',
+                alta: 'bg-[#2d1b00] text-[#E8A020]',
+                normal: 'bg-[#0c1c24] text-[#7ab3c8]',
+                baja: 'bg-[#0c1c24] text-[#4a8fa0]',
+              }
+              const sectores = (s.ots_supra_sectores || []).map((x: any) => x.sector).join(', ')
+              const supervisores = (s.ots_supra_supervisores || []).map((x: any) => `${x.profiles?.apellido}`).join(', ')
+              return (
+                <div key={s.id} className="bg-[#0c1c24] border border-[#1a3040] rounded-xl px-4 py-3 mb-2" style={{ borderLeft: '3px solid #1ABBD6' }}>
+                  <div className="flex justify-between items-center mb-1">
+                    <div className="text-[#e8f4f8] font-bold text-xs">S-{String(s.numero_supra).padStart(4,'0')}</div>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${prioridadColor[s.prioridad] || ''}`}>{s.prioridad}</span>
+                  </div>
+                  <div className="text-[#e8f4f8] text-xs font-semibold mb-1 leading-snug">{s.titulo}</div>
+                  <div className="text-[#7ab3c8] text-xs mb-1">{s.tipo?.replace(/_/g,' ')} · {sectores || '—'}</div>
+                  <div className="flex justify-between items-center">
+                    <div className={`text-xs font-bold ${estadoColor[s.estado] || 'text-[#7ab3c8]'}`}>{s.estado?.replace(/_/g,' ')}</div>
+                    <div className="text-[#4a8fa0] text-xs">{supervisores || '—'}</div>
+                  </div>
+                  {s.plazo_estimado && (
+                    <div className="text-[#4a8fa0] text-xs mt-1">Plazo: {new Date(s.plazo_estimado).toLocaleDateString('es-AR')}</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
 {/* OTs OPERATIVAS */}
         <div className="flex items-center justify-between mb-2">
           <div className="text-[#7ab3c8] text-xs font-bold tracking-widest uppercase">Órdenes operativas</div>
@@ -269,6 +388,112 @@ async function abrirDetalle(orden: any) {
             </div>
           </div>
         )}
+        {/* MODAL NUEVA SUPRA */}
+        {showFormSupra && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.85)' }}
+            onClick={() => setShowFormSupra(false)}>
+            <div className="bg-[#0c1c24] border border-[#1a3040] rounded-t-2xl w-full max-w-lg p-5 pb-8 max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <div className="text-[#e8f4f8] font-bold text-sm">Nueva OT Supra</div>
+                <button onClick={() => setShowFormSupra(false)} className="text-[#7ab3c8] text-xs px-3 py-1 border border-[#1a3040] rounded-lg">CERRAR</button>
+              </div>
+
+              {msgSupra && (
+                <div style={{ background: msgSupra.ok ? '#0F2A1A' : '#2A0F0F', border: `1px solid ${msgSupra.ok ? '#1D9E75' : '#E24B4A'}`, borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: msgSupra.ok ? '#1D9E75' : '#E24B4A' }}>
+                  {msgSupra.ok ? '✅' : '❌'} {msgSupra.text}
+                </div>
+              )}
+
+              <div className="text-[#4a8fa0] text-xs font-bold uppercase tracking-widest mb-1">Título *</div>
+              <input
+                className="w-full bg-[#07131a] border border-[#1a3040] rounded-lg px-3 py-2 text-sm text-[#e8f4f8] mb-3 outline-none"
+                placeholder="Ej: Campaña inspección columnas Km 0–20"
+                value={formSupra.titulo}
+                onChange={e => setFormSupra({ ...formSupra, titulo: e.target.value })}
+              />
+
+              <div className="text-[#4a8fa0] text-xs font-bold uppercase tracking-widest mb-1">Descripción / Alcance</div>
+              <textarea
+                className="w-full bg-[#07131a] border border-[#1a3040] rounded-lg px-3 py-2 text-sm text-[#e8f4f8] mb-3 outline-none resize-none"
+                rows={3} placeholder="Objetivo, alcance y contexto general..."
+                value={formSupra.descripcion}
+                onChange={e => setFormSupra({ ...formSupra, descripcion: e.target.value })}
+              />
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <div className="text-[#4a8fa0] text-xs font-bold uppercase tracking-widest mb-1">Tipo *</div>
+                  <select className="w-full bg-[#07131a] border border-[#1a3040] rounded-lg px-3 py-2 text-sm text-[#e8f4f8] outline-none"
+                    value={formSupra.tipo} onChange={e => setFormSupra({ ...formSupra, tipo: e.target.value })}>
+                    <option value="correctiva">Correctiva</option>
+                    <option value="preventiva">Preventiva</option>
+                    <option value="campania">Campaña</option>
+                    <option value="emergencia">Emergencia</option>
+                    <option value="obra">Obra</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="text-[#4a8fa0] text-xs font-bold uppercase tracking-widest mb-1">Prioridad *</div>
+                  <select className="w-full bg-[#07131a] border border-[#1a3040] rounded-lg px-3 py-2 text-sm text-[#e8f4f8] outline-none"
+                    value={formSupra.prioridad} onChange={e => setFormSupra({ ...formSupra, prioridad: e.target.value })}>
+                    <option value="baja">Baja</option>
+                    <option value="normal">Normal</option>
+                    <option value="alta">Alta</option>
+                    <option value="critica">Crítica</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="text-[#4a8fa0] text-xs font-bold uppercase tracking-widest mb-1">Plazo estimado</div>
+              <input type="date"
+                className="w-full bg-[#07131a] border border-[#1a3040] rounded-lg px-3 py-2 text-sm text-[#e8f4f8] mb-3 outline-none"
+                value={formSupra.plazo_estimado}
+                onChange={e => setFormSupra({ ...formSupra, plazo_estimado: e.target.value })}
+              />
+
+              <div className="text-[#4a8fa0] text-xs font-bold uppercase tracking-widest mb-2">Sectores *{formSupra.sectores.length === 0 && <span className="text-[#E24B4A]"> (ninguno)</span>}</div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {SECTORES_SUPRA.map(s => (
+                  <button key={s} onClick={() => setFormSupra({ ...formSupra, sectores: toggleItem(formSupra.sectores, s) })}
+                    style={{
+                      padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1px solid',
+                      background: formSupra.sectores.includes(s) ? '#1ABBD6' : '#07131a',
+                      color: formSupra.sectores.includes(s) ? 'white' : '#4a8fa0',
+                      borderColor: formSupra.sectores.includes(s) ? '#1ABBD6' : '#1a3040',
+                    }}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              <div className="text-[#4a8fa0] text-xs font-bold uppercase tracking-widest mb-2">Supervisores *{formSupra.supervisores.length === 0 && <span className="text-[#E24B4A]"> (ninguno)</span>}</div>
+              {supervisoresDisponibles.length === 0 ? (
+                <div className="text-[#7ab3c8] text-xs mb-3">No hay supervisores activos disponibles</div>
+              ) : (
+                <div className="flex flex-col gap-1 mb-4">
+                  {supervisoresDisponibles.map((sv: any) => (
+                    <button key={sv.id} onClick={() => setFormSupra({ ...formSupra, supervisores: toggleItem(formSupra.supervisores, sv.id) })}
+                      style={{
+                        padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid', textAlign: 'left',
+                        background: formSupra.supervisores.includes(sv.id) ? '#0F2A35' : '#07131a',
+                        color: formSupra.supervisores.includes(sv.id) ? '#1ABBD6' : '#4a8fa0',
+                        borderColor: formSupra.supervisores.includes(sv.id) ? '#1ABBD6' : '#1a3040',
+                      }}>
+                      {formSupra.supervisores.includes(sv.id) ? '✓ ' : ''}{sv.apellido}, {sv.nombre} <span style={{ fontSize: 10, opacity: 0.7 }}>· {sv.rol.replace(/_/g,' ')}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button onClick={crearSupra} disabled={loadingSupra}
+                style={{ width: '100%', background: loadingSupra ? '#1a3040' : '#1ABBD6', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 14, padding: '13px 0', cursor: loadingSupra ? 'default' : 'pointer' }}>
+                {loadingSupra ? 'CREANDO...' : 'CREAR OT SUPRA'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* KPIs GLOBALES */}
         <div className="text-[#7ab3c8] text-xs font-bold tracking-widest uppercase mb-2">Estado global</div>
         <div className="grid grid-cols-2 gap-2 mb-4">

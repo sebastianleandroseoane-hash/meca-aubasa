@@ -112,7 +112,7 @@ export default function Home() {
       >
         🔇
       </button>
-      <div className="relative z-10 w-full flex flex-col items-center">
+      <div className="relative z-10 w-full max-w-md flex flex-col items-center mx-auto">
       <div className="flex flex-col items-center mb-6">
         <Image
           src="/sector-logo-dark.png"

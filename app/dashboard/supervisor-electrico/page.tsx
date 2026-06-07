@@ -100,13 +100,16 @@ const [loadingDecision, setLoadingDecision] = useState(false)
   const [otHijaCreada, setOtHijaCreada] = useState(false)
   const [otHijaActiva, setOtHijaActiva] = useState(false)
   const [loadingOTHija, setLoadingOTHija] = useState(false)
+  const [suprasPendientes, setSuprasPendientes] = useState<any[]>([])
+  const [supraDetalle, setSupraDetalle] = useState<any>(null)
+  const [supraIdParaOT, setSupraIdParaOT] = useState<string | null>(null)
   useEffect(() => {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
       if (p.rol !== 'supervisor_electrico' && p.rol !== 'superadmin' && p.rol !== 'jefe') { router.push('/'); return }
       const turnoEfectivo = (p.rol === 'superadmin' || p.rol === 'jefe') ? '1' : p.turno
       setPerfil(p)
-      await Promise.all([cargarDatos(turnoEfectivo), cargarSolicitudes(), cargarCheckinsVehiculos(), cargarOrdenesRebotadas()])
+      await Promise.all([cargarDatos(turnoEfectivo), cargarSolicitudes(), cargarCheckinsVehiculos(), cargarOrdenesRebotadas(), cargarSuprasPendientes()])
     })
     const tick = () => {
       const now = new Date()
@@ -143,6 +146,18 @@ const [loadingDecision, setLoadingDecision] = useState(false)
       .select('*, materiales!solicitudes_insumos_material_id_fkey(nombre, unidad), profiles!solicitudes_insumos_tallerista_id_fkey(nombre, apellido, sector_trabajo), ordenes_trabajo!solicitudes_insumos_orden_trabajo_id_fkey(titulo, numero_orden)')
       .eq('estado', 'pendiente').order('created_at', { ascending: false })
     setSolicitudes((data || []).filter((s: any) => s.profiles?.sector_trabajo === 'electrico'))
+  }
+
+  async function cargarSuprasPendientes() {
+    const { data } = await supabase
+      .from('ots_supra')
+      .select(`
+        id, numero_supra, titulo, descripcion, tipo, prioridad, plazo_estimado, created_at,
+        ots_supra_sectores(sector)
+      `)
+      .eq('estado', 'pendiente_planificacion')
+      .order('created_at', { ascending: false })
+    setSuprasPendientes(data || [])
   }
 
   async function cargarOrdenesRebotadas() {
@@ -412,7 +427,8 @@ async function reasignarTecnicos(id: string) {
     setAprobando(false)
   }
 
-  async function abrirForm() {
+  async function abrirForm(desdeSupra = false) {
+    if (!desdeSupra) setSupraIdParaOT(null)
     if (nomenclaturas.length === 0) {
       const { data } = await supabase.from('nomenclaturas').select('*').eq('sector', 'electrico').order('codigo', { ascending: true })
       setNomenclaturas(data || [])
@@ -457,7 +473,8 @@ async function reasignarTecnicos(id: string) {
       km: form.km ? parseFloat(form.km) : null, ubicacion: form.ubicacion,
       activo_id: form.activo_id || null,
       asignado_a: tecnicosSeleccionados[0], creado_por: perfil.id,
-      turno: perfil.turno, fecha_programada: form.fecha_programada, campo_libre: form.campo_libre || null
+      turno: perfil.turno, fecha_programada: form.fecha_programada, campo_libre: form.campo_libre || null,
+      supra_id: supraIdParaOT || null
     }).select().single()
     if (!error && nuevaOrden) {
       await supabase.from('orden_tecnicos').insert(tecnicosSeleccionados.map(tid => ({ orden_id: nuevaOrden.id, tecnico_id: tid, cerro: false })))
@@ -510,7 +527,8 @@ async function reasignarTecnicos(id: string) {
       setSubtipoCorrectivo('')
       setSubtipoOtroTexto('')
       setTipoActivoOtroTexto('')
-      await cargarDatos(perfil.turno)
+      setSupraIdParaOT(null)
+      await Promise.all([cargarDatos(perfil.turno), cargarSuprasPendientes()])
 
     } else { setLoading(false) }
   }
@@ -610,9 +628,20 @@ async function reasignarTecnicos(id: string) {
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Nueva orden de trabajo</div>
-            <button onClick={() => { setShowForm(false); setTecnicosSeleccionados([]); setMaterialesOrden([]) }}
+            <button onClick={() => { setShowForm(false); setTecnicosSeleccionados([]); setMaterialesOrden([]); setSupraIdParaOT(null) }}
               style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CANCELAR</button>
           </div>
+          {supraIdParaOT && suprasPendientes.find(s => s.id === supraIdParaOT) && (
+            <div style={{ background: '#071f2e', border: '1px solid #1ABBD6', borderRadius: 10, padding: '10px 12px', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 9, color: '#1ABBD6', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1 }}>Vinculada a OT Supra</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#e8f4f8', marginTop: 2 }}>
+                  S-{String(suprasPendientes.find(s => s.id === supraIdParaOT)?.numero_supra).padStart(4,'0')} · {suprasPendientes.find(s => s.id === supraIdParaOT)?.titulo}
+                </div>
+              </div>
+              <span style={{ fontSize: 10, color: '#1ABBD6', background: '#0F2A35', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>AUTO</span>
+            </div>
+          )}
           <div style={{ overflowY: 'auto', flex: 1 }}>
             <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Título *</div>
             <input style={errores.includes('titulo') ? { ...inputErr, marginBottom: 12 } : { ...input, marginBottom: 12 }}
@@ -1593,6 +1622,92 @@ async function reasignarTecnicos(id: string) {
 
       {/* BODY */}
       <div style={{ padding: '14px 16px 110px' }}>
+
+        {/* BANDEJA OTs SUPRA */}
+        {suprasPendientes.length > 0 && (
+          <div style={{ background: '#071f2e', border: `1px solid #1ABBD6`, borderRadius: 12, padding: '12px 14px', marginBottom: 12 }}>
+            <div style={{ fontSize: 9, color: '#1ABBD6', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8 }}>
+              📋 {suprasPendientes.length} OT{suprasPendientes.length > 1 ? 's' : ''} Supra pendiente{suprasPendientes.length > 1 ? 's' : ''} de planificación
+            </div>
+            {suprasPendientes.map(s => {
+              const prioridadColor: Record<string,string> = {
+                critica: '#E24B4A', alta: '#EF9F27', normal: '#4a8fa0', baja: '#4a8fa0'
+              }
+              const sectores = (s.ots_supra_sectores || []).map((x: any) => x.sector).join(', ')
+              return (
+                <div key={s.id} onClick={() => setSupraDetalle(s)}
+                  style={{ background: '#07131a', border: '1px solid #1a3040', borderLeft: `3px solid #1ABBD6`, borderRadius: 10, padding: '10px 12px', marginBottom: 6, cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: '#1ABBD6', fontWeight: 700 }}>S-{String(s.numero_supra).padStart(4,'0')}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{s.titulo}</div>
+                      <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 2 }}>{s.tipo?.replace(/_/g,' ')} · {sectores || '—'}</div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, marginLeft: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: prioridadColor[s.prioridad] || '#4a8fa0' }}>{s.prioridad}</span>
+                      {s.plazo_estimado && (
+                        <span style={{ fontSize: 10, color: '#4a8fa0' }}>📅 {new Date(s.plazo_estimado).toLocaleDateString('es-AR')}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* MODAL DETALLE SUPRA */}
+        {supraDetalle && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <div style={{ background: '#0c1c24', borderRadius: '16px 16px 0 0', padding: 16, maxHeight: '80vh', display: 'flex', flexDirection: 'column', border: '1px solid #1a3040' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontSize: 10, color: '#1ABBD6', fontWeight: 700, letterSpacing: 1 }}>S-{String(supraDetalle.numero_supra).padStart(4,'0')} · OT SUPRA</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#e8f4f8' }}>{supraDetalle.titulo}</div>
+                </div>
+                <button onClick={() => setSupraDetalle(null)} style={{ background: 'none', border: 'none', color: '#4a8fa0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+              </div>
+              <div style={{ overflowY: 'auto', flex: 1 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  {[['Tipo', supraDetalle.tipo?.replace(/_/g,' ')], ['Prioridad', supraDetalle.prioridad], ['Estado', 'Pendiente de planificación'], ['Plazo', supraDetalle.plazo_estimado ? new Date(supraDetalle.plazo_estimado).toLocaleDateString('es-AR') : '—']].map(([k, v]) => (
+                    <div key={k} style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 9, color: '#4a8fa0', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>{k}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#e8f4f8', marginTop: 2 }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                {(supraDetalle.ots_supra_sectores || []).length > 0 && (
+                  <div style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+                    <div style={{ fontSize: 9, color: '#4a8fa0', textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>Sectores involucrados</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }}>
+                      {supraDetalle.ots_supra_sectores.map((x: any) => (
+                        <span key={x.sector} style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: '#0F2A35', color: '#1ABBD6' }}>{x.sector}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {supraDetalle.descripcion && (
+                  <div style={{ background: '#07131a', border: '1px solid #1a3040', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+                    <div style={{ fontSize: 9, color: '#4a8fa0', textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 }}>Descripción / Alcance</div>
+                    <div style={{ fontSize: 13, color: '#e8f4f8', lineHeight: 1.5 }}>{supraDetalle.descripcion}</div>
+                  </div>
+                )}
+                <div style={{ background: '#071f2e', border: '1px solid #1ABBD644', borderRadius: 8, padding: '10px 12px', marginTop: 4 }}>
+                  <div style={{ fontSize: 11, color: '#4a8fa0', marginBottom: 10 }}>Creá una OT operativa vinculada a esta Supra. El vínculo queda registrado automáticamente.</div>
+                  <button
+                    onClick={() => {
+                      setSupraIdParaOT(supraDetalle.id)
+                      setSupraDetalle(null)
+                      abrirForm(true)
+                    }}
+                    style={{ width: '100%', background: '#1ABBD6', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                    + CREAR OT OPERATIVA
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ALERTA OTs REBOTADAS */}
         {ordenesRebotadas.length > 0 && (
