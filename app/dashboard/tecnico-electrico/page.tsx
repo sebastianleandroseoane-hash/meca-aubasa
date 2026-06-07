@@ -41,6 +41,7 @@ export default function DashboardTecnicoElectrico() {
   const [itTrabajoRealizado, setItTrabajoRealizado] = useState('')
   const [itTrabajoDetalle, setItTrabajoDetalle] = useState('')
   const [itActivoOperativo, setItActivoOperativo] = useState<boolean | null>(null)
+  const [itConformidad, setItConformidad] = useState(false)
   const [itRequiereSeguimiento, setItRequiereSeguimiento] = useState(false)
   const [itSeguimientoDetalle, setItSeguimientoDetalle] = useState('')
   const [itRiesgoTipo, setItRiesgoTipo] = useState('ninguno')
@@ -318,6 +319,7 @@ export default function DashboardTecnicoElectrico() {
     setItTrabajoRealizado('')
     setItTrabajoDetalle('')
     setItActivoOperativo(null)
+    setItConformidad(false)
     setItRequiereSeguimiento(false)
     setItSeguimientoDetalle('')
     setItRiesgoTipo('ninguno')
@@ -556,7 +558,7 @@ export default function DashboardTecnicoElectrico() {
                 <div style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>OT-{String(ordenDetalle.numero_orden).padStart(5, '0')}</div>
                 <div style={{ fontSize: 15, fontWeight: 600, color: '#e8f4f8' }}>{ordenDetalle.titulo}</div>
               </div>
-              <button onClick={() => { setOrdenDetalle(null); setShowCierre(false); setTrabajosRealizados(''); setMediciones(''); setPendientes(''); setShowMemoria(false); setMemoriaActivo(null); setErrorMemoria('') }}
+              <button onClick={() => { setOrdenDetalle(null); setShowCierre(false); setItConformidad(false); setTrabajosRealizados(''); setMediciones(''); setPendientes(''); setShowMemoria(false); setMemoriaActivo(null); setErrorMemoria('') }}
                 style={{ background: 'none', border: 'none', color: '#4a8fa0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
@@ -1092,10 +1094,21 @@ export default function DashboardTecnicoElectrico() {
                   </button>
                 )}
                 {(ordenDetalle.estado === 'en_curso' || ordenDetalle.estado === 'devuelta_supervisor') && showCierre && (
-                  <button onClick={() => proponerCierre(ordenDetalle.id)} disabled={loading || !itTrabajoDetalle || itActivoOperativo === null}
-                    style={{ flex: 1, background: loading || !itTrabajoDetalle || itActivoOperativo === null ? '#1a3040' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
-                    {loading ? 'Enviando...' : 'ENVIAR AL SUPERVISOR'}
-                  </button>
+                  <>
+                    <div style={{ width: '100%', background: '#0D1B2A', border: `1px solid ${itConformidad ? '#1D9E75' : '#1a3040'}`, borderRadius: 10, padding: '12px 14px', marginBottom: 4, display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}
+                      onClick={() => setItConformidad(v => !v)}>
+                      <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${itConformidad ? '#1D9E75' : '#4a8fa0'}`, background: itConformidad ? '#1D9E75' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                        {itConformidad && <span style={{ color: 'white', fontSize: 13, fontWeight: 700 }}>✓</span>}
+                      </div>
+                      <span style={{ fontSize: 12, color: itConformidad ? '#9FE1CB' : '#7A9EA5', lineHeight: 1.4 }}>
+                        Estoy conforme con el trabajo realizado y los materiales de esta OT
+                      </span>
+                    </div>
+                    <button onClick={() => proponerCierre(ordenDetalle.id)} disabled={loading || !itTrabajoDetalle || itActivoOperativo === null || !itConformidad}
+                      style={{ flex: 1, background: loading || !itTrabajoDetalle || itActivoOperativo === null || !itConformidad ? '#1a3040' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
+                      {loading ? 'Enviando...' : 'ENVIAR AL SUPERVISOR'}
+                    </button>
+                  </>
                 )}
               </div>
             </div>
