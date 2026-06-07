@@ -90,7 +90,29 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-black flex flex-col items-center justify-center px-6">
+    <main className="relative min-h-screen flex flex-col items-center justify-center px-6 overflow-hidden">
+      <video
+        id="bg-video"
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover z-0"
+        src="https://jytsmgxwlzexijskqakt.supabase.co/storage/v1/object/public/media/WhatsApp%20Video%202026-06-06%20at%2020.48.32.mp4"
+      />
+      <button
+        onClick={() => {
+          const v = document.getElementById('bg-video') as HTMLVideoElement
+          v.muted = !v.muted
+          const btn = document.getElementById('mute-btn')
+          if (btn) btn.textContent = v.muted ? '🔇' : '🔊'
+        }}
+        id="mute-btn"
+        className="absolute top-4 right-4 z-20 bg-black/50 text-white text-xl rounded-full w-10 h-10 flex items-center justify-center"
+      >
+        🔇
+      </button>
+      <div className="relative z-10 w-full flex flex-col items-center">
       <div className="flex flex-col items-center mb-6">
         <Image
           src="/sector-logo-dark.png"
@@ -159,6 +181,7 @@ export default function Home() {
       <div className="text-gray-600 text-xs mt-6 text-center">
         Sistema interno · Solo personal autorizado
       </div>
+    </div>
     </main>
   )
 }
