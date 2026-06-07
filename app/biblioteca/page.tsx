@@ -356,8 +356,7 @@ export default function BibliotecaMECA() {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('manual')
   const [busqueda, setBusqueda] = useState('')
-  const [mostrarPDF, setMostrarPDF] = useState(false)
-  const [seccionSeleccionada, setSeccionSeleccionada] = useState<string>('')
+
   const inputRef = useRef<HTMLInputElement>(null)
 
   const indice = tab === 'manual' ? INDICE_MANUAL : INDICE_CONVENIO
@@ -374,16 +373,12 @@ export default function BibliotecaMECA() {
     : indice
 
   function abrirPDF(seccion: string) {
-    setSeccionSeleccionada(seccion)
-    setMostrarPDF(true)
-    setBusqueda('')
+    window.open(pdfUrl, '_blank')
   }
 
   function cambiarTab(t: Tab) {
     setTab(t)
     setBusqueda('')
-    setSeccionSeleccionada('')
-    setMostrarPDF(false)
   }
 
   const esSubseccion = (numero: string) =>
@@ -391,96 +386,6 @@ export default function BibliotecaMECA() {
     numero.startsWith('Art.') ||
     /^[A-Z]\.\d+/.test(numero) ||
     numero === '—'
-
-  // ─── PANTALLA VISOR PDF ────────────────────────────────────────────────────
-  if (mostrarPDF) {
-    return (
-      <main style={{
-        minHeight: '100vh',
-        background: '#07131a',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-        display: 'flex',
-        flexDirection: 'column',
-      }}>
-        {/* Header visor */}
-        <div style={{
-          background: '#0c1c24',
-          borderBottom: '1px solid #1a3040',
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          flexShrink: 0,
-        }}>
-          <button
-            onClick={() => setMostrarPDF(false)}
-            style={{
-              background: 'none',
-              border: '1px solid #1a3040',
-              borderRadius: 8,
-              color: '#4a8fa0',
-              fontSize: 12,
-              fontWeight: 700,
-              padding: '6px 12px',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            ← ÍNDICE
-          </button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, color: '#4a8fa0', textTransform: 'uppercase' as const, letterSpacing: 1 }}>
-              {tab === 'manual' ? 'Manual de Seguridad 2026' : 'Convenio SUTPA'}
-            </div>
-            {seccionSeleccionada && (
-              <div style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: '#1ABBD6',
-                whiteSpace: 'nowrap' as const,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}>
-                {seccionSeleccionada}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* iframe PDF */}
-        <iframe
-          src={pdfUrl}
-          style={{ flex: 1, width: '100%', border: 'none', background: '#1a1a1a' }}
-          title={tab === 'manual' ? 'Manual Operativo y de Seguridad 2026' : 'Convenio SUTPA'}
-        />
-
-        {/* Botón volver */}
-        <div style={{
-          background: '#0c1c24',
-          borderTop: '1px solid #1a3040',
-          padding: '10px 14px',
-          flexShrink: 0,
-        }}>
-          <button
-            onClick={() => setMostrarPDF(false)}
-            style={{
-              width: '100%',
-              background: '#0f2a38',
-              border: '1px solid #1a3040',
-              borderRadius: 10,
-              color: '#4a8fa0',
-              fontWeight: 700,
-              fontSize: 13,
-              padding: '10px 0',
-              cursor: 'pointer',
-            }}
-          >
-            ← Volver al índice
-          </button>
-        </div>
-      </main>
-    )
-  }
 
   // ─── PANTALLA ÍNDICE ──────────────────────────────────────────────────────
   return (
