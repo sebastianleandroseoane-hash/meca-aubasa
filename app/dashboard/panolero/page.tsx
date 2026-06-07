@@ -166,7 +166,7 @@ export default function DashboardPanolero() {
     return () => clearInterval(iv)
   }, [])
 
-  const ORDEN_PANOL_SELECT = '*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales(id, nombre, unidad, tipo, stock_actual), entregado_por_perfil:profiles!orden_materiales_entregado_por_fkey(nombre, apellido), recibido_por_perfil:profiles!orden_materiales_recibido_por_fkey(nombre, apellido)), pedidos_material(id, material_nombre, cantidad, categoria_solicitada, observaciones, estado, no_catalogado), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido)'
+  const ORDEN_PANOL_SELECT = '*, orden_materiales(id, cantidad, estado, material_id, cantidad_preparada, entregado_por, entregado_at, recibido_por, recibido_at, observacion_tecnico, materiales(id, nombre, unidad, tipo, stock_actual), entregado_por_perfil:profiles!orden_materiales_entregado_por_fkey(nombre, apellido), recibido_por_perfil:profiles!orden_materiales_recibido_por_fkey(nombre, apellido)), pedidos_material(id, material_nombre, cantidad, categoria_solicitada, observaciones, estado, no_catalogado), profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido), asignado_a_perfil:profiles!ordenes_trabajo_asignado_a_fkey(nombre, apellido), orden_tecnicos(tecnico_id, tecnico_perfil:profiles!orden_tecnicos_tecnico_id_fkey(nombre, apellido))'
 
   async function cargarTodo() {
     const { data: mats } = await supabase.from('materiales').select('*').order('nombre', { ascending: true })
@@ -499,6 +499,16 @@ async function entregarItem(item: any) {
             <button onClick={() => setOrdenPanolDetalle(null)} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
           </div>
           <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ background: "#0D1B2A", border: "1px solid #1E3A4A", borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
+              <div style={{ fontSize: 9, color: "#7A9EA5", textTransform: "uppercase", fontWeight: 700, letterSpacing: 1 }}>👷 Técnicos asignados</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#E2EEF2", marginTop: 4 }}>
+                {ordenPanolDetalle.orden_tecnicos?.length > 0
+                  ? ordenPanolDetalle.orden_tecnicos.map((t) => `${t.tecnico_perfil?.apellido}, ${t.tecnico_perfil?.nombre}`).join(" · ")
+                  : ordenPanolDetalle.asignado_a_perfil
+                    ? `${ordenPanolDetalle.asignado_a_perfil.apellido}, ${ordenPanolDetalle.asignado_a_perfil.nombre}`
+                    : "Sin técnico asignado"}
+              </div>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
               {[['Sector', ordenPanolDetalle.sector], ['Estado', ordenPanolDetalle.estado], ['Prioridad', ordenPanolDetalle.prioridad], ['Tipo', ordenPanolDetalle.tipo?.replace(/_/g, ' ')]].map(([k, v]) => (
                 <div key={k} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px' }}>
@@ -931,6 +941,13 @@ async function entregarItem(item: any) {
                       </div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{o.titulo}</div>
                       {o.km && <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
+                      <div style={{ fontSize: 11, color: "#7A9EA5", marginTop: 3 }}>
+                        👷 {o.orden_tecnicos?.length > 0
+                          ? o.orden_tecnicos.map((t) => `${t.tecnico_perfil?.apellido}, ${t.tecnico_perfil?.nombre}`).join(" / ")
+                          : o.asignado_a_perfil
+                            ? `${o.asignado_a_perfil.apellido}, ${o.asignado_a_perfil.nombre}`
+                            : "Sin técnico asignado"}
+                      </div>
                       {o.orden_materiales?.length > 0 && (
                         <div style={{ fontSize: 11, color: C.accent, marginTop: 4 }}>
                           📦 {o.orden_materiales.slice(0, 2).map((om: any) => om.materiales?.nombre).join(', ')}{o.orden_materiales.length > 2 ? '...' : ''}
