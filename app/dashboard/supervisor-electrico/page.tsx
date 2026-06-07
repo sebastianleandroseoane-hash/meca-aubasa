@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 import AvatarUpload from '@/app/components/AvatarUpload'
 import { getKitBySubtipo } from '@/lib/kits-correctivo'
+import BibliotecaCard from '@/app/components/BibliotecaCard'
 
 function SolicitudItem({ s, onResolver }: { s: any, onResolver: (id: string, decision: 'autorizada' | 'rechazada', obs: string) => void }) {
   const [obs, setObs] = useState('')
@@ -570,6 +571,7 @@ async function reasignarTecnicos(id: string) {
     { key: 'historial', label: 'Historial', sub: 'Órdenes cerradas', icon: iconos.historial, action: () => router.push('/historial'), badge: null },
     { key: 'cronograma', label: 'Cronograma', sub: `Turno ${perfil.turno}`, icon: iconos.cronograma, action: () => router.push('/dashboard/cronograma'), badge: null },
     { key: 'mapa', label: 'Mapa traza', sub: 'BA–LP · TS y CT', icon: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>, action: () => router.push('/dashboard/mapa'), badge: null },
+
   ]
 
   const modal = (content: React.ReactNode, onClose: () => void) => (
@@ -1673,6 +1675,7 @@ async function reasignarTecnicos(id: string) {
               </div>
             </div>
           ))}
+          <BibliotecaCard C={C} />
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 import AvatarUpload from '@/app/components/AvatarUpload'
+import BibliotecaCard from '@/app/components/BibliotecaCard'
 
 export default function DashboardTecnicoElectrico() {
   const router = useRouter()
@@ -1182,6 +1183,7 @@ export default function DashboardTecnicoElectrico() {
               </div>
             </div>
           ))}
+        <BibliotecaCard C={{ card: '#0c1c24', border: '#1a3040', text: '#e8f4f8', sub: '#4a8fa0', accent: '#1ABBD6' }} />
         </div>
 
         {/* LISTA ÓRDENES */}

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 import AvatarUpload from '@/app/components/AvatarUpload'
+import BibliotecaCard from '@/app/components/BibliotecaCard'
 
 export default function DashboardTecnicoAC() {
   const router = useRouter()
