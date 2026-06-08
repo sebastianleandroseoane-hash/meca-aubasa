@@ -786,9 +786,13 @@ async function entregarItem(item: any) {
               <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{checkinVehDetalle.moviles?.marca} {checkinVehDetalle.moviles?.modelo} — {checkinVehDetalle.moviles?.patente}</div>
               <div style={{ fontSize: 11, color: C.sub }}>{checkinVehDetalle.conductor?.nombre} {checkinVehDetalle.conductor?.apellido} · {checkinVehDetalle.turno} · {checkinVehDetalle.fecha}</div>
             </div>
-            <button onClick={() => setCheckinVehDetalle(null)} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <button onClick={() => window.print()} style={{ background: 'none', border: 'none', color: C.accent, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🖨️ IMPRIMIR</button>
+              <button onClick={() => setCheckinVehDetalle(null)} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
+            </div>
           </div>
           <div style={{ overflowY: 'auto', flex: 1 }}>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
               <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px', textAlign: 'center' as const }}>
                 <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const }}>Km Inicial</div>
