@@ -216,8 +216,53 @@ async function abrirDetalle(orden: any) {
           ))
         )}
 
+        {/* ACCESO RÁPIDO (solo jefe y superadmin) */}
+        {['jefe','superadmin'].includes(perfil?.rol) && (
+          <>
+            <div className="text-[#7ab3c8] text-xs font-bold tracking-widest uppercase mb-2 mt-2">Acceso rápido por rol</div>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {[
+                { label: 'Gerente', sub: 'Vista ejecutiva', path: '/dashboard/gerente' },
+                { label: 'Subgerente', sub: 'Vista ejecutiva', path: '/dashboard/Sub-gerente' },
+                { label: 'Supervisor Elec.', sub: 'Turno eléctrico', path: '/dashboard/supervisor-electrico' },
+                { label: 'Supervisor AC', sub: 'Turno AC', path: '/dashboard/supervisor-aire-acondicionado' },
+                { label: 'Técnico Elec.', sub: 'Campo eléctrico', path: '/dashboard/tecnico-electrico' },
+                { label: 'Técnico AC', sub: 'Campo AC', path: '/dashboard/tecnico-aire-acondicionado' },
+                { label: 'Técnico Edificios', sub: 'Cabinas peaje', path: '/dashboard/tecnico-electrico-edificios' },
+                { label: 'Tallerista Elec.', sub: 'Taller eléctrico', path: '/dashboard/tallerista-electrico' },
+                { label: 'Tallerista AC', sub: 'Taller AC', path: '/dashboard/tallerista-aire-acondicionado' },
+                { label: 'Pañolero', sub: 'Stock', path: '/dashboard/panolero' },
+              ].map(r => (
+                <button key={r.path} onClick={() => router.push(r.path)}
+                  className="bg-[#0c1c24] border border-[#1ABBD6] rounded-xl p-3 text-left active:opacity-70">
+                  <div className="text-[#1ABBD6] font-bold text-sm">{r.label}</div>
+                  <div className="text-[#7ADCE8] text-xs mt-0.5">{r.sub}</div>
+                </button>
+              ))}
+            </div>
+
+            <div className="text-[#7ab3c8] text-xs font-bold tracking-widest uppercase mb-2">Sistema</div>
+            <div onClick={() => router.push('/dashboard/superadmin/usuarios')}
+              className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 mb-2 flex justify-between items-center cursor-pointer active:opacity-70">
+              <div><div className="text-white font-bold text-sm">Usuarios</div><div className="text-[#7ADCE8] text-xs mt-0.5">Gestión de accesos</div></div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div onClick={() => router.push('/dashboard/mapa')}
+              className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 mb-2 flex justify-between items-center cursor-pointer active:opacity-70">
+              <div><div className="text-white font-bold text-sm">Mapa traza</div><div className="text-[#7ADCE8] text-xs mt-0.5">BA–LP · TS y CT</div></div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+            </div>
+            <div onClick={() => router.push('/dashboard/jefe/datos')}
+              className="bg-[#0c1c24] border border-[#1a3040] rounded-xl p-3 mb-4 flex justify-between items-center cursor-pointer active:opacity-70">
+              <div><div className="text-white font-bold text-sm">Datos</div><div className="text-[#7ADCE8] text-xs mt-0.5">Métricas operativas</div></div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1ABBD6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </>
+        )}
+
         
 {/* OTs SUPRA */}
+
         <div className="flex items-center justify-between mb-2 mt-2">
           <div className="text-[#7ab3c8] text-xs font-bold tracking-widest uppercase">
             OTs Supra {supras.filter(s => s.estado === 'pendiente_planificacion').length > 0 && (
