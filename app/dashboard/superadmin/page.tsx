@@ -284,6 +284,77 @@ export default function DashboardSuperAdmin() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<any>(null)
   const [filtroOT, setFiltroOT] = useState<'todos' | 'electrico' | 'ac' | 'edificio'>('todos')
+  const [supraDetalle, setSupraDetalle] = useState<any>(null)
+  const [otDetalle, setOtDetalle] = useState<any>(null)
+  const [loadingDetalle, setLoadingDetalle] = useState(false)
+
+  async function abrirOtDetalle(ot: any) {
+    setOtDetalle(ot)
+    setLoadingDetalle(true)
+    try {
+      const { data } = await supabase
+        .from('ordenes_trabajo')
+        .select(`
+          id, numero_orden, titulo, descripcion, sector, estado, prioridad,
+          tipo, km, ubicacion, nomenclatura,
+          fecha_programada, created_at,
+          observaciones, trabajos_realizados, campo_libre, pendientes_descripcion,
+          creado_por_perfil:profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido),
+          asignado_a_perfil:profiles!ordenes_trabajo_asignado_a_fkey(nombre, apellido),
+          orden_tecnicos(tecnico_id, tecnico_perfil:profiles!orden_tecnicos_tecnico_id_fkey(nombre, apellido)),
+          orden_materiales(cantidad, estado, materiales(nombre, unidad))
+        `)
+        .eq('id', ot.id)
+        .single()
+      if (data) setOtDetalle(data)
+    } catch (e) {
+      // error de red o Supabase — mantiene el objeto liviano del listado
+    } finally {
+      setLoadingDetalle(false)
+    }
+  }
+  const [loadingDatos, setLoadingDatos] = useState(true)
+  const [stats, setStats] = useState({ otsActivas: 0, cierresPendientes: 0, criticas: 0, tecnicosActivos: 0 })
+  const [otsSupra, setOtsSupra] = useState<any[]>([])
+  const [ordenes, setOrdenes] = useState<any[]>([])
+
+  async function cargarDatosDashboard() {
+    // Stats
+    const { data: statsOT } = await supabase
+      .from('ordenes_trabajo')
+      .select('estado, prioridad')
+    if (statsOT) {
+      const otsActivas = statsOT.filter(o => !['cancelada','cerrada'].includes(o.estado)).length
+      const cierresPendientes = statsOT.filter(o => o.estado === 'cierre_propuesto').length
+      const criticas = statsOT.filter(o => o.prioridad === 'critica' && !['cancelada','cerrada'].includes(o.estado)).length
+      setStats(prev => ({ ...prev, otsActivas, cierresPendientes, criticas }))
+    }
+    const { data: tecnicos } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('activo', true)
+      .in('rol', ['tecnico_electrico','tecnico_ac','tecnico_electrico_edificio','tecnico_peaje'])
+    if (tecnicos) setStats(prev => ({ ...prev, tecnicosActivos: tecnicos.length }))
+
+    // OTs Supra
+    const { data: supras } = await supabase
+      .from('ots_supra')
+      .select('id, numero_supra, titulo, tipo, prioridad, estado, plazo_estimado, creado_por_perfil:profiles!ots_supra_creado_por_fkey(nombre, apellido)')
+      .order('created_at', { ascending: false })
+      .limit(5)
+    if (supras) setOtsSupra(supras)
+
+    // Órdenes operativas activas
+    const { data: ots } = await supabase
+      .from('ordenes_trabajo')
+      .select('id, numero_orden, titulo, estado, sector, tipo, created_at')
+      .not('estado', 'in', '(cancelada,cerrada)')
+      .order('created_at', { ascending: false })
+      .limit(10)
+    if (ots) setOrdenes(ots)
+
+    setLoadingDatos(false)
+  }
 
   // ── OT Supra: estados (portados desde jefe/page.tsx) ─────────────────
   const SECTORES_SUPRA = ['electrico', 'ac', 'edificios', 'peaje', 'general']
@@ -343,6 +414,7 @@ export default function DashboardSuperAdmin() {
       if (p.rol !== 'superadmin' && p.rol !== 'jefe') { router.push('/'); return }
       setPerfil(p)
       cargarSupervisores()
+      cargarDatosDashboard()
     })
   }, [])
 
@@ -355,30 +427,10 @@ export default function DashboardSuperAdmin() {
     </div>
   )
 
-  // ── Datos actuales (sin queries nuevas — preparados para reemplazar) ──────
-  const stats = {
-    otsActivas: 8,
-    cierresPendientes: 0,
-    criticas: 0,
-    tecnicosActivos: 30,
-  }
-
-  const otsSupra = [
-    { id: 'S-0003', titulo: 'Prueba de supra', tipo: 'correctiva', sector: 'eléctrico', estado: 'pendiente planificación', plazo: '9/6/2026', responsable: 'Mc Namara', prioridad: 'alta' as const },
-    { id: 'S-0002', titulo: 'prueba jefe',     tipo: 'correctiva', sector: 'eléctrico', estado: 'en ejecucion',            plazo: '30/6/2026', responsable: 'Mc Namara', prioridad: 'critica' as const },
-  ]
-
-  const ordenes = [
-    { id: 'OT-0107', titulo: 'iluminación peaje berazategui', estado: 'pendiente', fecha: '8/6/2026',  sector: 'electrico', tipo: 'correctivo_programado' },
-    { id: 'OT-0106', titulo: 'reemplazo luminarias',          estado: 'pendiente', fecha: '7/6/2026',  sector: 'electrico', tipo: 'correctivo_programado' },
-    { id: 'OT-0105', titulo: 'reemplazo luminarias',          estado: 'pendiente', fecha: '7/6/2026',  sector: 'electrico', tipo: 'correctivo_programado' },
-    { id: 'OT-0104', titulo: 'mantenimiento TS-12',           estado: 'en_curso',  fecha: '6/6/2026',  sector: 'electrico', tipo: 'preventivo' },
-    { id: 'OT-0102', titulo: 'revisión equipo AC cabina 3',   estado: 'pendiente', fecha: '5/6/2026',  sector: 'ac',        tipo: 'correctivo_programado' },
-  ]
-
+  // ── Datos computados ────────────────────────────────────────────────────
   const ordenesFiltradas = filtroOT === 'todos'
     ? ordenes
-    : ordenes.filter(o => o.sector === filtroOT)
+    : ordenes.filter((o: any) => o.sector === filtroOT)
 
   const roles = [
     { label: 'Gerente',           sub: 'Vista ejecutiva',  icon: <IconStar size={16} />,    path: '/dashboard/gerente' },
@@ -396,7 +448,7 @@ export default function DashboardSuperAdmin() {
   ]
 
   return (
-    <main className="min-h-screen bg-[#061418] text-white pb-28">
+    <main className="min-h-screen bg-[#061418] text-white pb-40">
       <div className="max-w-6xl mx-auto">
 
         {/* ── HEADER ──────────────────────────────────────────────────── */}
@@ -505,9 +557,11 @@ export default function DashboardSuperAdmin() {
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[#8ecbd8] text-[11px] font-black tracking-[0.22em] uppercase">OTs Supra</span>
-                  <span className="ml-2 text-yellow-400 text-[11px] font-bold bg-yellow-400/10 border border-yellow-400/25 px-2 py-0.5 rounded-full">
-                    1 sin planificar
-                  </span>
+                  {otsSupra.filter((s: any) => s.estado === 'pendiente_planificacion').length > 0 && (
+                    <span className="ml-2 text-yellow-400 text-[11px] font-bold bg-yellow-400/10 border border-yellow-400/25 px-2 py-0.5 rounded-full">
+                      {otsSupra.filter((s: any) => s.estado === 'pendiente_planificacion').length} sin planificar
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={() => { setShowFormSupra(true); setMsgSupra(null) }}
@@ -516,8 +570,23 @@ export default function DashboardSuperAdmin() {
                 </button>
               </div>
               <div className="flex flex-col gap-2">
-                {otsSupra.map(s => (
-                  <SupraCard key={s.id} {...s} />
+                {loadingDatos ? (
+                  <div className="text-[#8ecbd8] text-xs text-center py-4">Cargando...</div>
+                ) : otsSupra.length === 0 ? (
+                  <div className="text-[#8ecbd8] text-xs text-center py-4">Sin OTs Supra activas</div>
+                ) : otsSupra.map((s: any) => (
+                  <div key={s.id} onClick={() => setSupraDetalle(s)} className="cursor-pointer active:opacity-70">
+                    <SupraCard
+                      id={`S-${String(s.numero_supra).padStart(4,'0')}`}
+                      titulo={s.titulo}
+                      tipo={s.tipo ?? '—'}
+                      sector={s.ots_supra_sectores?.[0]?.sector ?? '—'}
+                      estado={s.estado?.replace(/_/g,' ') ?? '—'}
+                      plazo={s.plazo_estimado ? new Date(s.plazo_estimado).toLocaleDateString('es-AR') : '—'}
+                      responsable={s.creado_por_perfil ? `${s.creado_por_perfil.nombre ?? ''} ${s.creado_por_perfil.apellido ?? ''}`.trim() : '—'}
+                      prioridad={(s.prioridad === 'critica' ? 'critica' : s.prioridad === 'alta' ? 'alta' : s.prioridad === 'baja' ? 'baja' : 'media') as 'alta'|'critica'|'media'|'baja'}
+                    />
+                  </div>
                 ))}
               </div>
               <button onClick={() => router.push('/dashboard/jefe')} className="w-full py-2.5 rounded-xl border border-cyan-400/20 text-[#8ecbd8] text-xs font-bold tracking-widest uppercase hover:border-cyan-400/40 hover:text-cyan-300 transition-all flex items-center justify-center gap-2">
@@ -549,8 +618,21 @@ export default function DashboardSuperAdmin() {
               </div>
               {/* Cards OT */}
               <div className="flex flex-col gap-2">
-                {ordenesFiltradas.map(o => (
-                  <OTCard key={o.id} {...o} />
+                {loadingDatos ? (
+                  <div className="text-[#8ecbd8] text-xs text-center py-4">Cargando...</div>
+                ) : ordenesFiltradas.length === 0 ? (
+                  <div className="text-[#8ecbd8] text-xs text-center py-4">Sin órdenes activas</div>
+                ) : ordenesFiltradas.map((o: any) => (
+                  <div key={o.id} onClick={() => abrirOtDetalle(o)} className="cursor-pointer active:opacity-70">
+                    <OTCard
+                      id={`OT-${String(o.numero_orden).padStart(4,'0')}`}
+                      titulo={o.titulo}
+                      estado={o.estado}
+                      fecha={o.created_at ? new Date(o.created_at).toLocaleDateString('es-AR') : '—'}
+                      sector={o.sector ?? '—'}
+                      tipo={o.tipo ?? '—'}
+                    />
+                  </div>
                 ))}
               </div>
               <button onClick={() => router.push('/dashboard/jefe')} className="w-full py-2.5 rounded-xl border border-cyan-400/20 text-[#8ecbd8] text-xs font-bold tracking-widest uppercase hover:border-cyan-400/40 hover:text-cyan-300 transition-all flex items-center justify-center gap-2">
@@ -913,6 +995,253 @@ export default function DashboardSuperAdmin() {
             >
               {loadingSupra ? 'CREANDO...' : 'CREAR OT SUPRA'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL DETALLE SUPRA ─────────────────────────────────────── */}
+      {supraDetalle && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setSupraDetalle(null)}
+        >
+          <div
+            className="w-full sm:max-w-lg bg-[#071c24] border border-cyan-400/25 rounded-t-2xl sm:rounded-2xl p-5 shadow-[0_0_40px_rgba(34,211,238,0.15)]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-white font-black text-sm tracking-wide uppercase">Detalle OT Supra</span>
+              <button
+                onClick={() => setSupraDetalle(null)}
+                className="text-[#8ecbd8] text-xs px-3 py-1.5 border border-cyan-400/20 rounded-lg hover:border-cyan-400/50 transition-colors"
+              >CERRAR</button>
+            </div>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-white font-black text-lg tracking-wide">S-{String(supraDetalle.numero_supra).padStart(4,'0')}</span>
+                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+                  supraDetalle.prioridad === 'critica' ? 'bg-red-500/15 text-red-400 border-red-400/30' :
+                  supraDetalle.prioridad === 'alta' ? 'bg-yellow-400/15 text-yellow-400 border-yellow-400/30' :
+                  'bg-cyan-400/15 text-cyan-300 border-cyan-400/30'
+                }`}>{supraDetalle.prioridad?.toUpperCase()}</span>
+              </div>
+              <div className="text-white font-semibold text-base">{supraDetalle.titulo}</div>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {[
+                  ['Tipo', supraDetalle.tipo],
+                  ['Sector', supraDetalle.ots_supra_sectores?.[0]?.sector ?? '—'],
+                  ['Plazo', supraDetalle.plazo_estimado ? new Date(supraDetalle.plazo_estimado).toLocaleDateString('es-AR') : '—'],
+                  ['Responsable', supraDetalle.creado_por_perfil ? `${supraDetalle.creado_por_perfil.nombre ?? ''} ${supraDetalle.creado_por_perfil.apellido ?? ''}`.trim() : '—'],
+                ].map(([k, v]) => (
+                  <div key={k} className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2">
+                    <div className="text-[#8ecbd8] text-[9px] font-bold tracking-widest uppercase mb-0.5">{k}</div>
+                    <div className="text-white text-sm font-semibold capitalize">{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2">
+                <div className="text-[#8ecbd8] text-[9px] font-bold tracking-widest uppercase mb-0.5">Estado</div>
+                <div className={`text-sm font-semibold ${
+                  supraDetalle.estado === 'pendiente_planificacion' ? 'text-yellow-400' :
+                  supraDetalle.estado?.includes('ejecucion') ? 'text-cyan-300' :
+                  'text-green-400'
+                }`}>{supraDetalle.estado?.replace(/_/g, ' ') ?? '—'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL DETALLE OT ────────────────────────────────────────── */}
+      {otDetalle && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setOtDetalle(null)}
+        >
+          <div
+            className="w-full sm:max-w-lg bg-[#071c24] border border-cyan-400/25 rounded-t-2xl sm:rounded-2xl p-5 shadow-[0_0_40px_rgba(34,211,238,0.15)] max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-white font-black text-base tracking-wide">OT-{String(otDetalle.numero_orden).padStart(4,'0')}</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  otDetalle.sector === 'electrico' ? 'bg-cyan-400/10 text-cyan-300 border-cyan-400/25' :
+                  otDetalle.sector === 'ac' ? 'bg-blue-400/10 text-blue-300 border-blue-400/25' :
+                  'bg-purple-400/10 text-purple-300 border-purple-400/25'
+                }`}>{otDetalle.sector}</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  otDetalle.estado === 'pendiente' ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/25' :
+                  otDetalle.estado === 'en_curso' ? 'bg-cyan-400/10 text-cyan-300 border-cyan-400/25' :
+                  otDetalle.estado === 'cerrada' ? 'bg-green-400/10 text-green-400 border-green-400/25' :
+                  'bg-[#8ecbd8]/10 text-[#8ecbd8] border-[#8ecbd8]/20'
+                }`}>{otDetalle.estado}</span>
+              </div>
+              <button onClick={() => setOtDetalle(null)} className="text-[#8ecbd8] text-xs px-3 py-1.5 border border-cyan-400/20 rounded-lg hover:border-cyan-400/50 transition-colors">
+                CERRAR
+              </button>
+            </div>
+
+            {loadingDetalle ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+
+                {/* Título y descripción */}
+                <div>
+                  <div className="text-white font-bold text-sm leading-snug mb-1">{otDetalle.titulo}</div>
+                  {otDetalle.descripcion && (
+                    <div className="text-[#8ecbd8] text-xs leading-relaxed">{otDetalle.descripcion}</div>
+                  )}
+                </div>
+
+                {/* Ubicación */}
+                {(otDetalle.km || otDetalle.ubicacion || otDetalle.nomenclatura) && (
+                  <div>
+                    <div className="text-[#8ecbd8] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Ubicación</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {otDetalle.km && (
+                        <div className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2">
+                          <div className="text-[#8ecbd8] text-[9px] font-bold tracking-widest uppercase mb-0.5">KM</div>
+                          <div className="text-white text-sm font-semibold">{otDetalle.km}</div>
+                        </div>
+                      )}
+                      {otDetalle.ubicacion && (
+                        <div className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2">
+                          <div className="text-[#8ecbd8] text-[9px] font-bold tracking-widest uppercase mb-0.5">Ubicación</div>
+                          <div className="text-white text-sm font-semibold">{otDetalle.ubicacion}</div>
+                        </div>
+                      )}
+                      {otDetalle.nomenclatura && (
+                        <div className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2">
+                          <div className="text-[#8ecbd8] text-[9px] font-bold tracking-widest uppercase mb-0.5">Nomenclatura</div>
+                          <div className="text-white text-sm font-semibold">{otDetalle.nomenclatura}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Asignación */}
+                <div>
+                  <div className="text-[#8ecbd8] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Asignación</div>
+                  <div className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2.5 flex flex-col gap-1.5">
+                    {otDetalle.creado_por_perfil && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-[#8ecbd8] w-16 shrink-0">Creó</span>
+                        <span className="text-white font-semibold">{otDetalle.creado_por_perfil.nombre} {otDetalle.creado_por_perfil.apellido}</span>
+                      </div>
+                    )}
+                    {otDetalle.orden_tecnicos?.length > 0 ? (
+                      otDetalle.orden_tecnicos.map((t: any, i: number) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <span className="text-[#8ecbd8] w-16 shrink-0">{i === 0 ? 'Técnico' : 'Adicional'}</span>
+                          <span className="text-white font-semibold">{t.tecnico_perfil?.nombre} {t.tecnico_perfil?.apellido}</span>
+                        </div>
+                      ))
+                    ) : otDetalle.asignado_a_perfil ? (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-[#8ecbd8] w-16 shrink-0">Técnico</span>
+                        <span className="text-white font-semibold">{otDetalle.asignado_a_perfil.nombre} {otDetalle.asignado_a_perfil.apellido}</span>
+                      </div>
+                    ) : (
+                      <div className="text-[#8ecbd8]/50 text-xs">Sin técnico asignado</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Planificación */}
+                <div>
+                  <div className="text-[#8ecbd8] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Planificación</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2">
+                      <div className="text-[#8ecbd8] text-[9px] font-bold tracking-widest uppercase mb-0.5">Prioridad</div>
+                      <div className={`text-sm font-semibold ${otDetalle.prioridad === 'critica' ? 'text-red-400' : otDetalle.prioridad === 'alta' ? 'text-yellow-400' : 'text-[#8ecbd8]'}`}>
+                        {otDetalle.prioridad ?? '—'}
+                      </div>
+                    </div>
+                    <div className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2">
+                      <div className="text-[#8ecbd8] text-[9px] font-bold tracking-widest uppercase mb-0.5">Programada</div>
+                      <div className="text-white text-sm font-semibold">
+                        {otDetalle.fecha_programada ? new Date(otDetalle.fecha_programada).toLocaleDateString('es-AR') : '—'}
+                      </div>
+                    </div>
+                    <div className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2">
+                      <div className="text-[#8ecbd8] text-[9px] font-bold tracking-widest uppercase mb-0.5">Creada</div>
+                      <div className="text-white text-sm font-semibold">
+                        {otDetalle.created_at ? new Date(otDetalle.created_at).toLocaleDateString('es-AR') : '—'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Trabajo */}
+                {(otDetalle.campo_libre) && (
+                  <div>
+                    <div className="text-[#8ecbd8] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Trabajo</div>
+                    <div className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2.5">
+                      <div className="text-[#8ecbd8] text-[9px] font-bold tracking-widest uppercase mb-1">Campo libre</div>
+                      <div className="text-white text-xs leading-relaxed">{otDetalle.campo_libre}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Materiales */}
+                <div>
+                  <div className="text-[#8ecbd8] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Materiales</div>
+                  {!otDetalle.orden_materiales?.length ? (
+                    <div className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2.5 text-[#8ecbd8]/50 text-xs">Sin materiales cargados</div>
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      {otDetalle.orden_materiales.map((om: any, i: number) => (
+                        <div key={i} className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+                          <div>
+                            <div className="text-white text-xs font-semibold">{om.materiales?.nombre}</div>
+                            <div className="text-[#8ecbd8] text-[10px]">{om.cantidad} {om.materiales?.unidad}</div>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            om.estado === 'entregado' ? 'bg-green-400/10 text-green-400 border-green-400/25' :
+                            om.estado === 'preparado' ? 'bg-cyan-400/10 text-cyan-300 border-cyan-400/25' :
+                            'bg-yellow-400/10 text-yellow-400 border-yellow-400/25'
+                          }`}>{om.estado}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Seguimiento */}
+                {(otDetalle.trabajos_realizados || otDetalle.observaciones || otDetalle.pendientes_descripcion) && (
+                  <div>
+                    <div className="text-[#8ecbd8] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Seguimiento</div>
+                    <div className="flex flex-col gap-2">
+                      {otDetalle.trabajos_realizados && (
+                        <div className="bg-[#051015] border border-cyan-400/15 rounded-xl px-3 py-2.5">
+                          <div className="text-[#8ecbd8] text-[9px] font-bold tracking-widest uppercase mb-1">Trabajos realizados</div>
+                          <div className="text-white text-xs leading-relaxed">{otDetalle.trabajos_realizados}</div>
+                        </div>
+                      )}
+                      {otDetalle.observaciones && (
+                        <div className="bg-[#051015] border border-yellow-400/15 rounded-xl px-3 py-2.5">
+                          <div className="text-yellow-400 text-[9px] font-bold tracking-widest uppercase mb-1">Observaciones</div>
+                          <div className="text-white text-xs leading-relaxed">{otDetalle.observaciones}</div>
+                        </div>
+                      )}
+                      {otDetalle.pendientes_descripcion && (
+                        <div className="bg-[#051015] border border-red-400/15 rounded-xl px-3 py-2.5">
+                          <div className="text-red-400 text-[9px] font-bold tracking-widest uppercase mb-1">Pendientes</div>
+                          <div className="text-white text-xs leading-relaxed">{otDetalle.pendientes_descripcion}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            )}
           </div>
         </div>
       )}
