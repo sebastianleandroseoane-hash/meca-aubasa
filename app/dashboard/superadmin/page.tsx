@@ -520,7 +520,7 @@ export default function DashboardSuperAdmin() {
                   <SupraCard key={s.id} {...s} />
                 ))}
               </div>
-              <button className="w-full py-2.5 rounded-xl border border-cyan-400/20 text-[#8ecbd8] text-xs font-bold tracking-widest uppercase hover:border-cyan-400/40 hover:text-cyan-300 transition-all flex items-center justify-center gap-2">
+              <button onClick={() => router.push('/dashboard/jefe')} className="w-full py-2.5 rounded-xl border border-cyan-400/20 text-[#8ecbd8] text-xs font-bold tracking-widest uppercase hover:border-cyan-400/40 hover:text-cyan-300 transition-all flex items-center justify-center gap-2">
                 Ver todas las OTs Supra <IconChevron size={12} />
               </button>
             </div>
@@ -553,7 +553,7 @@ export default function DashboardSuperAdmin() {
                   <OTCard key={o.id} {...o} />
                 ))}
               </div>
-              <button className="w-full py-2.5 rounded-xl border border-cyan-400/20 text-[#8ecbd8] text-xs font-bold tracking-widest uppercase hover:border-cyan-400/40 hover:text-cyan-300 transition-all flex items-center justify-center gap-2">
+              <button onClick={() => router.push('/dashboard/jefe')} className="w-full py-2.5 rounded-xl border border-cyan-400/20 text-[#8ecbd8] text-xs font-bold tracking-widest uppercase hover:border-cyan-400/40 hover:text-cyan-300 transition-all flex items-center justify-center gap-2">
                 Ver todas las OT <IconChevron size={12} />
               </button>
             </div>
