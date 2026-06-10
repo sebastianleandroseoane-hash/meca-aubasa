@@ -18,6 +18,8 @@ export default function DashboardJefe() {
   const [detalleTecnicos, setDetalleTecnicos] = useState<any[]>([])
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [verMasOTs, setVerMasOTs] = useState(false)
+  const [solicitudesEliminacion, setSolicitudesEliminacion] = useState<any[]>([])
+  const [loadingEliminacion, setLoadingEliminacion] = useState<string | null>(null)
 
   // OT Supra
   const [supras, setSupras] = useState<any[]>([])
@@ -40,6 +42,7 @@ export default function DashboardJefe() {
   }, [])
 
   async function cargarDatos() {
+    cargarSolicitudesEliminacion()
     const [{ data: ords }, { data: tecs }, { data: peds }] = await Promise.all([
       supabase.from('ordenes_trabajo').select('id, numero_orden, titulo, estado, tipo, sector, created_at').order('created_at', { ascending: false }),
       supabase.from('profiles').select('id').in('rol', ['tecnico_electrico', 'tecnico_ac']).eq('activo', true),
@@ -56,7 +59,37 @@ export default function DashboardJefe() {
     setPedidos(peds || [])
   }
 
+  async function cargarSolicitudesEliminacion() {
+    const { data } = await supabase
+      .from('ordenes_trabajo')
+      .select('id, numero_orden, titulo, sector, observacion_supervisor, created_at')
+      .eq('estado', 'eliminacion_solicitada')
+      .order('created_at', { ascending: false })
+    setSolicitudesEliminacion(data || [])
+  }
+
+  async function rechazarEliminacion(id: string) {
+    setLoadingEliminacion(id)
+    await supabase
+      .from('ordenes_trabajo')
+      .update({ estado: 'pendiente', observacion_supervisor: null })
+      .eq('id', id)
+    setLoadingEliminacion(null)
+    await Promise.all([cargarDatos(), cargarSolicitudesEliminacion()])
+  }
+
+  async function aprobarEliminacion(id: string) {
+    setLoadingEliminacion(id)
+    await supabase
+      .from('ordenes_trabajo')
+      .update({ estado: 'eliminada' })
+      .eq('id', id)
+    setLoadingEliminacion(null)
+    await Promise.all([cargarDatos(), cargarSolicitudesEliminacion()])
+  }
+
   async function responderPedido(id: string, accion: 'aprobado' | 'rechazado') {
+
     setLoadingResp(id)
     await supabase.from('pedidos_jefe').update({
       estado: accion,
@@ -224,6 +257,45 @@ export default function DashboardJefe() {
                   </button>
                 ))}
               </div>
+            </section>
+          )}
+
+          {/* ── SOLICITUDES DE ELIMINACIÓN ───────────────────────────── */}
+          {solicitudesEliminacion.length > 0 && (
+            <section className="mb-4">
+              <div className="text-red-400 text-[11px] font-black tracking-[0.22em] uppercase mb-3">
+                🗑 Solicitudes de eliminación · {solicitudesEliminacion.length}
+              </div>
+              {solicitudesEliminacion.map((o: any) => (
+                <div key={o.id} className="rounded-xl bg-[#2A0F0F] border border-red-400/40 p-3 mb-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1">
+                      <div className="text-red-300 font-black text-xs">OT-{String(o.numero_orden).padStart(5,'0')} · {o.sector}</div>
+                      <div className="text-[#e8f4f8] font-bold text-sm mt-0.5">{o.titulo}</div>
+                      {o.observacion_supervisor && (
+                        <div className="text-yellow-300 text-xs mt-1">Motivo: {o.observacion_supervisor}</div>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5 shrink-0">
+                      <button
+                        onClick={() => rechazarEliminacion(o.id)}
+                        disabled={loadingEliminacion === o.id}
+                        className="bg-[#07131a] border border-cyan-400/40 text-cyan-300 text-[10px] font-black px-3 py-1.5 rounded-lg disabled:opacity-50">
+                        {loadingEliminacion === o.id ? '...' : 'RECHAZAR'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (!confirm(`¿Confirmás la eliminación de OT-${String(o.numero_orden).padStart(5,'0')}?\n\n"${o.titulo}"\n\nEsta acción no se puede deshacer.`)) return
+                          aprobarEliminacion(o.id)
+                        }}
+                        disabled={loadingEliminacion === o.id}
+                        className="bg-red-900 border border-red-500 text-red-200 text-[10px] font-black px-3 py-1.5 rounded-lg disabled:opacity-50">
+                        {loadingEliminacion === o.id ? '...' : 'ELIMINAR'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </section>
           )}
 

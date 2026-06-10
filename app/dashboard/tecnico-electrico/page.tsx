@@ -1,13 +1,13 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSearchParams } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 import AvatarUpload from '@/app/components/AvatarUpload'
 import BibliotecaCard from '@/app/components/BibliotecaCard'
 
-export default function DashboardTecnicoElectrico() {
+function DashboardTecnicoElectricoInner() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<any>(null)
   const [ordenes, setOrdenes] = useState<any[]>([])
@@ -1328,5 +1328,13 @@ export default function DashboardTecnicoElectrico() {
         ))}
       </div>
     </main>
+  )
+}
+
+export default function DashboardTecnicoElectrico() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#07131a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1ABBD6', fontFamily: 'system-ui' }}>Cargando...</div>}>
+      <DashboardTecnicoElectricoInner />
+    </Suspense>
   )
 }

@@ -197,7 +197,11 @@ export default function DashboardPanolero() {
     setSolicitudes(sols || [])
     const { data: ords } = await supabase.from('ordenes_trabajo')
       .select(ORDEN_PANOL_SELECT)
-      .not('estado', 'eq', 'cancelada').order('created_at', { ascending: false })
+      .not('estado', 'eq', 'cancelada')
+      .not('estado', 'eq', 'eliminada')
+      .not('estado', 'eq', 'eliminacion_solicitada')
+      .order('created_at', { ascending: false })
+
     setOrdenesPanol(ords || [])
     const { data: devs } = await supabase.from('devoluciones_materiales')
       .select('*, materiales!devoluciones_materiales_material_id_fkey(nombre, unidad), propuesta_por_perfil:profiles!devoluciones_materiales_propuesta_por_fkey(nombre, apellido), ordenes_trabajo!devoluciones_materiales_orden_id_fkey(titulo, numero_orden)')
