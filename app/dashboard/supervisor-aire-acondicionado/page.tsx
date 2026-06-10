@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
+import { fechaHoyAR, formatFechaAR } from '@/lib/fecha-local'
 import AvatarUpload from '@/app/components/AvatarUpload'
 import BibliotecaCard from '@/app/components/BibliotecaCard'
 
@@ -57,7 +58,7 @@ export default function DashboardSupervisorAC() {
   const [form, setForm] = useState({
     titulo: '', descripcion: '', km: '', ubicacion: '',
     prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor',
-    nomenclatura: '', fecha_programada: new Date().toISOString().split('T')[0],
+    nomenclatura: '', fecha_programada: fechaHoyAR(),
     balizamiento_desde: '', balizamiento_hasta: '',
     balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: ''
   })
@@ -220,7 +221,7 @@ export default function DashboardSupervisorAC() {
       setShowForm(false)
       setTecnicosSeleccionados([])
       setMaterialesOrden([])
-      setForm({ titulo: '', descripcion: '', km: '', ubicacion: '', prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor', nomenclatura: '', fecha_programada: new Date().toISOString().split('T')[0], balizamiento_desde: '', balizamiento_hasta: '', balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '' })
+      setForm({ titulo: '', descripcion: '', km: '', ubicacion: '', prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor', nomenclatura: '', fecha_programada: fechaHoyAR(), balizamiento_desde: '', balizamiento_hasta: '', balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '' })
       await cargarDatos(perfil.turno)
     } else { setLoading(false) }
   }
@@ -624,7 +625,7 @@ export default function DashboardSupervisorAC() {
                 style={{ background: C.bg, border: `1px solid ${o.estado === 'en_curso' ? C.warn : C.border}`, borderLeft: `3px solid ${o.estado === 'en_curso' ? C.warn : C.accent}`, borderRadius: 10, padding: '10px 12px', marginBottom: 8, cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>OT-{String(o.numero_orden || 0).padStart(5, '0')} {o.fecha_programada && <span style={{ color: C.sub, fontWeight: 400 }}>· {new Date(o.fecha_programada).toLocaleDateString('es-AR')}</span>}</div>
+                    <div style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>OT-{String(o.numero_orden || 0).padStart(5, '0')} {o.fecha_programada && <span style={{ color: C.sub, fontWeight: 400 }}>· {formatFechaAR(o.fecha_programada)}</span>}</div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{o.titulo}</div>
                     {o.km && <div style={{ fontSize: 11, color: C.sub }}>Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
                   </div>
@@ -809,6 +810,7 @@ export default function DashboardSupervisorAC() {
               </div>
             </div>
           ))}
+        <BibliotecaCard C={C} />
         </div>
       </div>
 

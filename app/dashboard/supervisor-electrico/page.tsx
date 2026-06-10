@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 import AvatarUpload from '@/app/components/AvatarUpload'
 import { getKitBySubtipo } from '@/lib/kits-correctivo'
+import { fechaHoyAR, formatFechaAR } from '@/lib/fecha-local'
 import ComentariosOT from '@/app/components/ComentariosOT'
 import FotosOT from '@/app/components/FotosOT'
 import BibliotecaCard from '@/app/components/BibliotecaCard'
@@ -61,7 +62,7 @@ export default function DashboardSupervisorElectrico() {
   const [form, setForm] = useState({
     titulo: '', descripcion: '', km: '', ubicacion: '',
     prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor',
-    nomenclatura: '', fecha_programada: new Date().toISOString().split('T')[0],
+    nomenclatura: '', fecha_programada: fechaHoyAR(),
     balizamiento_desde: '', balizamiento_hasta: '',
     balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '',
     activo_id: '', subtipo_correctivo: ''
@@ -537,7 +538,7 @@ async function reasignarTecnicos(id: string) {
       setShowForm(false)
       setTecnicosSeleccionados([])
       setMaterialesOrden([])
-      setForm({ titulo: '', descripcion: '', km: '', ubicacion: '', prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor', nomenclatura: '', fecha_programada: new Date().toISOString().split('T')[0], balizamiento_desde: '', balizamiento_hasta: '', balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '', activo_id: '', subtipo_correctivo: '' })
+      setForm({ titulo: '', descripcion: '', km: '', ubicacion: '', prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor', nomenclatura: '', fecha_programada: fechaHoyAR(), balizamiento_desde: '', balizamiento_hasta: '', balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '', activo_id: '', subtipo_correctivo: '' })
       setActivoSeleccionado(null)
       setTipoActivoSeleccionado('')
       setSubtipoCorrectivo('')
@@ -1519,7 +1520,7 @@ async function reasignarTecnicos(id: string) {
                 style={{ background: C.bg, border: `1px solid ${o.estado === 'en_curso' ? C.warn : C.border}`, borderLeft: `3px solid ${o.estado === 'en_curso' ? C.warn : C.accent}`, borderRadius: 10, padding: '10px 12px', marginBottom: 8, cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>OT-{String(o.numero_orden || 0).padStart(5, '0')} {o.fecha_programada && <span style={{ color: C.sub, fontWeight: 400 }}>· {new Date(o.fecha_programada).toLocaleDateString('es-AR')}</span>}</div>
+                    <div style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>OT-{String(o.numero_orden || 0).padStart(5, '0')} {o.fecha_programada && <span style={{ color: C.sub, fontWeight: 400 }}>· {formatFechaAR(o.fecha_programada)}</span>}</div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{o.titulo}</div>
                     {o.km && <div style={{ fontSize: 11, color: C.sub }}>Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
                   </div>

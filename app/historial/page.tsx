@@ -5,14 +5,16 @@ import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 // ─── helpers ───────────────────────────────────────────────────────────────
 
+import { formatFechaAR } from '@/lib/fecha-local'
+
 function fmt(v: any) {
   if (!v) return 'No registrado'
   try { return new Date(v).toLocaleString('es-AR') } catch { return String(v) }
 }
 function fmtFecha(v: any) {
-  if (!v) return 'No registrado'
-  try { return new Date(v).toLocaleDateString('es-AR') } catch { return String(v) }
+  return formatFechaAR(v)
 }
+
 function val(v: any) { return v === null || v === undefined || v === '' ? 'No registrado' : String(v) }
 
 function FSeccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
@@ -636,7 +638,7 @@ async function cargarCheckins() {
                 <div className="text-[#4a8fa0] text-xs">OT-{String(o.numero_orden).padStart(5, '0')} · {o.nomenclatura || o.sector}</div>
                 <div className="text-[#e8f4f8] font-bold text-sm">{o.titulo}</div>
                 {o.km && <div className="text-[#4a8fa0] text-xs mt-0.5">Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
-                {o.fecha_programada && <div className="text-[#4a8fa0] text-xs">{o.fecha_programada}</div>}
+                {o.fecha_programada && <div className="text-[#4a8fa0] text-xs">{formatFechaAR(o.fecha_programada)}</div>}
               </div>
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full ml-2 ${badgeColor(o.estado)}`}>
                 {o.estado}
