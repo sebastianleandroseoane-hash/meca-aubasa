@@ -422,29 +422,36 @@ async function entregarItem(item: any) {
   ]
 
   return (
-    <main style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text }}>
+    <main className="min-h-screen bg-[#061418] text-white pb-28" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
 
       {/* HEADER */}
-      <div style={{ background: C.card, borderBottom: `1px solid ${C.border}`, padding: '12px 16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <section className="relative overflow-hidden border-b border-cyan-400/20 bg-linear-to-br from-[#092b34] via-[#071c24] to-[#061418] px-4 py-5">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_30%_20%,#22d3ee_0,transparent_35%),radial-gradient(circle_at_80%_10%,#0ea5e9_0,transparent_30%)]" />
+        <div className="relative max-w-7xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <AvatarUpload
               perfil={perfil}
               onUpdatePerfil={updates => setPerfil((prev: any) => ({ ...prev, ...updates }))}
             />
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{perfil.apellido}, {perfil.nombre}</div>
-              <div style={{ fontSize: 11, color: C.sub, marginTop: 1 }}>Pañolero
-                {alertasStock.length > 0 && <span style={{ marginLeft: 8, background: C.err, color: 'white', fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 10 }}>⚠️ {alertasStock.length} alertas</span>}
+              <div className="flex items-center gap-2">
+                <span className="text-white font-black text-xl tracking-wide uppercase">PAÑOL LOGÍSTICO</span>
+                <span className="bg-cyan-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full tracking-widest">PAÑOLERO</span>
+              </div>
+              <div className="text-[#8ecbd8] text-xs mt-1">
+                {perfil.apellido}, {perfil.nombre} · Centro de abastecimiento operativo
+                {alertasStock.length > 0 && (
+                  <span className="ml-2 bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full">⚠️ {alertasStock.length} alertas</span>
+                )}
               </div>
             </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: C.accent }}>{hora}</div>
-            <div style={{ fontSize: 10, color: C.sub, textTransform: 'capitalize' }}>{fechaDisplay}</div>
+          <div className="text-right">
+            <div className="text-cyan-300 text-xl font-black">{hora}</div>
+            <div className="text-[#8ecbd8] text-xs capitalize">{fechaDisplay}</div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* MODAL PIN */}
       {showPin && (
@@ -875,8 +882,34 @@ async function entregarItem(item: any) {
         </div>
       )}
 
+      {/* KPIs */}
+      <div className="max-w-7xl mx-auto px-4 pt-4">
+        <section className="grid grid-cols-2 md:grid-cols-5 gap-2.5 mb-5">
+          <div className="rounded-2xl bg-[#071c24]/90 border border-red-400/30 p-3">
+            <div className="text-[#8ecbd8] text-[10px] uppercase font-bold tracking-widest">Stock crítico</div>
+            <div className="text-red-400 text-3xl font-black">{criticos.length}</div>
+          </div>
+          <div className="rounded-2xl bg-[#071c24]/90 border border-yellow-400/30 p-3">
+            <div className="text-[#8ecbd8] text-[10px] uppercase font-bold tracking-widest">Stock bajo</div>
+            <div className="text-yellow-400 text-3xl font-black">{bajos.length}</div>
+          </div>
+          <div className="rounded-2xl bg-[#071c24]/90 border border-cyan-400/30 p-3">
+            <div className="text-[#8ecbd8] text-[10px] uppercase font-bold tracking-widest">OTs pañol</div>
+            <div className="text-cyan-300 text-3xl font-black">{ordenesPanol.length}</div>
+          </div>
+          <div className="rounded-2xl bg-[#071c24]/90 border border-green-400/30 p-3">
+            <div className="text-[#8ecbd8] text-[10px] uppercase font-bold tracking-widest">Pedidos</div>
+            <div className="text-green-400 text-3xl font-black">{pedidos.length}</div>
+          </div>
+          <div className="rounded-2xl bg-[#071c24]/90 border border-purple-400/30 p-3">
+            <div className="text-[#8ecbd8] text-[10px] uppercase font-bold tracking-widest">Devoluciones</div>
+            <div className="text-purple-400 text-3xl font-black">{devoluciones.length}</div>
+          </div>
+        </section>
+      </div>
+
       {/* BODY */}
-      <div style={{ padding: '14px 16px 110px' }}>
+      <div style={{ padding: '0 16px 110px' }} className="max-w-7xl mx-auto">
 
         {/* SOLICITUDES AUTORIZADAS — siempre visibles arriba */}
         {solicitudes.length > 0 && (() => {
@@ -1318,30 +1351,30 @@ async function entregarItem(item: any) {
       </div>
 
       {/* NAVBAR */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(12,28,36,0.97)', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-around', padding: '8px 0 14px', zIndex: 30 }}>
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#061418]/95 backdrop-blur-sm border-t border-cyan-400/20 z-30 flex justify-around py-2 pb-3.5">
         {navItems.map(item => (
           <div key={item.key} onClick={() => { setVista(item.key as any); setCategoria(null); setBusqueda('') }}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', minWidth: 44, position: 'relative' as const }}>
+            className={`relative flex flex-col items-center gap-0.5 cursor-pointer min-w-11text-[10px] ${vista === item.key ? 'text-cyan-300' : 'text-[#4a8fa0]'}`}>
             {item.svg}
-            <span style={{ fontSize: 10, color: vista === item.key ? C.accent : C.sub, fontWeight: vista === item.key ? 600 : 400 }}>{item.label}</span>
+            <span className={vista === item.key ? 'font-semibold' : 'font-normal'}>{item.label}</span>
             {(item as any).badge > 0 && (
-              <div style={{ position: 'absolute' as const, top: -2, right: 4, background: C.err, color: 'white', fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 8, minWidth: 14, textAlign: 'center' as const }}>
+              <span className="absolute -top-0.5 right-1 bg-red-500 text-white text-[8px] font-bold px-1 rounded-full  min-w-3.5text-center">
                 {(item as any).badge}
-              </div>
+              </span>
             )}
           </div>
         ))}
         <div onClick={() => router.push('/historial')}
-          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', minWidth: 44 }}>
+          className="flex flex-col items-center gap-0.5 cursor-pointer min-w-11 text-[10px] text-[#4a8fa0]">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4a8fa0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 400 }}>Historial</span>
+          <span>Historial</span>
         </div>
         <div onClick={() => router.push('/dashboard/mapa')}
-          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', minWidth: 44 }}>
+          className="flex flex-col items-center gap-0.5 cursor-pointer min-w-11 text-[10px] text-[#4a8fa0]">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4a8fa0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
-          <span style={{ fontSize: 10, color: '#4a8fa0', fontWeight: 400 }}>Mapa</span>
+          <span>Mapa</span>
         </div>
-      </div>
+      </nav>
 
     </main>
   )

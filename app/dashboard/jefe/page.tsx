@@ -146,7 +146,8 @@ export default function DashboardJefe() {
       <div className="max-w-6xl mx-auto">
 
         {/* ── HEADER ────────────────────────────────────────────────────── */}
-        <header className="bg-gradient-to-br from-[#092b34] via-[#071c24] to-[#061418] border-b border-cyan-400/20 px-5 py-5">
+        <header className="bg-linear-to-br
+ from-[#092b34] via-[#071c24] to-[#061418] border-b border-cyan-400/20 px-5 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-full bg-[#071c24] border-2 border-cyan-400/60 shadow-[0_0_20px_rgba(34,211,238,0.35)] flex items-center justify-center text-cyan-300 shrink-0">
