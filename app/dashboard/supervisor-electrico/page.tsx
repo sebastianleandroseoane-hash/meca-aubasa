@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 import AvatarUpload from '@/app/components/AvatarUpload'
 import { getKitBySubtipo } from '@/lib/kits-correctivo'
+import ComentariosOT from '@/app/components/ComentariosOT'
 import BibliotecaCard from '@/app/components/BibliotecaCard'
 
 function SolicitudItem({ s, onResolver }: { s: any, onResolver: (id: string, decision: 'autorizada' | 'rechazada', obs: string) => void }) {
@@ -1206,6 +1207,11 @@ async function reasignarTecnicos(id: string) {
                 )}
               </div>
             )}
+          <ComentariosOT
+              ordenId={ordenDetalle.id}
+              autorId={perfil.id}
+              autorRol={perfil.rol}
+            />
           </div>
         </>,
         () => { setOrdenDetalle(null); setShowDevolucion(false); setObsDevolucion('') }

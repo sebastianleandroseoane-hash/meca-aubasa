@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 import AvatarUpload from '@/app/components/AvatarUpload'
 import BibliotecaCard from '@/app/components/BibliotecaCard'
+import ComentariosOT from '@/app/components/ComentariosOT'
 
 function DashboardTecnicoElectricoInner() {
   const router = useRouter()
@@ -1152,6 +1153,12 @@ function DashboardTecnicoElectricoInner() {
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <ComentariosOT
+                  ordenId={ordenDetalle.id}
+                  autorId={perfil.id}
+                  autorRol={perfil.rol}
+                />
+
                 {ordenDetalle.estado === 'pendiente' && (
                   <button onClick={() => iniciarOrden(ordenDetalle.id)}
                     style={{ flex: 1, background: '#1ABBD6', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>

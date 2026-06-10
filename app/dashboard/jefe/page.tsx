@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import ComentariosOT from '@/app/components/ComentariosOT'
 import { useRouter } from 'next/navigation'
 import { supabase, getPerfil } from '@/lib/supabase'
 
@@ -36,13 +37,12 @@ export default function DashboardJefe() {
       if (!p) { router.push('/'); return }
       if (p.rol !== 'jefe' && p.rol !== 'delegado' && p.rol !== 'superadmin') { router.push('/'); return }
       setPerfil(p)
-      await Promise.all([cargarDatos(), cargarSupras(), cargarSupervisores()])
+      await Promise.all([cargarDatos(), cargarSupras(), cargarSupervisores(), cargarSolicitudesEliminacion()])
       setLoading(false)
     })
   }, [])
 
   async function cargarDatos() {
-    cargarSolicitudesEliminacion()
     const [{ data: ords }, { data: tecs }, { data: peds }] = await Promise.all([
       supabase.from('ordenes_trabajo').select('id, numero_orden, titulo, estado, tipo, sector, created_at').order('created_at', { ascending: false }),
       supabase.from('profiles').select('id').in('rol', ['tecnico_electrico', 'tecnico_ac']).eq('activo', true),
@@ -588,6 +588,11 @@ export default function DashboardJefe() {
                   ))
               }
             </div>
+            <ComentariosOT
+              ordenId={ordenDetalle.id}
+              autorId={perfil.id}
+              autorRol={perfil.rol}
+            />
           </div>
         </div>
       )}
