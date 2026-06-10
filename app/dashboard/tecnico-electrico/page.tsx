@@ -7,6 +7,7 @@ import { getPerfil, supabase } from '@/lib/supabase'
 import AvatarUpload from '@/app/components/AvatarUpload'
 import BibliotecaCard from '@/app/components/BibliotecaCard'
 import ComentariosOT from '@/app/components/ComentariosOT'
+import FotosOT from '@/app/components/FotosOT'
 
 function DashboardTecnicoElectricoInner() {
   const router = useRouter()
@@ -1155,6 +1156,13 @@ function DashboardTecnicoElectricoInner() {
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <ComentariosOT
                   ordenId={ordenDetalle.id}
+                  autorId={perfil.id}
+                  autorRol={perfil.rol}
+                />
+                <FotosOT
+                  ordenId={ordenDetalle.id}
+                  ordenEstado={ordenDetalle.estado}
+                  activoId={ordenDetalle.activo_id || null}
                   autorId={perfil.id}
                   autorRol={perfil.rol}
                 />

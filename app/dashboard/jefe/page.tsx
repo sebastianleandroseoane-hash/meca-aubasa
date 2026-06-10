@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import ComentariosOT from '@/app/components/ComentariosOT'
+import FotosOT from '@/app/components/FotosOT'
 import { useRouter } from 'next/navigation'
 import { supabase, getPerfil } from '@/lib/supabase'
 
@@ -590,6 +591,13 @@ export default function DashboardJefe() {
             </div>
             <ComentariosOT
               ordenId={ordenDetalle.id}
+              autorId={perfil.id}
+              autorRol={perfil.rol}
+            />
+            <FotosOT
+              ordenId={ordenDetalle.id}
+              ordenEstado={ordenDetalle.estado}
+              activoId={ordenDetalle.activo_id || null}
               autorId={perfil.id}
               autorRol={perfil.rol}
             />
