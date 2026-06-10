@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 import AvatarUpload from '@/app/components/AvatarUpload'
 import BibliotecaCard from '@/app/components/BibliotecaCard'
@@ -57,6 +58,12 @@ export default function DashboardTecnicoElectrico() {
   const [itCorriente, setItCorriente] = useState('')
   const [itMedicionesDetalle, setItMedicionesDetalle] = useState('')
 
+  // Modo auditoría — searchParams no va en deps del useEffect: se lee una sola vez al montar
+  const searchParams = useSearchParams()
+  const [modoAuditoria, setModoAuditoria] = useState(false)
+  const [tecnicosDisponibles, setTecnicosDisponibles] = useState<any[]>([])
+  const [tecnicoSeleccionado, setTecnicoSeleccionado] = useState<any>(null)
+
   // Asistente IA
   const [iaTextoLibre, setIaTextoLibre]   = useState('')
   const [loadingIA, setLoadingIA]         = useState(false)
@@ -67,8 +74,32 @@ export default function DashboardTecnicoElectrico() {
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
       if (p.rol !== 'tecnico_electrico' && p.rol !== 'superadmin' && p.rol !== 'jefe') { router.push('/'); return }
-      setPerfil(p)
-      await Promise.all([cargarOrdenes(p.id), cargarSupervisor(p)])
+
+      if (p.rol === 'jefe' || p.rol === 'superadmin') {
+        setModoAuditoria(true)
+        setPerfil(p)
+        // grupo incluido porque cargarSupervisor lo necesita
+        const { data: tecnicos } = await supabase
+          .from('profiles')
+          .select('id, nombre, apellido, turno, grupo')
+          .eq('rol', 'tecnico_electrico')
+          .eq('activo', true)
+          .order('apellido', { ascending: true })
+        setTecnicosDisponibles(tecnicos || [])
+        // Si viene ?tecnico_id= en URL, seleccionarlo directo
+        const tecId = searchParams.get('tecnico_id')
+        if (tecId && tecnicos) {
+          const tec = tecnicos.find((t: any) => t.id === tecId)
+          if (tec) {
+            setTecnicoSeleccionado(tec)
+            await Promise.all([cargarOrdenes(tec.id), cargarSupervisor(tec)])
+          }
+        }
+      } else {
+        // Técnico normal: sin cambios
+        setPerfil(p)
+        await Promise.all([cargarOrdenes(p.id), cargarSupervisor(p)])
+      }
     })
     const tick = () => {
       const now = new Date()
@@ -505,6 +536,39 @@ export default function DashboardTecnicoElectrico() {
 
       {/* HEADER */}
       <div style={{ background: '#0c1c24', borderBottom: '1px solid #1a3040', padding: '12px 16px' }}>
+
+        {/* Banner modo auditoría */}
+        {modoAuditoria && (
+          <div style={{ background: '#3A2A00', border: '1px solid #EF9F27', borderRadius: 8, padding: '8px 12px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: '#EF9F27', fontWeight: 700 }}>
+              👁 MODO AUDITORÍA · {perfil.nombre} {perfil.apellido}
+            </span>
+            <select
+              value={tecnicoSeleccionado?.id || ''}
+              onChange={async e => {
+                const tec = tecnicosDisponibles.find((t: any) => t.id === e.target.value)
+                if (!tec) return
+                setTecnicoSeleccionado(tec)
+                setOrdenes([])
+                setOrdenActiva(null)
+                setOrdenDetalle(null)
+                setShowCierre(false)
+                setShowMemoria(false)
+                setMemoriaActivo(null)
+                setErrorMemoria('')
+                resetInforme()
+                await Promise.all([cargarOrdenes(tec.id), cargarSupervisor(tec)])
+              }}
+              style={{ background: '#07131a', border: '1px solid #EF9F27', borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#e8f4f8', outline: 'none' }}
+            >
+              <option value=''>— Seleccionar técnico —</option>
+              {tecnicosDisponibles.map((t: any) => (
+                <option key={t.id} value={t.id}>{t.apellido}, {t.nombre} · T{t.turno}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <AvatarUpload
@@ -512,8 +576,14 @@ export default function DashboardTecnicoElectrico() {
               onUpdatePerfil={updates => setPerfil((prev: any) => ({ ...prev, ...updates }))}
             />
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#e8f4f8' }}>{perfil.nombre} {perfil.apellido}</div>
-              <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 1 }}>Técnico Eléctrico · Turno {perfil.turno}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#e8f4f8' }}>
+                {modoAuditoria && tecnicoSeleccionado
+                  ? `${tecnicoSeleccionado.nombre} ${tecnicoSeleccionado.apellido}`
+                  : `${perfil.nombre} ${perfil.apellido}`}
+              </div>
+              <div style={{ fontSize: 11, color: '#4a8fa0', marginTop: 1 }}>
+                Técnico Eléctrico · Turno {modoAuditoria && tecnicoSeleccionado ? tecnicoSeleccionado.turno : perfil.turno}
+              </div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
