@@ -77,6 +77,7 @@ export default function DashboardSupervisorElectrico() {
   const [nomenclaturas, setNomenclaturas] = useState<any[]>([])
   const [busquedaOrden, setBusquedaOrden] = useState('')
   const [verTodosTecnicos, setVerTodosTecnicos] = useState(false)
+  const [todosLosTecnicos, setTodosLosTecnicos] = useState<any[]>([])
   const [errores, setErrores] = useState<string[]>([])
   const [hora, setHora] = useState('')
   const [fechaDisplay, setFechaDisplay] = useState('')
@@ -109,7 +110,7 @@ const [loadingDecision, setLoadingDecision] = useState(false)
     getPerfil().then(async p => {
       if (!p) { router.push('/'); return }
       if (p.rol !== 'supervisor_electrico' && p.rol !== 'superadmin' && p.rol !== 'jefe') { router.push('/'); return }
-      const turnoEfectivo = (p.rol === 'superadmin' || p.rol === 'jefe') ? '1' : p.turno
+      const turnoEfectivo = (p.rol === 'superadmin' || p.rol === 'jefe') ? null : p.turno
       setPerfil(p)
       await Promise.all([cargarDatos(turnoEfectivo), cargarSolicitudes(), cargarCheckinsVehiculos(), cargarOrdenesRebotadas(), cargarSuprasPendientes()])
     })
@@ -129,18 +130,29 @@ const [loadingDecision, setLoadingDecision] = useState(false)
     setMaterialesFiltrados(materiales.filter((m: any) => m.nombre.toLowerCase().includes(q)))
   }, [busqueda, materiales])
 
-  async function cargarDatos(turno: string) {
+  async function cargarDatos(turno: string | null) {
     const { data: ords } = await supabase.from('ordenes_trabajo')
       .select('*, profiles!ordenes_trabajo_asignado_a_fkey(nombre, apellido)')
       .eq('sector', 'electrico').order('created_at', { ascending: false })
     setOrdenes(ords || [])
-    const { data: tecs } = await supabase.rpc('get_tecnicos_activos', { p_sector: 'electrico', p_turno: turno })
-    const { data: acts } = await supabase.from('activos')
-      .select('id, codigo, nombre, tipo, ramal, sentido_operativo, subtipo, estado, observaciones, reemplazado_por_id')
-      .is('deleted_at', null)
-      .order('nombre', { ascending: true })
+    const [tecsPorTurno, { data: acts }, { data: todos }] = await Promise.all([
+      turno
+        ? supabase.rpc('get_tecnicos_activos', { p_sector: 'electrico', p_turno: turno })
+        : Promise.resolve({ data: [] }),
+      supabase.from('activos')
+        .select('id, codigo, nombre, tipo, ramal, sentido_operativo, subtipo, estado, observaciones, reemplazado_por_id')
+        .is('deleted_at', null)
+        .order('nombre', { ascending: true }),
+      supabase.from('profiles')
+        .select('id, nombre, apellido, rol, turno, sector_trabajo, grupo')
+        .eq('activo', true)
+        .eq('sector_trabajo', 'electrico')
+        .in('rol', ['tecnico_electrico', 'tallerista_electrico', 'panolero'])
+        .order('apellido', { ascending: true }),
+    ])
     setActivos(acts || [])
-    setTecnicos(tecs || [])
+    setTecnicos(tecsPorTurno.data || [])
+    setTodosLosTecnicos(todos || [])
   }
 
   async function cargarSolicitudes() {
@@ -835,8 +847,15 @@ async function reasignarTecnicos(id: string) {
             </div>
             <div style={{ background: C.bg, border: `1px solid ${errores.includes('tecnicos') ? C.err : C.border}`, borderRadius: 10, marginBottom: 12, overflow: 'hidden' }}>
               {(() => {
-                const lista = verTodosTecnicos ? tecnicos : tecnicos.filter((t: any) => t.grupo === perfil?.grupo)
-                if (lista.length === 0) return <div style={{ padding: '10px 12px', fontSize: 12, color: C.sub }}>{verTodosTecnicos ? 'No hay técnicos disponibles' : 'No hay técnicos de tu grupo disponibles'}</div>
+                const esJefeOAdmin = perfil?.rol === 'jefe' || perfil?.rol === 'superadmin'
+                const lista = (verTodosTecnicos || esJefeOAdmin)
+                  ? todosLosTecnicos
+                  : tecnicos.filter((t: any) => t.grupo === perfil?.grupo)
+                if (lista.length === 0) return (
+                  <div style={{ padding: '10px 12px', fontSize: 12, color: C.sub }}>
+                    {verTodosTecnicos || esJefeOAdmin ? 'No hay técnicos disponibles' : 'No hay técnicos de tu grupo disponibles'}
+                  </div>
+                )
                 return lista.map((t: any, i: number) => (
                   <div key={t.id} onClick={() => toggleTecnico(t.id)}
                     style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer', borderBottom: i < lista.length - 1 ? `1px solid ${C.border}` : 'none', background: tecnicosSeleccionados.includes(t.id) ? '#0F2A35' : 'transparent' }}>
@@ -844,7 +863,7 @@ async function reasignarTecnicos(id: string) {
                       {tecnicosSeleccionados.includes(t.id) && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </div>
                     <span style={{ fontSize: 13, color: C.text, fontWeight: 500 }}>{t.apellido}, {t.nombre}</span>
-                    {verTodosTecnicos && t.grupo !== perfil?.grupo && (
+                    {(verTodosTecnicos || esJefeOAdmin) && t.grupo !== perfil?.grupo && (
                       <span style={{ fontSize: 10, background: '#3A2A00', color: C.warn, padding: '2px 6px', borderRadius: 10, marginLeft: 'auto' }}>Gr.{t.grupo}</span>
                     )}
                   </div>
