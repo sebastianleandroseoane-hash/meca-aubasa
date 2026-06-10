@@ -175,7 +175,7 @@ function FichaTecnicaOT({ ordenDetalle, informeDetalle, tecnicos, materiales, hi
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
             {[
-              { titulo: 'Diagnóstico', value: informeDetalle?.diagnostico },
+              { titulo: 'Diagnóstico', value: informeDetalle?.estado_encontrado_detalle || informeDetalle?.causa_detalle || null },
               { titulo: 'Mediciones eléctricas', value: informeDetalle?.mediciones_detalle || [informeDetalle?.tension_entrada && `Tensión entrada: ${informeDetalle.tension_entrada}`, informeDetalle?.tension_salida && `Tensión salida: ${informeDetalle.tension_salida}`, informeDetalle?.corriente && `Corriente: ${informeDetalle.corriente}`].filter(Boolean).join('\n') || null },
               { titulo: 'Condición final', value: activoOperativo ? 'OPERATIVO\nSistema normalizado.' : 'NO OPERATIVO\nRequiere seguimiento.' },
             ].map(({ titulo, value }) => (
@@ -386,7 +386,7 @@ async function cargarCheckins() {
 
     const { data: informe } = await supabase
       .from('informes_tecnicos')
-      .select('trabajo_detalle, mediciones_detalle, activo_operativo, requiere_seguimiento, seguimiento_detalle, riesgo_tipo, riesgo_controlado, observaciones_seguridad, estado_encontrado, causa_probable, tension_entrada, tension_salida, corriente')
+      .select('trabajo_detalle, mediciones_detalle, activo_operativo, requiere_seguimiento, seguimiento_detalle, riesgo_tipo, riesgo_controlado, observaciones_seguridad, estado_encontrado, estado_encontrado_detalle, causa_probable, causa_detalle, tension_entrada, tension_salida, corriente, informe_final_tecnico')
       .eq('orden_id', orden.id)
       .maybeSingle()
 
