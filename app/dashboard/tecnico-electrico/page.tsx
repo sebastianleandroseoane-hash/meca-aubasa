@@ -1153,7 +1153,7 @@ function DashboardTecnicoElectricoInner() {
 
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
                 <ComentariosOT
                   ordenId={ordenDetalle.id}
                   autorId={perfil.id}

@@ -64,15 +64,29 @@ export default function FotosOT({ ordenId, ordenEstado, activoId, autorId, autor
     setErrorCarga(false)
     const { data, error } = await supabase
       .from('fotos')
-      .select('id, storage_path, nombre_archivo, contexto, descripcion, tomada_por, created_at, autor:profiles!fotos_tomada_por_fkey(nombre, apellido, rol)')
+      .select('id, storage_path, nombre_archivo, contexto, descripcion, tomada_por, created_at')
       .eq('ot_id', ordenId)
       .is('deleted_at', null)
       .order('created_at', { ascending: true })
     setLoading(false)
     if (error) { setErrorCarga(true); return }
+
+    // Segunda consulta: traer datos de los autores (no hay FK fotos->profiles, no se puede embeber)
+    const autorIds = Array.from(new Set((data || []).map((f: any) => f.tomada_por).filter(Boolean)))
+    const autoresMap: Record<string, { nombre: string; apellido: string; rol: string }> = {}
+    if (autorIds.length > 0) {
+      const { data: autores } = await supabase
+        .from('profiles')
+        .select('id, nombre, apellido, rol')
+        .in('id', autorIds)
+      for (const a of (autores || [])) {
+        autoresMap[a.id] = { nombre: a.nombre, apellido: a.apellido, rol: a.rol }
+      }
+    }
+
     const conUrls = await Promise.all((data || []).map(async (f: any) => {
       const { data: signed } = await supabase.storage.from('ot-fotos').createSignedUrl(f.storage_path, 3600)
-      const autor = Array.isArray(f.autor) ? (f.autor[0] || null) : (f.autor || null)
+      const autor = f.tomada_por ? (autoresMap[f.tomada_por] || null) : null
       return { ...f, autor, signedUrl: signed?.signedUrl || null }
     }))
     setFotos(conUrls)
@@ -114,7 +128,7 @@ export default function FotosOT({ ordenId, ordenEstado, activoId, autorId, autor
         contexto,
         descripcion: descripcion.trim() || null,
       })
-      .select('id, storage_path, nombre_archivo, contexto, descripcion, tomada_por, created_at, autor:profiles!fotos_tomada_por_fkey(nombre, apellido, rol)')
+      .select('id, storage_path, nombre_archivo, contexto, descripcion, tomada_por, created_at')
       .single()
     setSubiendo(false)
     if (insertError) {
@@ -123,8 +137,14 @@ export default function FotosOT({ ordenId, ordenEstado, activoId, autorId, autor
       return
     }
     const { data: signed } = await supabase.storage.from('ot-fotos').createSignedUrl(path, 3600)
-    const autorInserted = Array.isArray(inserted.autor) ? (inserted.autor[0] || null) : (inserted.autor || null)
+    const { data: autorData } = await supabase
+      .from('profiles')
+      .select('nombre, apellido, rol')
+      .eq('id', autorId)
+      .single()
+    const autorInserted = autorData ? { nombre: autorData.nombre, apellido: autorData.apellido, rol: autorData.rol } : null
     setFotos(prev => [...prev, { ...inserted, autor: autorInserted, signedUrl: signed?.signedUrl || null }])
+
     setContexto('')
     setDescripcion('')
     if (fileInputRef.current) fileInputRef.current.value = ''
