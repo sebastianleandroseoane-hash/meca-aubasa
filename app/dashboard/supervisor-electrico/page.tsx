@@ -70,6 +70,7 @@ export default function DashboardSupervisorElectrico() {
   const [activos, setActivos] = useState<any[]>([])
   const [tipoActivoSeleccionado, setTipoActivoSeleccionado] = useState<string>('')
   const [activoSeleccionado, setActivoSeleccionado] = useState<any>(null)
+  const [activosOrden, setActivosOrden] = useState<any[]>([])
   const [subtipoCorrectivo, setSubtipoCorrectivo] = useState<string>('')
   const [subtipoOtroTexto, setSubtipoOtroTexto] = useState<string>('')
   const [tipoActivoOtroTexto, setTipoActivoOtroTexto] = useState<string>('')
@@ -488,14 +489,18 @@ async function reasignarTecnicos(id: string) {
       balizamiento_hora_ingreso: form.balizamiento_hora_ingreso || null,
       balizamiento_hora_egreso: form.balizamiento_hora_egreso || null,
       km: form.km ? parseFloat(form.km) : null, ubicacion: form.ubicacion,
-      activo_id: form.activo_id || null,
+      activo_id: activosOrden.length > 0 ? activosOrden[0].id : null,
+
       asignado_a: tecnicosSeleccionados[0], creado_por: perfil.id,
       turno: perfil.turno, fecha_programada: form.fecha_programada, campo_libre: form.campo_libre || null,
       supra_id: supraIdParaOT || null
     }).select().single()
     if (!error && nuevaOrden) {
       await supabase.from('orden_tecnicos').insert(tecnicosSeleccionados.map(tid => ({ orden_id: nuevaOrden.id, tecnico_id: tid, cerro: false })))
-
+// Activos vinculados
+      if (activosOrden.length > 0) {
+        await supabase.from('orden_activos').insert(activosOrden.map((a, i) => ({ orden_id: nuevaOrden.id, activo_id: a.id, orden_item: i + 1 })))
+      }
       // Items del formulario (seleccionados manualmente por el supervisor)
       for (const m of materialesOrden) {
         if (m.stock >= m.cantidad) {
@@ -540,7 +545,9 @@ async function reasignarTecnicos(id: string) {
       setMaterialesOrden([])
       setForm({ titulo: '', descripcion: '', km: '', ubicacion: '', prioridad: 'normal', tipo: 'correctivo_programado', origen: 'supervisor', nomenclatura: '', fecha_programada: fechaHoyAR(), balizamiento_desde: '', balizamiento_hasta: '', balizamiento_hora_ingreso: '', balizamiento_hora_egreso: '', campo_libre: '', activo_id: '', subtipo_correctivo: '' })
       setActivoSeleccionado(null)
+      setActivosOrden([])
       setTipoActivoSeleccionado('')
+
       setSubtipoCorrectivo('')
       setSubtipoOtroTexto('')
       setTipoActivoOtroTexto('')
@@ -645,7 +652,8 @@ async function reasignarTecnicos(id: string) {
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Nueva orden de trabajo</div>
-            <button onClick={() => { setShowForm(false); setTecnicosSeleccionados([]); setMaterialesOrden([]); setSupraIdParaOT(null) }}
+            <button onClick={() => { setShowForm(false); setTecnicosSeleccionados([]); setMaterialesOrden([]); setActivosOrden([]); setSupraIdParaOT(null)
+ }}
               style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CANCELAR</button>
           </div>
           {supraIdParaOT && suprasPendientes.find(s => s.id === supraIdParaOT) && (
@@ -936,7 +944,8 @@ async function reasignarTecnicos(id: string) {
             </button>
           </div>
         </>,
-        () => { setShowForm(false); setTecnicosSeleccionados([]); setMaterialesOrden([]) }
+        () => { setShowForm(false); setTecnicosSeleccionados([]); setMaterialesOrden([]); setActivosOrden([]) }
+
       )}
 
       {/* MODAL STOCK */}
