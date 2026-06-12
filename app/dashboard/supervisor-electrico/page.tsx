@@ -1383,11 +1383,11 @@ async function reasignarTecnicos(id: string) {
               Técnicos {tecnicosReasignados.length > 0 && <span style={{ color: C.accent }}>({tecnicosReasignados.length})</span>}
             </div>
             <div style={{ background: C.bg, border: `1px solid ${tecnicosReasignados.length === 0 ? C.err : C.border}`, borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
-              {tecnicos.length === 0
+              {todosLosTecnicos.length === 0
                 ? <div style={{ padding: '10px 12px', fontSize: 12, color: C.sub }}>No hay técnicos disponibles</div>
-                : tecnicos.map((t: any, i: number) => (
+                : todosLosTecnicos.map((t: any, i: number) => (
                   <div key={t.id} onClick={() => setTecnicosReasignados(prev => prev.includes(t.id) ? prev.filter(id => id !== t.id) : [...prev, t.id])}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer', borderBottom: i < tecnicos.length - 1 ? `1px solid ${C.border}` : 'none', background: tecnicosReasignados.includes(t.id) ? '#0F2A35' : 'transparent' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer', borderBottom: i < todosLosTecnicos.length - 1 ? `1px solid ${C.border}` : 'none', background: tecnicosReasignados.includes(t.id) ? '#0F2A35' : 'transparent' }}>
                     <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${tecnicosReasignados.includes(t.id) ? C.accent : '#2a4050'}`, background: tecnicosReasignados.includes(t.id) ? C.accent : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {tecnicosReasignados.includes(t.id) && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </div>
@@ -1400,7 +1400,7 @@ async function reasignarTecnicos(id: string) {
               <div style={{ fontSize: 11, color: C.sub, marginBottom: 14 }}>
                 Asignado principal: <span style={{ color: C.accent, fontWeight: 600 }}>
                   {(() => {
-                    const t = tecnicos.find((t: any) => t.id === tecnicosReasignados[0])
+                    const t = todosLosTecnicos.find((t: any) => t.id === tecnicosReasignados[0])
                     return t ? `${t.apellido}, ${t.nombre}` : '—'
                   })()}
                 </span>
