@@ -776,10 +776,14 @@ async function reasignarTecnicos(id: string) {
               </div>
             </div>
 
-            <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>Activo / Nomenclatura *</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1 }}>
+                Activos {activosOrden.length > 0 && <span style={{ color: C.accent }}>({activosOrden.length})</span>}
+              </div>
+            </div>
             <select style={{ ...sel, marginBottom: 8 }}
               value={tipoActivoSeleccionado}
-              onChange={e => { setTipoActivoSeleccionado(e.target.value); setActivoSeleccionado(null); setForm(prev => ({ ...prev, activo_id: '', nomenclatura: '' })) }}>
+              onChange={e => { setTipoActivoSeleccionado(e.target.value); setActivoSeleccionado(null) }}>
               <option value="">Tipo de activo</option>
               <option value="TS">TS — Tablero Seccional</option>
               <option value="TG">TG — Tablero General Ruta 36</option>
@@ -796,37 +800,58 @@ async function reasignarTecnicos(id: string) {
                 onChange={e => {
                   setTipoActivoOtroTexto(e.target.value)
                   setActivoSeleccionado(null)
-                  setForm(prev => ({ ...prev, activo_id: '', nomenclatura: e.target.value }))
+                  setForm(prev => ({ ...prev, nomenclatura: e.target.value }))
                 }}
               />
             )}
             {tipoActivoSeleccionado && tipoActivoSeleccionado !== 'OTROS' && (
-              <select style={{ ...sel, marginBottom: 8 }}
-                value={form.activo_id}
-                onChange={e => {
-                  const a = activos.find(x => x.id === e.target.value)
-                  if (!a || a.estado === 'fuera_servicio') return
-                  setActivoSeleccionado(a)
-                  setForm(prev => ({ ...prev, activo_id: a.id }))
-                }}>
-                <option value="">Seleccioná activo</option>
-                {activos
-                  .filter(a => a.tipo === tipoActivoSeleccionado)
-                  .sort((a, b) => a.nombre.localeCompare(b.nombre, undefined, { numeric: true }))
-                  .map(a => {
-                    const fueraServicio = a.estado === 'fuera_servicio'
-                    const reemplazadoPor = fueraServicio && a.reemplazado_por_id ? activos.find(x => x.id === a.reemplazado_por_id) : null
-                    return (
-                      <option key={a.id} value={a.id} disabled={fueraServicio}>
-                        {a.codigo} - {a.nombre}{fueraServicio ? ` — fuera de servicio${reemplazadoPor ? ` — usar ${reemplazadoPor.codigo}` : ''}` : ''}
-                      </option>
-                    )
-                  })}
-              </select>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <select style={{ ...sel, flex: 1, marginBottom: 0 }}
+                  value={activoSeleccionado?.id || ''}
+                  onChange={e => {
+                    const a = activos.find(x => x.id === e.target.value)
+                    if (!a || a.estado === 'fuera_servicio') return
+                    setActivoSeleccionado(a)
+                  }}>
+                  <option value="">Seleccioná activo</option>
+                  {activos
+                    .filter(a => a.tipo === tipoActivoSeleccionado && !activosOrden.some(ao => ao.id === a.id))
+                    .sort((a, b) => a.nombre.localeCompare(b.nombre, undefined, { numeric: true }))
+                    .map(a => {
+                      const fueraServicio = a.estado === 'fuera_servicio'
+                      const reemplazadoPor = fueraServicio && a.reemplazado_por_id ? activos.find(x => x.id === a.reemplazado_por_id) : null
+                      return (
+                        <option key={a.id} value={a.id} disabled={fueraServicio}>
+                          {a.codigo} - {a.nombre}{fueraServicio ? ` — fuera de servicio${reemplazadoPor ? ` — usar ${reemplazadoPor.codigo}` : ''}` : ''}
+                        </option>
+                      )
+                    })}
+                </select>
+                <button onClick={() => {
+                    if (!activoSeleccionado) return
+                    if (activosOrden.some(a => a.id === activoSeleccionado.id)) return
+                    setActivosOrden(prev => [...prev, activoSeleccionado])
+                    setActivoSeleccionado(null)
+                  }}
+                  disabled={!activoSeleccionado}
+                  style={{ background: activoSeleccionado ? C.accent : C.bg, border: `1px solid ${activoSeleccionado ? C.accent : C.border}`, borderRadius: 8, color: activoSeleccionado ? 'white' : C.sub, fontWeight: 700, fontSize: 12, padding: '0 14px', cursor: activoSeleccionado ? 'pointer' : 'default', whiteSpace: 'nowrap' as const }}>
+                  + Agregar
+                </button>
+              </div>
             )}
-            {activoSeleccionado && (
-              <div style={{ fontSize: 10, color: C.accent, marginBottom: 8, marginTop: -8 }}>
-                ✓ {activoSeleccionado.tipo} · {activoSeleccionado.ramal}{activoSeleccionado.sentido_operativo ? ` · ${activoSeleccionado.sentido_operativo}` : ''}
+            {activosOrden.length > 0 && (
+              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 12, overflow: 'hidden' }}>
+                {activosOrden.map((a, i) => (
+                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: i < activosOrden.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>{a.codigo} — {a.nombre}</div>
+                      <div style={{ fontSize: 10, color: C.sub }}>{a.tipo}{a.ramal ? ` · ${a.ramal}` : ''}{a.sentido_operativo ? ` · ${a.sentido_operativo}` : ''}</div>
+                    </div>
+                    {i === 0 && <span style={{ fontSize: 9, color: C.accent, fontWeight: 700, background: '#0F2A35', padding: '2px 6px', borderRadius: 10 }}>PRINCIPAL</span>}
+                    <button onClick={() => setActivosOrden(prev => prev.filter(x => x.id !== a.id))}
+                      style={{ background: 'none', border: 'none', color: C.err, fontSize: 14, cursor: 'pointer', padding: '0 4px' }}>×</button>
+                  </div>
+                ))}
               </div>
             )}
 
