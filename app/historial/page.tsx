@@ -165,8 +165,8 @@ function FichaTecnicaOT({ ordenDetalle, informeDetalle, tecnicos, materiales, hi
             </div>
             <div style={{ background: '#FFF', border: '1px solid #D8E2EE', borderLeft: '6px solid #0B5CAB', borderRadius: 14, padding: 16 }}>
               <FSeccion titulo="Informe técnico de intervención">
-                {informeDetalle?.trabajo_detalle
-                  ? <div style={{ whiteSpace: 'pre-wrap' as const, lineHeight: 1.75, fontSize: 13.5, color: '#1F2937', textAlign: 'justify' as const }}>{informeDetalle.trabajo_detalle}</div>
+                {(informeDetalle?.trabajo_detalle || ordenDetalle?.trabajos_realizados)
+                  ? <div style={{ whiteSpace: 'pre-wrap' as const, lineHeight: 1.75, fontSize: 13.5, color: '#1F2937', textAlign: 'justify' as const }}>{informeDetalle?.trabajo_detalle || ordenDetalle?.trabajos_realizados}</div>
                   : <div style={{ color: '#94A3B8', fontSize: 13, fontStyle: 'italic' }}>Sin informe técnico registrado para esta OT.</div>
                 }
               </FSeccion>
