@@ -501,12 +501,12 @@ async function abrirDetalle(orden: any) {
                   }
                   const filtradas = (grupos_temp => {
                     const g: Record<string, any[]> = {}
-                    for (const o of ordenes.filter((o: any) => ESTADOS_OPERATIVOS.includes(o.estado))) {
+                    for (const o of ordenes) {
                       const key = o.creado_por_perfil ? `${o.creado_por_perfil.apellido}, ${o.creado_por_perfil.nombre}` : 'Sin asignar'
                       if (!g[key]) g[key] = []
                       g[key].push(o)
                     }
-                    return (g[supervisorSeleccionado] || []).slice().sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                    return (g[supervisorSeleccionado] || []).slice().sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                   })({})
                   const visibles = filtradas
                   return (<>
@@ -633,7 +633,7 @@ async function abrirDetalle(orden: any) {
                 <div className="text-[#e8f4f8] text-xs font-bold">{new Date(ordenDetalle.created_at).toLocaleDateString('es-AR')}</div>
               </div>
             </div>
-            {loadingDetalle ? (
+           {loadingDetalle ? (
               <div className="text-[#7ab3c8] text-xs py-4 text-center">Cargando detalle...</div>
             ) : (<>
 
