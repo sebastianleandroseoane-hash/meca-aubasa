@@ -5,6 +5,7 @@ import ComentariosOT from '@/app/components/ComentariosOT'
 import FotosOT from '@/app/components/FotosOT'
 import { useRouter } from 'next/navigation'
 import { supabase, getPerfil } from '@/lib/supabase'
+import { formatFechaAR, formatTurnoOT } from '@/lib/fecha-local'
 
 export default function DashboardJefe() {
   const router = useRouter()
@@ -20,7 +21,8 @@ export default function DashboardJefe() {
   const [detalleTecnicos, setDetalleTecnicos] = useState<any[]>([])
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [verMasOTs, setVerMasOTs] = useState(false)
-  const [solicitudesEliminacion, setSolicitudesEliminacion] = useState<any[]>([])
+ const [solicitudesEliminacion, setSolicitudesEliminacion] = useState<any[]>([])
+  const [supervisorSeleccionado, setSupervisorSeleccionado] = useState<string | null>(null)
   const [loadingEliminacion, setLoadingEliminacion] = useState<string | null>(null)
 
   // OT Supra
@@ -45,7 +47,7 @@ export default function DashboardJefe() {
 
   async function cargarDatos() {
     const [{ data: ords }, { data: tecs }, { data: peds }] = await Promise.all([
-      supabase.from('ordenes_trabajo').select('id, numero_orden, titulo, estado, tipo, sector, created_at').order('created_at', { ascending: false }),
+       supabase.from('ordenes_trabajo').select('*, creado_por_perfil:profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido, grupo)').order('created_at', { ascending: false }),
       supabase.from('profiles').select('id').in('rol', ['tecnico_electrico', 'tecnico_ac']).eq('activo', true),
       supabase.from('pedidos_jefe').select('*, pedidos_jefe_items(*), profiles!pedidos_jefe_panolero_id_fkey(nombre, apellido)').eq('estado', 'pendiente').order('created_at', { ascending: true }),
     ])
@@ -101,14 +103,29 @@ export default function DashboardJefe() {
     setLoadingResp(null)
   }
 
-  async function abrirDetalle(orden: any) {
+async function abrirDetalle(orden: any) {
     setOrdenDetalle(orden)
     setDetalleTecnicos([])
     setLoadingDetalle(true)
-    const { data } = await supabase.from('orden_tecnicos')
-      .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, apellido, rol)')
-      .eq('orden_id', orden.id)
-    setDetalleTecnicos(data || [])
+    const [{ data: tecs }, { data: mats }, { data: peds }, { data: informe }] = await Promise.all([
+      supabase.from('orden_tecnicos')
+        .select('*, profiles!orden_tecnicos_tecnico_id_fkey(nombre, apellido, rol)')
+        .eq('orden_id', orden.id),
+      supabase.from('orden_materiales')
+        .select('*, materiales!orden_materiales_material_id_fkey(nombre, unidad)')
+        .eq('orden_id', orden.id),
+      supabase.from('pedidos_material')
+        .select('*')
+        .eq('orden_trabajo_id', orden.id),
+      supabase.from('informes_tecnicos')
+        .select('id, estado_informe, requiere_seguimiento, activo_operativo, riesgo_tipo, riesgo_controlado, version')
+        .eq('orden_id', orden.id)
+        .order('version', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ])
+    setDetalleTecnicos(tecs || [])
+    setOrdenDetalle({ ...orden, materiales: mats || [], pedidos: peds || [], informe: informe ?? null })
     setLoadingDetalle(false)
   }
 
@@ -433,24 +450,65 @@ export default function DashboardJefe() {
             <div className="rounded-2xl bg-[#071c24]/90 border border-cyan-400/20 shadow-[0_0_25px_rgba(34,211,238,0.07)] p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-[#8ecbd8] text-[11px] font-black tracking-[0.22em] uppercase">Órdenes operativas</span>
-                <span className="text-cyan-300 text-xs font-bold">{ordenes.filter((o: any) => ['pendiente','en_curso','cierre_propuesto','rebotada','devuelta_supervisor'].includes(o.estado) && (filtroSector === 'todos' || o.sector === filtroSector)).length} activas</span>
+               {supervisorSeleccionado
+                  ? <button onClick={() => setSupervisorSeleccionado(null)} className="text-[#8ecbd8] text-xs border border-cyan-400/20 px-2 py-1 rounded-lg">← Volver</button>
+                  : <span className="text-cyan-300 text-xs font-bold">{ordenes.filter((o: any) => ['pendiente','en_curso','cierre_propuesto','rebotada','devuelta_supervisor'].includes(o.estado)).length} activas</span>
+                }
+
               </div>
-              <div className="flex gap-1.5 flex-wrap">
-                {['todos','electrico','ac','edificio'].map(s => (
-                  <button key={s} onClick={() => setFiltroSector(s)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold tracking-wide transition-all ${filtroSector === s ? 'bg-cyan-400 text-[#062027] shadow-[0_0_12px_rgba(34,211,238,0.35)]' : 'bg-[#0b2630] text-[#8ecbd8] border border-cyan-400/15 hover:border-cyan-400/35'}`}>
-                    {s === 'todos' ? 'Todos' : s.charAt(0).toUpperCase() + s.slice(1)}
-                  </button>
-                ))}
-              </div>
+               {!supervisorSeleccionado && (
+                <div className="flex gap-1.5 flex-wrap">
+                  {['todos','electrico','ac','edificio'].map(s => (
+                    <button key={s} onClick={() => setFiltroSector(s)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold tracking-wide transition-all ${filtroSector === s ? 'bg-cyan-400 text-[#062027] shadow-[0_0_12px_rgba(34,211,238,0.35)]' : 'bg-[#0b2630] text-[#8ecbd8] border border-cyan-400/15 hover:border-cyan-400/35'}`}>
+                      {s === 'todos' ? 'Todos' : s.charAt(0).toUpperCase() + s.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="flex flex-col gap-2">
                 {(() => {
                   const ESTADOS_OPERATIVOS = ['pendiente','en_curso','cierre_propuesto','rebotada','devuelta_supervisor']
-                  const filtradas = ordenes.filter((o: any) =>
-                    ESTADOS_OPERATIVOS.includes(o.estado) &&
-                    (filtroSector === 'todos' || o.sector === filtroSector)
-                  )
-                  const visibles = verMasOTs ? filtradas : filtradas.slice(0, 5)
+                  if (!supervisorSeleccionado) {
+                    const grupos: Record<string, any[]> = {}
+                    for (const o of ordenes.filter((o: any) => ESTADOS_OPERATIVOS.includes(o.estado))) {
+                      const key = o.creado_por_perfil
+                        ? `${o.creado_por_perfil.apellido}, ${o.creado_por_perfil.nombre}`
+                        : 'Sin asignar'
+                      if (!grupos[key]) grupos[key] = []
+                      grupos[key].push(o)
+                    }
+                    return (
+                      <div className="flex flex-col gap-2">
+                        {Object.entries(grupos).sort(([a],[b]) => a.localeCompare(b)).map(([nombre, ots]) => (
+                          <button key={nombre} onClick={() => setSupervisorSeleccionado(nombre)}
+                            className="rounded-xl bg-[#071c24]/90 border border-cyan-400/15 px-4 py-3 text-left hover:border-cyan-400/35 transition-all active:opacity-70">
+                            <div className="flex justify-between items-center">
+                              <span className="text-white font-bold text-sm">{nombre}</span>
+                              <span className="text-cyan-300 text-xs font-bold">{ots.length} OT{ots.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="text-[#8ecbd8]/60 text-[10px] mt-1">
+                              {ots.filter(o => o.estado === 'en_curso').length} en curso · {ots.filter(o => o.estado === 'cierre_propuesto').length} en revisión
+                            </div>
+                          </button>
+                        ))}
+                        {Object.keys(grupos).length === 0 && (
+                          <div className="text-[#8ecbd8] text-xs text-center py-4">Sin órdenes operativas</div>
+                        )}
+                      </div>
+                    )
+                  }
+                  const filtradas = (grupos_temp => {
+                    const g: Record<string, any[]> = {}
+                    for (const o of ordenes.filter((o: any) => ESTADOS_OPERATIVOS.includes(o.estado))) {
+                      const key = o.creado_por_perfil ? `${o.creado_por_perfil.apellido}, ${o.creado_por_perfil.nombre}` : 'Sin asignar'
+                      if (!g[key]) g[key] = []
+                      g[key].push(o)
+                    }
+                    return (g[supervisorSeleccionado] || []).slice().sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                  })({})
+                  const visibles = filtradas
                   return (<>
                     {visibles.map((o: any) => {
                       const estadoColor: Record<string,string> = {
@@ -482,7 +540,7 @@ export default function DashboardJefe() {
                             </div>
                             <div className="text-[#8ecbd8]/60 text-[10px]">{o.tipo || '—'}</div>
                           </div>
-                          <div className="text-[#8ecbd8]/50 text-[10px] mt-1">{new Date(o.created_at).toLocaleDateString('es-AR')}</div>
+                         <div className="text-[#8ecbd8]/50 text-[10px] mt-1">{new Date(o.created_at).toLocaleDateString('es-AR')} · {o.creado_por_perfil?.apellido || 'sin dato'} · T{o.turno || '?'}</div>
                         </div>
                       )
                     })}
@@ -575,11 +633,101 @@ export default function DashboardJefe() {
                 <div className="text-[#e8f4f8] text-xs font-bold">{new Date(ordenDetalle.created_at).toLocaleDateString('es-AR')}</div>
               </div>
             </div>
-            <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-3">
-              <div className="text-[#7ab3c8] text-xs font-bold mb-2">Técnicos asignados</div>
-              {loadingDetalle
-                ? <div className="text-[#7ab3c8] text-xs">Cargando...</div>
-                : detalleTecnicos.length === 0
+            {loadingDetalle ? (
+              <div className="text-[#7ab3c8] text-xs py-4 text-center">Cargando detalle...</div>
+            ) : (<>
+
+              {/* Creador · turno · origen · fecha programada */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                  <div className="text-[#7ab3c8] text-xs mb-0.5">Creador</div>
+                  <div className="text-[#e8f4f8] text-xs font-bold">{ordenDetalle.creado_por_perfil ? `${ordenDetalle.creado_por_perfil.apellido}, ${ordenDetalle.creado_por_perfil.nombre}` : '—'}</div>
+                </div>
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                  <div className="text-[#7ab3c8] text-xs mb-0.5">Turno</div>
+                  <div className="text-[#e8f4f8] text-xs font-bold">T{ordenDetalle.turno || '—'}</div>
+                </div>
+                {ordenDetalle.km && (
+                  <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                    <div className="text-[#7ab3c8] text-xs mb-0.5">Km</div>
+                    <div className="text-[#e8f4f8] text-xs font-bold">{ordenDetalle.km}</div>
+                  </div>
+                )}
+                {ordenDetalle.ubicacion && (
+                  <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                    <div className="text-[#7ab3c8] text-xs mb-0.5">Ubicación</div>
+                    <div className="text-[#e8f4f8] text-xs font-bold">{ordenDetalle.ubicacion}</div>
+                  </div>
+                )}
+                {ordenDetalle.nomenclatura && (
+                  <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                    <div className="text-[#7ab3c8] text-xs mb-0.5">Nomenclatura</div>
+                    <div className="text-[#e8f4f8] text-xs font-bold">{ordenDetalle.nomenclatura}</div>
+                  </div>
+                )}
+                {ordenDetalle.prioridad && (
+                  <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                    <div className="text-[#7ab3c8] text-xs mb-0.5">Prioridad</div>
+                    <div className="text-[#e8f4f8] text-xs font-bold">{ordenDetalle.prioridad}</div>
+                  </div>
+                )}
+                {ordenDetalle.origen && (
+                  <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                    <div className="text-[#7ab3c8] text-xs mb-0.5">Origen</div>
+                    <div className="text-[#e8f4f8] text-xs font-bold">{ordenDetalle.origen}</div>
+                  </div>
+                )}
+                {ordenDetalle.fecha_programada && (
+                  <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                    <div className="text-[#7ab3c8] text-xs mb-0.5">Fecha programada</div>
+                    <div className="text-[#e8f4f8] text-xs font-bold">{formatFechaAR(ordenDetalle.fecha_programada)}</div>
+                  </div>
+                )}
+                {ordenDetalle.cierre_propuesto_at && (
+                  <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                    <div className="text-[#7ab3c8] text-xs mb-0.5">Cierre propuesto</div>
+                    <div className="text-[#e8f4f8] text-xs font-bold">{formatFechaAR(ordenDetalle.cierre_propuesto_at)}</div>
+                  </div>
+                )}
+                {ordenDetalle.aprobado_at && (
+                  <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-2">
+                    <div className="text-[#7ab3c8] text-xs mb-0.5">Aprobado</div>
+                    <div className="text-[#e8f4f8] text-xs font-bold">{formatFechaAR(ordenDetalle.aprobado_at)}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Descripción */}
+              {ordenDetalle.descripcion && (
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-3 mb-3">
+                  <div className="text-[#7ab3c8] text-xs font-bold mb-1">Descripción</div>
+                  <div className="text-[#e8f4f8] text-xs leading-relaxed">{ordenDetalle.descripcion}</div>
+                </div>
+              )}
+
+              {/* Balizamiento */}
+              {ordenDetalle.balizamiento_desde && (
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-3 mb-3">
+                  <div className="text-[#7ab3c8] text-xs font-bold mb-1">Balizamiento</div>
+                  <div className="text-[#e8f4f8] text-xs">Km {ordenDetalle.balizamiento_desde} → {ordenDetalle.balizamiento_hasta}</div>
+                  {ordenDetalle.balizamiento_hora_ingreso && (
+                    <div className="text-[#7ab3c8] text-xs mt-0.5">{ordenDetalle.balizamiento_hora_ingreso} → {ordenDetalle.balizamiento_hora_egreso}</div>
+                  )}
+                </div>
+              )}
+
+              {/* Campo libre */}
+              {ordenDetalle.campo_libre && (
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-3 mb-3">
+                  <div className="text-[#7ab3c8] text-xs font-bold mb-1">Campo libre</div>
+                  <div className="text-[#e8f4f8] text-xs leading-relaxed">{ordenDetalle.campo_libre}</div>
+                </div>
+              )}
+
+              {/* Técnicos */}
+              <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-3 mb-3">
+                <div className="text-[#7ab3c8] text-xs font-bold mb-2">Técnicos asignados</div>
+                {detalleTecnicos.length === 0
                   ? <div className="text-[#7ab3c8] text-xs">Sin técnicos asignados</div>
                   : detalleTecnicos.map((t: any, i: number) => (
                     <div key={i} className="text-[#e8f4f8] text-xs py-1 border-b border-[#1a3040] last:border-0">
@@ -587,8 +735,90 @@ export default function DashboardJefe() {
                       <span className="text-[#7ab3c8] ml-2">{t.profiles?.rol?.replace(/_/g,' ')}</span>
                     </div>
                   ))
-              }
-            </div>
+                }
+              </div>
+
+              {/* Materiales */}
+              {(ordenDetalle.materiales || []).length > 0 && (
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-3 mb-3">
+                  <div className="text-[#7ab3c8] text-xs font-bold mb-2">Materiales usados</div>
+                  {ordenDetalle.materiales.map((m: any, i: number) => (
+                    <div key={i} className="text-[#e8f4f8] text-xs py-1 border-b border-[#1a3040] last:border-0 flex justify-between">
+                      <span>{m.materiales?.nombre || '—'}</span>
+                      <span className="text-[#7ab3c8]">{m.cantidad} {m.materiales?.unidad}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Pedidos a pañol */}
+              {(ordenDetalle.pedidos || []).length > 0 && (
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-3 mb-3">
+                  <div className="text-[#7ab3c8] text-xs font-bold mb-2">Pedidos a pañol</div>
+                  {ordenDetalle.pedidos.map((p: any, i: number) => (
+                    <div key={i} className="py-1 border-b border-[#1a3040] last:border-0">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[#e8f4f8] text-xs">{p.material_nombre || '—'}</span>
+                        <span className={`text-xs font-bold ${p.estado === 'aprobado' ? 'text-green-400' : p.estado === 'rechazado' ? 'text-red-400' : 'text-yellow-400'}`}>{p.estado}</span>
+                      </div>
+                      {p.cantidad && <div className="text-[#7ab3c8] text-xs">Cant: {p.cantidad}</div>}
+                      {p.observaciones && <div className="text-[#7ab3c8] text-xs">Obs: {p.observaciones}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Informe del técnico */}
+              {(ordenDetalle.trabajos_realizados || ordenDetalle.mediciones || ordenDetalle.pendientes_descripcion) && (
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-3 mb-3">
+                  <div className="text-[#7ab3c8] text-xs font-bold mb-2">Informe del técnico</div>
+                  {ordenDetalle.trabajos_realizados && (
+                    <div className="mb-2">
+                      <div className="text-[#7ab3c8] text-xs mb-0.5">Trabajos realizados</div>
+                      <div className="text-[#e8f4f8] text-xs leading-relaxed">{ordenDetalle.trabajos_realizados}</div>
+                    </div>
+                  )}
+                  {ordenDetalle.mediciones && (
+                    <div className="mb-2">
+                      <div className="text-[#7ab3c8] text-xs mb-0.5">Mediciones</div>
+                      <div className="text-[#e8f4f8] text-xs leading-relaxed">{ordenDetalle.mediciones}</div>
+                    </div>
+                  )}
+                  {ordenDetalle.pendientes_descripcion && (
+                    <div>
+                      <div className="text-[#7ab3c8] text-xs mb-0.5">Pendientes</div>
+                      <div className="text-[#e8f4f8] text-xs leading-relaxed">{ordenDetalle.pendientes_descripcion}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Observación supervisor */}
+              {ordenDetalle.observacion_supervisor && (
+                <div className="bg-[#1a0f00] border border-yellow-400/30 rounded-lg p-3 mb-3">
+                  <div className="text-yellow-400 text-xs font-bold mb-1">Observación supervisor</div>
+                  <div className="text-[#e8f4f8] text-xs leading-relaxed">{ordenDetalle.observacion_supervisor}</div>
+                </div>
+              )}
+
+              {/* Informe técnico (tabla) */}
+              {ordenDetalle.informe && (
+                <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-3 mb-3">
+                  <div className="text-[#7ab3c8] text-xs font-bold mb-2">Informe técnico</div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[#7ab3c8] text-xs">Estado</span>
+                    <span className="text-cyan-300 text-xs font-bold">{ordenDetalle.informe.estado_informe?.replace(/_/g,' ') || '—'}</span>
+                  </div>
+                  {ordenDetalle.informe.requiere_seguimiento && (
+                    <div className="text-yellow-400 text-xs mt-1">⚠ Requiere seguimiento</div>
+                  )}
+                  {ordenDetalle.informe.activo_operativo === false && (
+                    <div className="text-red-400 text-xs mt-1">⚠ Activo no operativo</div>
+                  )}
+                </div>
+              )}
+
+            </>)}
             <ComentariosOT
               ordenId={ordenDetalle.id}
               autorId={perfil.id}
