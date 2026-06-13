@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getPerfil, supabase } from '@/lib/supabase'
 import AvatarUpload from '@/app/components/AvatarUpload'
 import { getKitBySubtipo } from '@/lib/kits-correctivo'
-import { fechaHoyAR, formatFechaAR } from '@/lib/fecha-local'
+import { fechaHoyAR, formatFechaAR, formatTurnoOT } from '@/lib/fecha-local'
 import ComentariosOT from '@/app/components/ComentariosOT'
 import FotosOT from '@/app/components/FotosOT'
 import BibliotecaCard from '@/app/components/BibliotecaCard'
@@ -134,7 +134,7 @@ const [loadingDecision, setLoadingDecision] = useState(false)
 
   async function cargarDatos(turno: string | null) {
     const { data: ords } = await supabase.from('ordenes_trabajo')
-      .select('*, profiles!ordenes_trabajo_asignado_a_fkey(nombre, apellido)')
+            .select('*, asignado_a_perfil:profiles!ordenes_trabajo_asignado_a_fkey(nombre, apellido), creado_por_perfil:profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido, grupo)')
       .eq('sector', 'electrico').order('created_at', { ascending: false })
     setOrdenes(ords || [])
     const [tecsPorTurno, { data: acts }, { data: todos }] = await Promise.all([
@@ -1056,6 +1056,13 @@ async function reasignarTecnicos(id: string) {
             <button onClick={() => setOrdenDetalle(null)} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>CERRAR</button>
           </div>
           <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
+              <div style={{ fontSize: 9, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Creación</div>
+              <div style={{ fontSize: 12, color: C.text, marginTop: 3 }}>
+                <span style={{ fontWeight: 600 }}>{ordenDetalle.creado_por_perfil ? `${ordenDetalle.creado_por_perfil.nombre} ${ordenDetalle.creado_por_perfil.apellido}` : '—'}</span>
+                <span style={{ color: C.sub }}> · T{formatTurnoOT(ordenDetalle.turno, ordenDetalle.creado_por_perfil?.grupo)} · {formatFechaAR(ordenDetalle.created_at)}</span>
+              </div>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
               {[['Estado', badgeLabel(ordenDetalle.estado)], ['Prioridad', ordenDetalle.prioridad], ['Tipo', tipoLabel(ordenDetalle.tipo)], ['Origen', ordenDetalle.origen]].map(([k, v]) => (
                 <div key={k} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px' }}>
@@ -1557,6 +1564,7 @@ async function reasignarTecnicos(id: string) {
                     <div style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>OT-{String(o.numero_orden || 0).padStart(5, '0')} {o.fecha_programada && <span style={{ color: C.sub, fontWeight: 400 }}>· {formatFechaAR(o.fecha_programada)}</span>}</div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{o.titulo}</div>
                     {o.km && <div style={{ fontSize: 11, color: C.sub }}>Km {o.km}{o.ubicacion ? ` · ${o.ubicacion}` : ''}</div>}
+                    <div style={{ fontSize: 10, color: C.sub, marginTop: 3 }}>Creó: {o.creado_por_perfil ? `${o.creado_por_perfil.nombre} ${o.creado_por_perfil.apellido}` : '—'} · T{formatTurnoOT(o.turno, o.creado_por_perfil?.grupo)} · {formatFechaAR(o.created_at)}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end', marginLeft: 8 }}>
                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: o.estado === 'en_curso' ? '#FAEEDA' : o.estado === 'cierre_propuesto' ? '#FFF3CD' : o.estado === 'completada' ? '#0F2A35' : C.bg, color: o.estado === 'en_curso' ? '#854F0B' : o.estado === 'cierre_propuesto' ? '#856404' : o.estado === 'completada' ? C.accent : C.sub, whiteSpace: 'nowrap' as const }}>{badgeLabel(o.estado)}</span>

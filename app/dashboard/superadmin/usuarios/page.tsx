@@ -82,7 +82,7 @@ export default function PageUsuarios() {
   function abrirEditar(u: any) {
     setEditando(u)
     setForm({
-      email: u.email_corporativo || '',
+      email: '',
       password: '',
       nombre: u.nombre || '',
       apellido: u.apellido || '',
@@ -111,7 +111,7 @@ export default function PageUsuarios() {
         const res = await fetch('/api/admin/crear-usuario', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
+         body: JSON.stringify({
             id: editando.id,
             nombre: form.nombre,
             apellido: form.apellido,
@@ -120,6 +120,7 @@ export default function PageUsuarios() {
             grupo: form.grupo || null,
             sector_trabajo: form.sector_trabajo || null,
             legajo: form.legajo || null,
+            ...(form.email ? { email_personal: form.email } : {}),
           })
         })
         const json = await res.json()
@@ -213,7 +214,7 @@ export default function PageUsuarios() {
               ))}
             </div>
 
-            {!editando && (
+             {!editando && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                 <div>
                   <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Email *</div>
@@ -223,6 +224,13 @@ export default function PageUsuarios() {
                   <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Contraseña inicial *</div>
                   <input type="password" style={inp} placeholder="Mín 6 caracteres" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
                 </div>
+              </div>
+            )}
+            {editando && (
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Email de login</div>
+                <input style={inp} placeholder="usuario@aubasa.com.ar" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                <div style={{ fontSize: 10, color: C.sub, marginTop: 4 }}>Dejalo vacío para no modificar el email actual.</div>
               </div>
             )}
 
@@ -280,6 +288,29 @@ export default function PageUsuarios() {
         </select>
       </div>
 
+     {/* STATS EMAIL */}
+      {(() => {
+        const total = usuarios.length
+        const conPersonal = usuarios.filter(u => u.email_personal).length
+        const sinPersonal = total - conPersonal
+        const conCorp = usuarios.filter(u => u.email_corporativo).length
+        return (
+          <div style={{ padding: '0 16px 12px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+            {[
+              { label: 'Total usuarios', val: total, color: C.sub },
+              { label: 'Con email login', val: conPersonal, color: C.ok },
+              { label: 'Sin email login', val: sinPersonal, color: sinPersonal > 0 ? C.err : C.sub },
+              { label: 'Con email corp.', val: conCorp, color: C.accent },
+            ].map(({ label, val, color }) => (
+              <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 8px', textAlign: 'center' as const }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color }}>{val}</div>
+                <div style={{ fontSize: 9, color: C.sub, marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
       {/* LISTA */}
       <div style={{ padding: '0 16px 100px' }}>
         <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
@@ -295,11 +326,16 @@ export default function PageUsuarios() {
                   </div>
                   {!u.activo && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 8, background: '#2A0F0F', color: C.err }}>INACTIVO</span>}
                 </div>
-                <div style={{ fontSize: 11, color: C.sub }}>
+               <div style={{ fontSize: 11, color: C.sub }}>
                   {u.email_corporativo || '—'}
                   {u.legajo ? ` · Leg. ${u.legajo}` : ''}
                 </div>
-                <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' as const }}>
+                <div style={{ fontSize: 10, marginTop: 2 }}>
+                  {u.email_personal
+                    ? <span style={{ color: C.ok }}>✓ {u.email_personal}</span>
+                    : <span style={{ color: C.err }}>✗ Sin email de login</span>
+                  }
+                </div>                <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' as const }}>
                   <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: '#0F2A35', color: C.accent }}>{u.rol}</span>
                   {u.turno && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: C.border, color: C.sub }}>{u.turno}</span>}
                   {u.grupo && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: C.border, color: C.sub }}>Gr.{u.grupo}</span>}

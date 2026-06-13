@@ -14,6 +14,12 @@ export function fechaHoyAR(): string {
  * Evita el bug de timezone al parsear strings tipo YYYY-MM-DD.
  * Reemplaza: new Date(fecha_programada).toLocaleDateString('es-AR')
  */
+export function formatTurnoOT(turno?: string | null, grupo?: string | null): string {
+  const num: Record<string, string> = { mañana: '1', tarde: '2', noche: '3' }
+  const t = turno ? (num[turno] ?? turno) : null
+  return (t && grupo) ? `${t}-${grupo}` : t ?? '—'
+}
+
 export function formatFechaAR(fecha: string | null | undefined): string {
   if (!fecha) return 'No registrado'
   const normalized = fecha.length === 10 ? `${fecha}T12:00:00` : fecha

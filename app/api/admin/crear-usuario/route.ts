@@ -83,10 +83,19 @@ export async function PATCH(req: NextRequest) {
     const { id, ...updates } = body
     if (!id) return NextResponse.json({ error: 'Falta id' }, { status: 400 })
 
-    const allowed = ['rol', 'turno', 'grupo', 'sector_trabajo', 'activo', 'nombre', 'apellido', 'legajo']
+ const allowed = ['rol', 'turno', 'grupo', 'sector_trabajo', 'activo', 'nombre', 'apellido', 'legajo']
     const safeUpdates: any = {}
     for (const key of allowed) {
       if (key in updates) safeUpdates[key] = updates[key]
+    }
+
+    if (updates.email_personal) {
+      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+        email: updates.email_personal,
+        email_confirm: true,
+      })
+      if (authError) return NextResponse.json({ error: authError.message }, { status: 500 })
+      safeUpdates.email_personal = updates.email_personal
     }
 
     const { error } = await supabaseAdmin.from('profiles').update(safeUpdates).eq('id', id)
