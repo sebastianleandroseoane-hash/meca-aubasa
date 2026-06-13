@@ -24,6 +24,7 @@ export default function DashboardJefe() {
  const [solicitudesEliminacion, setSolicitudesEliminacion] = useState<any[]>([])
   const [supervisorSeleccionado, setSupervisorSeleccionado] = useState<string | null>(null)
   const [loadingEliminacion, setLoadingEliminacion] = useState<string | null>(null)
+  const [tabMovil, setTabMovil] = useState<'operativas' | 'supra'>('operativas')
 
   // OT Supra
   const [supras, setSupras] = useState<any[]>([])
@@ -386,10 +387,22 @@ async function abrirDetalle(orden: any) {
           </section>
 
           {/* ── 4. GRID DESKTOP: OTs SUPRA + OTs OPERATIVAS ─────────── */}
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Selector de tabs (solo mobile) */}
+          <div className="flex gap-2 lg:hidden">
+            <button onClick={() => setTabMovil('operativas')}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-black tracking-widest uppercase transition-all ${tabMovil === 'operativas' ? 'bg-cyan-400 text-[#062027] shadow-[0_0_12px_rgba(34,211,238,0.35)]' : 'bg-[#0b2630] text-[#8ecbd8] border border-cyan-400/15'}`}>
+              Operativas
+            </button>
+            <button onClick={() => setTabMovil('supra')}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-black tracking-widest uppercase transition-all ${tabMovil === 'supra' ? 'bg-cyan-400 text-[#062027] shadow-[0_0_12px_rgba(34,211,238,0.35)]' : 'bg-[#0b2630] text-[#8ecbd8] border border-cyan-400/15'}`}>
+              Supra
+            </button>
+          </div>
+
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
             {/* OTs SUPRA */}
-            <div className="rounded-2xl bg-[#071c24]/90 border border-cyan-400/20 shadow-[0_0_25px_rgba(34,211,238,0.07)] p-4 flex flex-col gap-3">
+            <div className={`${tabMovil === 'supra' ? 'flex' : 'hidden'} lg:flex rounded-2xl bg-[#071c24]/90 border border-cyan-400/20 shadow-[0_0_25px_rgba(34,211,238,0.07)] p-4 flex-col gap-3`}>
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[#8ecbd8] text-[11px] font-black tracking-[0.22em] uppercase">OTs Supra</span>
@@ -447,7 +460,7 @@ async function abrirDetalle(orden: any) {
             </div>
 
             {/* OTs OPERATIVAS */}
-            <div className="rounded-2xl bg-[#071c24]/90 border border-cyan-400/20 shadow-[0_0_25px_rgba(34,211,238,0.07)] p-4 flex flex-col gap-3">
+            <div className={`${tabMovil === 'operativas' ? 'flex' : 'hidden'} lg:flex rounded-2xl bg-[#071c24]/90 border border-cyan-400/20 shadow-[0_0_25px_rgba(34,211,238,0.07)] p-4 flex-col gap-3`}>
               <div className="flex items-center justify-between">
                 <span className="text-[#8ecbd8] text-[11px] font-black tracking-[0.22em] uppercase">Órdenes operativas</span>
                {supervisorSeleccionado
