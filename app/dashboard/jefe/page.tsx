@@ -47,7 +47,7 @@ export default function DashboardJefe() {
 
   async function cargarDatos() {
     const [{ data: ords }, { data: tecs }, { data: peds }] = await Promise.all([
-       supabase.from('ordenes_trabajo').select('*, creado_por_perfil:profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido, grupo)').order('created_at', { ascending: false }),
+       supabase.from('ordenes_trabajo').select('*, creado_por_perfil:profiles!ordenes_trabajo_creado_por_fkey(nombre, apellido, grupo, rol)').order('created_at', { ascending: false }),
       supabase.from('profiles').select('id').in('rol', ['tecnico_electrico', 'tecnico_ac']).eq('activo', true),
       supabase.from('pedidos_jefe').select('*, pedidos_jefe_items(*), profiles!pedidos_jefe_panolero_id_fkey(nombre, apellido)').eq('estado', 'pendiente').order('created_at', { ascending: true }),
     ])
@@ -471,11 +471,11 @@ async function abrirDetalle(orden: any) {
                 {(() => {
                   const ESTADOS_OPERATIVOS = ['pendiente','en_curso','cierre_propuesto','rebotada','devuelta_supervisor']
                   if (!supervisorSeleccionado) {
+                    const ROLES_SUPERVISOR = ['supervisor_electrico', 'supervisor_ac', 'supervisor_edificios']
                     const grupos: Record<string, any[]> = {}
                     for (const o of ordenes) {
-                      const key = o.creado_por_perfil
-                        ? `${o.creado_por_perfil.apellido}, ${o.creado_por_perfil.nombre}`
-                        : 'Sin asignar'
+                      if (!ROLES_SUPERVISOR.includes(o.creado_por_perfil?.rol)) continue
+                      const key = `${o.creado_por_perfil.apellido}, ${o.creado_por_perfil.nombre}`
                       if (!grupos[key]) grupos[key] = []
                       grupos[key].push(o)
                     }
@@ -500,9 +500,11 @@ async function abrirDetalle(orden: any) {
                     )
                   }
                   const filtradas = (grupos_temp => {
+                    const ROLES_SUPERVISOR = ['supervisor_electrico', 'supervisor_ac', 'supervisor_edificios']
                     const g: Record<string, any[]> = {}
                     for (const o of ordenes) {
-                      const key = o.creado_por_perfil ? `${o.creado_por_perfil.apellido}, ${o.creado_por_perfil.nombre}` : 'Sin asignar'
+                      if (!ROLES_SUPERVISOR.includes(o.creado_por_perfil?.rol)) continue
+                      const key = `${o.creado_por_perfil.apellido}, ${o.creado_por_perfil.nombre}`
                       if (!g[key]) g[key] = []
                       g[key].push(o)
                     }
