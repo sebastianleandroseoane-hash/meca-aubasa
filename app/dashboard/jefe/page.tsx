@@ -472,7 +472,7 @@ async function abrirDetalle(orden: any) {
                   const ESTADOS_OPERATIVOS = ['pendiente','en_curso','cierre_propuesto','rebotada','devuelta_supervisor']
                   if (!supervisorSeleccionado) {
                     const grupos: Record<string, any[]> = {}
-                    for (const o of ordenes.filter((o: any) => ESTADOS_OPERATIVOS.includes(o.estado))) {
+                    for (const o of ordenes) {
                       const key = o.creado_por_perfil
                         ? `${o.creado_por_perfil.apellido}, ${o.creado_por_perfil.nombre}`
                         : 'Sin asignar'
