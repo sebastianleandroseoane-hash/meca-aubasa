@@ -610,7 +610,7 @@ async function abrirDetalle(orden: any) {
       {ordenDetalle && (
         <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
           onClick={() => setOrdenDetalle(null)}>
-          <div className="bg-[#0c1c24] border border-[#1a3040] rounded-t-2xl w-full max-w-lg p-5 pb-8 max-h-[80vh] overflow-y-auto"
+          <div className="bg-[#0c1c24] border border-[#1a3040] rounded-t-2xl w-full max-w-lg lg:max-w-5xl p-5 pb-8 max-h-[80vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <div className="text-[#e8f4f8] font-bold text-sm">OT-{String(ordenDetalle.numero_orden).padStart(4,'0')}</div>
@@ -638,6 +638,10 @@ async function abrirDetalle(orden: any) {
            {loadingDetalle ? (
               <div className="text-[#7ab3c8] text-xs py-4 text-center">Cargando detalle...</div>
             ) : (<>
+            <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start">
+
+              {/* COLUMNA IZQUIERDA */}
+              <div>
 
               {/* Creador · turno · origen · fecha programada */}
               <div className="grid grid-cols-2 gap-2 mb-3">
@@ -740,6 +744,11 @@ async function abrirDetalle(orden: any) {
                 }
               </div>
 
+              </div>{/* /COLUMNA IZQUIERDA */}
+
+              {/* COLUMNA DERECHA */}
+              <div>
+
               {/* Materiales */}
               {(ordenDetalle.materiales || []).length > 0 && (
                 <div className="bg-[#07131a] border border-[#1a3040] rounded-lg p-3 mb-3">
@@ -820,7 +829,6 @@ async function abrirDetalle(orden: any) {
                 </div>
               )}
 
-            </>)}
             <ComentariosOT
               ordenId={ordenDetalle.id}
               autorId={perfil.id}
@@ -833,6 +841,10 @@ async function abrirDetalle(orden: any) {
               autorId={perfil.id}
               autorRol={perfil.rol}
             />
+
+              </div>{/* /COLUMNA DERECHA */}
+            </div>{/* /grid lg */}
+            </>)}
           </div>
         </div>
       )}
