@@ -478,7 +478,7 @@ async function reasignarTecnicos(id: string) {
     if (!form.titulo) errs.push('titulo')
     if (!form.tipo) errs.push('tipo')
     if (!form.origen) errs.push('origen')
-    if (!form.nomenclatura) errs.push('nomenclatura')
+    if (form.tipo !== 'relevamiento_alumbrado' && !form.nomenclatura) errs.push('nomenclatura')
     if (tecnicosSeleccionados.length === 0) errs.push('tecnicos')
     setErrores(errs)
     if (errs.length > 0) return
