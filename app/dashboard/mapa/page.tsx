@@ -67,12 +67,23 @@ function Distributor({ x, y, label, km }: { x: number; y: number; label: string;
   )
 }
 
-function TsMarker({ x, y, codigo, km }: { x: number; y: number; codigo: string; km?: string }) {
+const SEMAFORO_COLOR: Record<string, { stroke: string; fill: string; dot: string }> = {
+  verde:    { stroke: '#1D9E75', fill: '#061923', dot: '#1D9E75' },
+  amarillo: { stroke: '#EF9F27', fill: '#061923', dot: '#EF9F27' },
+  rojo:     { stroke: '#E24B4A', fill: '#1a0808', dot: '#E24B4A' },
+  gris:     { stroke: '#1ABBD6', fill: '#061923', dot: '#1ABBD6' },
+}
+
+function TsMarker({ x, y, codigo, km, estadoColor = 'gris' }: { x: number; y: number; codigo: string; km?: string; estadoColor?: string }) {
+  const c = SEMAFORO_COLOR[estadoColor] ?? SEMAFORO_COLOR.gris
   return (
     <g>
-      <line x1={x} y1={Y_MAIN + 6} x2={x} y2={y - 7} stroke="#1ABBD6" strokeWidth={0.8} opacity={0.2} />
-      <circle cx={x} cy={y} r={5} fill="#061923" stroke="#1ABBD6" strokeWidth={1.6} />
-      <text x={x} y={y + 15} textAnchor="middle" fill="#1ABBD6" fontSize={7.5} fontWeight={700}>{codigo}</text>
+      <line x1={x} y1={Y_MAIN + 6} x2={x} y2={y - 7} stroke={c.stroke} strokeWidth={0.8} opacity={0.3} />
+      <circle cx={x} cy={y} r={5} fill={c.fill} stroke={c.stroke} strokeWidth={1.6} />
+      {estadoColor !== 'gris' && (
+        <circle cx={x} cy={y} r={2.5} fill={c.dot} opacity={0.8} />
+      )}
+      <text x={x} y={y + 15} textAnchor="middle" fill={c.stroke} fontSize={7.5} fontWeight={700}>{codigo}</text>
       {km && <text x={x} y={y + 26} textAnchor="middle" fill="#6eb8c8" fontSize={6.8}>KM {km}</text>}
     </g>
   )
@@ -113,6 +124,15 @@ export default function PageMapa() {
   const [tramosError, setTramosError] = useState<string | null>(null)
   const [selected, setSelected] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [estadoAlumbrado, setEstadoAlumbrado] = useState<Record<string, 'rojo' | 'amarillo' | 'verde' | 'gris'>>({})
+
+  function calcularColorTS(filas: any[]): 'rojo' | 'amarillo' | 'verde' | 'gris' {
+    if (!filas || filas.length === 0) return 'gris'
+    const estados = filas.map(f => f.estado_general)
+    if (estados.some(e => e === 'Apagada' || e === 'Falta luminaria')) return 'rojo'
+    if (estados.some(e => e === 'Media placa encendida' || e === 'Titilando')) return 'amarillo'
+    return 'verde'
+  }
 
   useEffect(() => {
     getPerfil().then(async p => {
@@ -131,6 +151,24 @@ export default function PageMapa() {
       if (tramosErr) setTramosError('Error al cargar tramos: ' + tramosErr.message)
       else if (!tramosData || tramosData.length === 0) setTramosError('No hay tramos cargados')
       else setTramos(tramosData)
+
+      const { data: alumbradoData } = await supabase
+        .from('alumbrado_estado_actual')
+        .select('ts, estado_general')
+      if (alumbradoData && alumbradoData.length > 0) {
+        const porTS: Record<string, any[]> = {}
+        for (const fila of alumbradoData) {
+          const tsKey = String(fila.ts || '').replace(/\s|-/g, '').toUpperCase()
+          if (!porTS[tsKey]) porTS[tsKey] = []
+          porTS[tsKey].push(fila)
+        }
+        const colores: Record<string, 'rojo' | 'amarillo' | 'verde' | 'gris'> = {}
+        for (const [ts, filas] of Object.entries(porTS)) {
+          colores[ts] = calcularColorTS(filas)
+        }
+        setEstadoAlumbrado(colores)
+      }
+
       setLoading(false)
     })
   }, [])
@@ -259,7 +297,10 @@ export default function PageMapa() {
             const y = 210 + (i % 3) * 38
             return (
               <g key={ts.codigo} onClick={() => setSelected(ts)} style={{ cursor: 'pointer' }}>
-                <TsMarker x={x} y={y} codigo={ts.codigo} />
+                {(() => {
+                  const codigoTS = String(ts.codigo || '').replace(/\s|-/g, '').toUpperCase()
+                  return <TsMarker x={x} y={y} codigo={ts.codigo} estadoColor={estadoAlumbrado[codigoTS] ?? 'gris'} />
+                })()}
               </g>
             )
           })}
