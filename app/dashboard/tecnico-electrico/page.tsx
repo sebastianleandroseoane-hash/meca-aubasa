@@ -1250,6 +1250,24 @@ function DashboardTecnicoElectricoInner() {
                   {badgeLabel(ordenActiva.estado)}
                 </div>
               </div>
+              {ordenActiva.tipo === 'relevamiento_alumbrado' && (() => {
+                const tsMatch = ordenActiva.titulo.match(/TS\d{1,2}|TG\d{1,2}/i)
+                const tsCodigo = tsMatch?.[0]?.toUpperCase()
+                return tsCodigo
+                  ? (
+                    <button
+                      onClick={e => { e.stopPropagation(); router.push(`/dashboard/tecnico-electrico/relevamiento/${tsCodigo}?orden=${ordenActiva.id}`) }}
+                      style={{ marginTop: 10, width: '100%', background: '#0d2a3a', border: '1px solid #1ABBD6', borderRadius: 8, color: '#1ABBD6', fontSize: 12, fontWeight: 700, padding: '10px 0', cursor: 'pointer', letterSpacing: 0.5 }}
+                    >
+                      🔦 Cargar relevamiento
+                    </button>
+                  )
+                  : (
+                    <div style={{ marginTop: 8, fontSize: 10, color: '#EF9F27' }}>
+                      ⚠ Falta TS/TG en el título de la OT
+                    </div>
+                  )
+              })()}
             </div>
           )
         })()}
@@ -1303,12 +1321,30 @@ function DashboardTecnicoElectricoInner() {
                       justifyContent: 'space-between',
                       alignItems: 'center'
                     }}>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 10, color: '#4a8fa0' }}>OT-{String(o.numero_orden).padStart(5, '0')}</div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#e8f4f8' }}>{o.titulo}</div>
                       {!esClickeable && (
                         <div style={{ fontSize: 10, color: '#2a5060', marginTop: 2 }}>En espera</div>
                       )}
+                      {o.tipo === 'relevamiento_alumbrado' && (() => {
+                        const tsMatch = o.titulo.match(/TS\d{1,2}|TG\d{1,2}/i)
+                        const tsCodigo = tsMatch?.[0]?.toUpperCase()
+                        return tsCodigo
+                          ? (
+                            <button
+                              onClick={e => { e.stopPropagation(); router.push(`/dashboard/tecnico-electrico/relevamiento/${tsCodigo}?orden=${o.id}`) }}
+                              style={{ marginTop: 8, background: '#0d2a3a', border: '1px solid #1ABBD6', borderRadius: 8, color: '#1ABBD6', fontSize: 11, fontWeight: 700, padding: '7px 12px', cursor: 'pointer' }}
+                            >
+                              🔦 Cargar relevamiento
+                            </button>
+                          )
+                          : (
+                            <div style={{ marginTop: 6, fontSize: 10, color: '#EF9F27' }}>
+                              ⚠ Falta TS/TG en el título de la OT
+                            </div>
+                          )
+                      })()}
                     </div>
                     <div style={{
                       background: o.estado === 'en_curso' ? '#FAEEDA' : o.estado === 'cierre_propuesto' ? '#FFF3CD' : o.estado === 'devuelta_supervisor' ? '#2A1A00' : '#1a3040',
