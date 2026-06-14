@@ -73,6 +73,8 @@ export default function DashboardSupervisorElectrico() {
   const [activosOrden, setActivosOrden] = useState<any[]>([])
   const [subtipoCorrectivo, setSubtipoCorrectivo] = useState<string>('')
   const [subtipoOtroTexto, setSubtipoOtroTexto] = useState<string>('')
+  const [tsSeleccionado, setTsSeleccionado] = useState<string>('')
+  const [tsSeleccionados, setTsSeleccionados] = useState<string[]>([])
   const [tipoActivoOtroTexto, setTipoActivoOtroTexto] = useState<string>('')
   const [kitSugerido, setKitSugerido] = useState<ReturnType<typeof getKitBySubtipo>>(null)
 
@@ -551,6 +553,8 @@ async function reasignarTecnicos(id: string) {
       setSubtipoCorrectivo('')
       setSubtipoOtroTexto('')
       setTipoActivoOtroTexto('')
+      setTsSeleccionado('')
+      setTsSeleccionados([])
       setSupraIdParaOT(null)
       await Promise.all([cargarDatos(perfil.turno), cargarSuprasPendientes()])
 
@@ -700,17 +704,45 @@ async function reasignarTecnicos(id: string) {
             {form.tipo === 'relevamiento_alumbrado' && (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>TS / TG *</div>
-                <select style={sel}
-                  onChange={e => {
-                    const ts = e.target.value
-                    if (ts) setForm(prev => ({ ...prev, titulo: `Relevamiento alumbrado ${ts}` }))
-                  }}>
-                  <option value="">— Seleccioná TS o TG —</option>
-                  {[...Array.from({ length: 53 }, (_, i) => `TS${String(i + 1).padStart(2, '0')}`),
-                    ...Array.from({ length: 9 },  (_, i) => `TG${String(i + 1).padStart(2, '0')}`)
-                  ].map(ts => <option key={ts} value={ts}>{ts}</option>)}
-                </select>
-                {form.titulo && <div style={{ fontSize: 10, color: C.accent, marginTop: 6 }}>Título: {form.titulo}</div>}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <select style={{ ...sel, flex: 1, marginBottom: 0 }}
+                    value={tsSeleccionado}
+                    onChange={e => setTsSeleccionado(e.target.value)}>
+                    <option value="">— Seleccioná TS o TG —</option>
+                    {[...Array.from({ length: 53 }, (_, i) => `TS${String(i + 1).padStart(2, '0')}`),
+                      ...Array.from({ length: 9 },  (_, i) => `TG${String(i + 1).padStart(2, '0')}`)
+                    ].filter(ts => !tsSeleccionados.includes(ts))
+                     .map(ts => <option key={ts} value={ts}>{ts}</option>)}
+                  </select>
+                  <button
+                    onClick={() => {
+                      if (!tsSeleccionado) return
+                      if (tsSeleccionados.includes(tsSeleccionado)) return
+                      const nuevos = [...tsSeleccionados, tsSeleccionado]
+                      setTsSeleccionados(nuevos)
+                      setTsSeleccionado('')
+                      setForm(prev => ({ ...prev, titulo: `Relevamiento alumbrado ${nuevos.join(', ')}` }))
+                    }}
+                    disabled={!tsSeleccionado}
+                    style={{ background: tsSeleccionado ? C.accent : C.bg, border: `1px solid ${tsSeleccionado ? C.accent : C.border}`, borderRadius: 8, color: tsSeleccionado ? 'white' : C.sub, fontWeight: 700, fontSize: 12, padding: '0 14px', cursor: tsSeleccionado ? 'pointer' : 'default', whiteSpace: 'nowrap' as const }}>
+                    + Agregar
+                  </button>
+                </div>
+                {tsSeleccionados.length > 0 && (
+                  <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 8, overflow: 'hidden' }}>
+                    {tsSeleccionados.map((ts, i) => (
+                      <div key={ts} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: i < tsSeleccionados.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                        <div style={{ flex: 1, fontSize: 12, color: C.text, fontWeight: 600 }}>{ts}</div>
+                        <button onClick={() => {
+                          const nuevos = tsSeleccionados.filter(x => x !== ts)
+                          setTsSeleccionados(nuevos)
+                          setForm(prev => ({ ...prev, titulo: nuevos.length ? `Relevamiento alumbrado ${nuevos.join(', ')}` : '' }))
+                        }} style={{ background: 'none', border: 'none', color: C.err, fontSize: 14, cursor: 'pointer', padding: '0 4px' }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {form.titulo && <div style={{ fontSize: 10, color: C.accent, marginTop: 2 }}>Título: {form.titulo}</div>}
               </div>
             )}
 

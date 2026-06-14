@@ -1251,16 +1251,19 @@ function DashboardTecnicoElectricoInner() {
                 </div>
               </div>
               {ordenActiva.tipo === 'relevamiento_alumbrado' && (() => {
-                const tsMatch = ordenActiva.titulo.match(/TS\d{1,2}|TG\d{1,2}/i)
-                const tsCodigo = tsMatch?.[0]?.toUpperCase()
-                return tsCodigo
+                const tsMatches = [...(ordenActiva.titulo.matchAll(/TS\d{1,2}|TG\d{1,2}/gi))].map(m => m[0].toUpperCase())
+                return tsMatches.length > 0
                   ? (
-                    <button
-                      onClick={e => { e.stopPropagation(); router.push(`/dashboard/tecnico-electrico/relevamiento/${tsCodigo}?orden=${ordenActiva.id}`) }}
-                      style={{ marginTop: 10, width: '100%', background: '#0d2a3a', border: '1px solid #1ABBD6', borderRadius: 8, color: '#1ABBD6', fontSize: 12, fontWeight: 700, padding: '10px 0', cursor: 'pointer', letterSpacing: 0.5 }}
-                    >
-                      🔦 Cargar relevamiento
-                    </button>
+                    <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {tsMatches.map(ts => (
+                        <button key={ts}
+                          onClick={e => { e.stopPropagation(); router.push(`/dashboard/tecnico-electrico/relevamiento/${ts}?orden=${ordenActiva.id}`) }}
+                          style={{ width: '100%', background: '#0d2a3a', border: '1px solid #1ABBD6', borderRadius: 8, color: '#1ABBD6', fontSize: 12, fontWeight: 700, padding: '10px 0', cursor: 'pointer', letterSpacing: 0.5 }}
+                        >
+                          🔦 Cargar {ts}
+                        </button>
+                      ))}
+                    </div>
                   )
                   : (
                     <div style={{ marginTop: 8, fontSize: 10, color: '#EF9F27' }}>
@@ -1328,16 +1331,19 @@ function DashboardTecnicoElectricoInner() {
                         <div style={{ fontSize: 10, color: '#2a5060', marginTop: 2 }}>En espera</div>
                       )}
                       {o.tipo === 'relevamiento_alumbrado' && (() => {
-                        const tsMatch = o.titulo.match(/TS\d{1,2}|TG\d{1,2}/i)
-                        const tsCodigo = tsMatch?.[0]?.toUpperCase()
-                        return tsCodigo
+                        const tsMatches = [...(o.titulo.matchAll(/TS\d{1,2}|TG\d{1,2}/gi))].map(m => m[0].toUpperCase())
+                        return tsMatches.length > 0
                           ? (
-                            <button
-                              onClick={e => { e.stopPropagation(); router.push(`/dashboard/tecnico-electrico/relevamiento/${tsCodigo}?orden=${o.id}`) }}
-                              style={{ marginTop: 8, background: '#0d2a3a', border: '1px solid #1ABBD6', borderRadius: 8, color: '#1ABBD6', fontSize: 11, fontWeight: 700, padding: '7px 12px', cursor: 'pointer' }}
-                            >
-                              🔦 Cargar relevamiento
-                            </button>
+                            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {tsMatches.map(ts => (
+                                <button key={ts}
+                                  onClick={e => { e.stopPropagation(); router.push(`/dashboard/tecnico-electrico/relevamiento/${ts}?orden=${o.id}`) }}
+                                  style={{ background: '#0d2a3a', border: '1px solid #1ABBD6', borderRadius: 8, color: '#1ABBD6', fontSize: 11, fontWeight: 700, padding: '7px 12px', cursor: 'pointer', textAlign: 'left' }}
+                                >
+                                  🔦 Cargar {ts}
+                                </button>
+                              ))}
+                            </div>
                           )
                           : (
                             <div style={{ marginTop: 6, fontSize: 10, color: '#EF9F27' }}>
