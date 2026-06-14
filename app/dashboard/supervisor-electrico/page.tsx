@@ -330,11 +330,20 @@ function necesitaDerivada() {
         fecha_programada: formEditar.fecha_programada,
       })
       .eq('id', id)
-      .eq('estado', 'pendiente')
+      .in('estado', ['pendiente', 'en_curso', 'devuelta_supervisor'])
     setLoadingAccion(false)
     if (error) {
       alert('Error al guardar los cambios. Intentá de nuevo.')
       return
+    }
+    if (perfil && ordenDetalle?.estado === 'en_curso') {
+      await supabase.from('ot_comentarios').insert({
+        orden_id: id,
+        autor_id: perfil.id,
+        autor_rol: perfil.rol,
+        tipo: 'sistema',
+        mensaje: '⚠️ La OT fue modificada por el supervisor mientras estaba en curso. Revisá los datos actualizados antes de continuar.'
+      })
     }
     setShowEditarOT(false)
     setFormEditar(null)
@@ -475,7 +484,19 @@ async function reasignarTecnicos(id: string) {
 
   async function crearOrden() {
     const errs: string[] = []
-    if (!form.titulo) errs.push('titulo')
+
+    const tsFinales = form.tipo === 'relevamiento_alumbrado'
+      ? Array.from(new Set([
+          ...tsSeleccionados,
+          ...(tsSeleccionado ? [tsSeleccionado] : [])
+        ]))
+      : []
+
+    const tituloFinal = form.tipo === 'relevamiento_alumbrado' && tsFinales.length > 0
+      ? `Relevamiento alumbrado ${tsFinales.join(', ')}`
+      : form.titulo
+
+    if (!tituloFinal) errs.push('titulo')
     if (!form.tipo) errs.push('tipo')
     if (!form.origen) errs.push('origen')
     if (form.tipo !== 'relevamiento_alumbrado' && !form.nomenclatura) errs.push('nomenclatura')
@@ -484,7 +505,7 @@ async function reasignarTecnicos(id: string) {
     if (errs.length > 0) return
     setLoading(true)
     const { data: nuevaOrden, error } = await supabase.from('ordenes_trabajo').insert({
-      titulo: form.titulo, descripcion: form.descripcion, sector: 'electrico', estado: 'pendiente', subtipo_correctivo: form.subtipo_correctivo || null,
+      titulo: tituloFinal, descripcion: form.descripcion, sector: 'electrico', estado: 'pendiente', subtipo_correctivo: form.subtipo_correctivo || null,
       prioridad: form.prioridad, tipo: form.tipo, origen: form.origen, nomenclatura: form.nomenclatura || null,
       balizamiento_desde: form.balizamiento_desde ? parseFloat(form.balizamiento_desde) : null,
       balizamiento_hasta: form.balizamiento_hasta ? parseFloat(form.balizamiento_hasta) : null,
