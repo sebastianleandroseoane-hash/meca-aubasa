@@ -1154,6 +1154,30 @@ function DashboardTecnicoElectricoInner() {
                 </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                {(ordenDetalle.estado === 'en_curso' || ordenDetalle.estado === 'devuelta_supervisor') &&
+                  ordenDetalle.tipo !== 'relevamiento_alumbrado' && (() => {
+                    const texto = `${ordenDetalle.titulo || ''} ${ordenDetalle.descripcion || ''}`
+                    const tsMatches = [...(texto.matchAll(/TS\d{1,2}|TG\d{1,2}/gi))].map(m => m[0].toUpperCase())
+                    const tsUnicos = Array.from(new Set(tsMatches))
+                    if (tsUnicos.length === 0) return null
+                    return (
+                      <div style={{ background: '#071f2e', border: '1px solid #1ABBD655', borderRadius: 10, padding: '10px 12px' }}>
+                        <div style={{ fontSize: 10, color: '#1ABBD6', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8 }}>
+                          🔦 Planilla de alumbrado detectada
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {tsUnicos.map(ts => (
+                            <button key={ts}
+                              onClick={() => router.push(`/dashboard/tecnico-electrico/relevamiento/${ts}?orden=${ordenDetalle.id}&modo=correctivo`)}
+                              style={{ background: '#0d2a3a', border: '1px solid #1ABBD6', borderRadius: 8, color: '#1ABBD6', fontSize: 12, fontWeight: 700, padding: '10px 14px', cursor: 'pointer', textAlign: 'left' as const }}>
+                              Abrir planilla {ts}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })()
+                }
                 <ComentariosOT
                   ordenId={ordenDetalle.id}
                   autorId={perfil.id}
