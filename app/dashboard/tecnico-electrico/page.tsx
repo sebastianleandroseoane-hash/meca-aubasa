@@ -1173,8 +1173,9 @@ function DashboardTecnicoElectricoInner() {
                     INICIAR
                   </button>
                 )}
-                {(ordenDetalle.estado === 'en_curso' || ordenDetalle.estado === 'devuelta_supervisor') && !showCierre && (
+                {(ordenDetalle.estado === 'en_curso' || ordenDetalle.estado === 'devuelta_supervisor') && !showCierre && ordenDetalle.tipo !== 'relevamiento_alumbrado' && (
                   <button onClick={() => setShowCierre(true)}
+
                     style={{ flex: 1, background: ordenDetalle.estado === 'devuelta_supervisor' ? '#EF9F27' : '#1D9E75', border: 'none', borderRadius: 10, color: 'white', fontWeight: 700, fontSize: 13, padding: '12px 0', cursor: 'pointer' }}>
                     {ordenDetalle.estado === 'devuelta_supervisor' ? 'CORREGIR Y REPROPONER' : 'PROPONER CIERRE'}
                   </button>
