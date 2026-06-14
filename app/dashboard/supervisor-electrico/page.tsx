@@ -680,6 +680,7 @@ async function reasignarTecnicos(id: string) {
                   <option value="correctivo_programado">Corr. Programado</option>
                   <option value="correctivo_critico">Corr. Crítico</option>
                   <option value="emergencia">🔴 Emergencia</option>
+                  <option value="relevamiento_alumbrado">🔦 Relevamiento alumbrado</option>
                 </select>
               </div>
               <div>
@@ -695,6 +696,23 @@ async function reasignarTecnicos(id: string) {
                 </select>
               </div>
             </div>
+
+            {form.tipo === 'relevamiento_alumbrado' && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 9, color: C.sub, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 4 }}>TS / TG *</div>
+                <select style={sel}
+                  onChange={e => {
+                    const ts = e.target.value
+                    if (ts) setForm(prev => ({ ...prev, titulo: `Relevamiento alumbrado ${ts}` }))
+                  }}>
+                  <option value="">— Seleccioná TS o TG —</option>
+                  {[...Array.from({ length: 53 }, (_, i) => `TS${String(i + 1).padStart(2, '0')}`),
+                    ...Array.from({ length: 9 },  (_, i) => `TG${String(i + 1).padStart(2, '0')}`)
+                  ].map(ts => <option key={ts} value={ts}>{ts}</option>)}
+                </select>
+                {form.titulo && <div style={{ fontSize: 10, color: C.accent, marginTop: 6 }}>Título: {form.titulo}</div>}
+              </div>
+            )}
 
             {['correctivo_programado', 'correctivo_critico', 'emergencia'].includes(form.tipo) && (
               <div style={{ marginBottom: 12 }}>
