@@ -109,6 +109,8 @@ const [loadingDecision, setLoadingDecision] = useState(false)
   const [loadingOTHija, setLoadingOTHija] = useState(false)
   const [suprasPendientes, setSuprasPendientes] = useState<any[]>([])
   const [supraDetalle, setSupraDetalle] = useState<any>(null)
+  const [relevamientoDatos, setRelevamientoDatos] = useState<any[]>([])
+  const [loadingRelevamiento, setLoadingRelevamiento] = useState(false)
   const [supraIdParaOT, setSupraIdParaOT] = useState<string | null>(null)
   useEffect(() => {
     getPerfil().then(async p => {
@@ -127,6 +129,37 @@ const [loadingDecision, setLoadingDecision] = useState(false)
     const iv = setInterval(tick, 60000)
     return () => clearInterval(iv)
   }, [])
+
+  useEffect(() => {
+    async function cargarRelevamientoOT() {
+      if (!ordenDetalle || ordenDetalle.tipo !== 'relevamiento_alumbrado') {
+        setRelevamientoDatos([])
+        setLoadingRelevamiento(false)
+        return
+      }
+      const tsList = [...(ordenDetalle.titulo?.matchAll(/TS\d{1,2}|TG\d{1,2}/gi) || [])]
+        .map((m: any) => m[0].toUpperCase())
+      if (tsList.length === 0) {
+        setRelevamientoDatos([])
+        return
+      }
+      setLoadingRelevamiento(true)
+      const { data, error } = await supabase
+        .from('alumbrado_estado_actual')
+        .select('ts, numero_visible, posicion, estado_general, actualizado_at, actualizado_por')
+        .in('ts', tsList)
+        .order('ts')
+        .order('numero_visible')
+      if (error) {
+        console.error('Error cargando relevamiento OT:', error)
+        setRelevamientoDatos([])
+      } else {
+        setRelevamientoDatos(data || [])
+      }
+      setLoadingRelevamiento(false)
+    }
+    cargarRelevamientoOT()
+  }, [ordenDetalle?.id])
 
   useEffect(() => {
     if (busqueda.trim().length < 2) { setMaterialesFiltrados([]); return }
@@ -1340,6 +1373,83 @@ async function reasignarTecnicos(id: string) {
                 )}
               </div>
             )}
+          {ordenDetalle.tipo === 'relevamiento_alumbrado' && (() => {
+            const ESTADOS_ORDEN = ['Prendida', 'Apagada', 'Media placa encendida', 'Titilando', 'Falta luminaria']
+            const ESTADO_COLOR_SUP: Record<string, string> = {
+              'Prendida': '#1D9E75',
+              'Apagada': '#4a8fa0',
+              'Media placa encendida': '#EF9F27',
+              'Titilando': '#9b7fda',
+              'Falta luminaria': '#e05a5a',
+            }
+            const porTS: Record<string, any[]> = {}
+            for (const fila of relevamientoDatos) {
+              if (!porTS[fila.ts]) porTS[fila.ts] = []
+              porTS[fila.ts].push(fila)
+            }
+            return (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: C.accent, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8 }}>
+                  🔦 Relevamiento de alumbrado
+                </div>
+                {loadingRelevamiento && (
+                  <div style={{ fontSize: 12, color: C.sub, padding: '10px 0' }}>Cargando relevamiento...</div>
+                )}
+                {!loadingRelevamiento && relevamientoDatos.length === 0 && (
+                  <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 12, color: C.sub }}>
+                    Sin datos relevados todavía.
+                  </div>
+                )}
+                {Object.entries(porTS).map(([ts, filas]) => {
+                  const conteo: Record<string, number> = {}
+                  for (const f of filas) conteo[f.estado_general] = (conteo[f.estado_general] || 0) + 1
+                  const totalPosiciones = filas.length
+                  const prendidas = conteo['Prendida'] || 0
+                  const problemas = totalPosiciones - prendidas
+                  return (
+                    <div key={ts} style={{ background: C.bg, border: `1px solid ${problemas > 0 ? '#EF9F2744' : C.border}`, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>{ts}</div>
+                        <div style={{ fontSize: 10, color: C.sub }}>{totalPosiciones} posiciones · {prendidas} prendidas · {problemas} con falla</div>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 6, marginBottom: 10 }}>
+                        {ESTADOS_ORDEN.filter(e => conteo[e]).map(est => (
+                          <div key={est} style={{ background: '#07131a', border: `1px solid ${ESTADO_COLOR_SUP[est]}44`, borderRadius: 6, padding: '3px 8px', fontSize: 10, color: ESTADO_COLOR_SUP[est], fontWeight: 600 }}>
+                            {conteo[est]} {est}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 4 }}>
+                        {(() => {
+                          const porCol: Record<string, any[]> = {}
+                          for (const f of filas) {
+                            if (!porCol[f.numero_visible]) porCol[f.numero_visible] = []
+                            porCol[f.numero_visible].push(f)
+                          }
+                          return Object.entries(porCol)
+                            .sort(([a], [b]) => Number(a) - Number(b))
+                            .filter(([, posiciones]) => posiciones.some((p: any) => p.estado_general !== 'Prendida'))
+                            .map(([col, posiciones]) => (
+                              <div key={col} style={{ background: '#07131a', borderRadius: 6, padding: '6px 10px' }}>
+                                <div style={{ fontSize: 10, color: C.sub, fontWeight: 600, marginBottom: 4 }}>Columna {col}</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 4 }}>
+                                  {posiciones.filter((p: any) => p.estado_general !== 'Prendida').map((p: any) => (
+                                    <div key={p.posicion} style={{ fontSize: 10, color: ESTADO_COLOR_SUP[p.estado_general], background: '#0c1c24', border: `1px solid ${ESTADO_COLOR_SUP[p.estado_general]}44`, borderRadius: 4, padding: '2px 6px' }}>
+                                      {p.posicion} · {p.estado_general}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))
+                        })()}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
           <ComentariosOT
               ordenId={ordenDetalle.id}
               autorId={perfil.id}
@@ -1354,7 +1464,7 @@ async function reasignarTecnicos(id: string) {
             />
           </div>
         </>,
-        () => { setOrdenDetalle(null); setShowDevolucion(false); setObsDevolucion('') }
+        () => { setOrdenDetalle(null); setShowDevolucion(false); setObsDevolucion(''); setRelevamientoDatos([]); setLoadingRelevamiento(false) }
         
       )}
       {showEditarOT && formEditar && modal(
