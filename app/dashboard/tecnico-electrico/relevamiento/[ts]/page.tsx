@@ -297,8 +297,8 @@ export default function RelevamientoTSPage() {
                 Columna {col}
               </div>
 
-              {/* Botones de posición */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6 }}>
+              {/* Botones de posición — mobile first, apilados */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {POSICIONES.map(pos => {
                   const estado = colMarcas[pos]
                   const c = estado ? ESTADO_COLOR[estado] : null
@@ -312,22 +312,23 @@ export default function RelevamientoTSPage() {
                           width: '100%',
                           background: c ? c.bg : '#07131a',
                           border: `1px solid ${c ? c.border : '#1a3040'}`,
-                          borderRadius: 8,
+                          borderRadius: 10,
                           color: c ? c.text : '#4a8fa0',
-                          fontSize: 11,
+                          fontSize: 13,
                           fontWeight: 700,
-                          padding: '10px 4px',
+                          padding: '14px 16px',
                           cursor: 'pointer',
-                          textAlign: 'center',
+                          textAlign: 'left',
                           lineHeight: 1.3,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
                         }}
                       >
-                        <div>{pos}</div>
-                        {estado && (
-                          <div style={{ fontSize: 9, fontWeight: 400, marginTop: 3, whiteSpace: 'normal' }}>
-                            {estado}
-                          </div>
-                        )}
+                        <span style={{ fontSize: 14, fontWeight: 800 }}>{pos}</span>
+                        <span style={{ fontSize: 12, fontWeight: 400, color: c ? c.text : '#2a5060' }}>
+                          {estado ?? 'Sin estado'}
+                        </span>
                       </button>
 
                       {/* Selector de estado (dropdown inline) */}
